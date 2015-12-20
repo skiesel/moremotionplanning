@@ -10,39 +10,38 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef OMPLAPP_SE3_RIGID_BODY_PLANNING_
-#define OMPLAPP_SE3_RIGID_BODY_PLANNING_
+#ifndef OMPLAPP_SE2_RIGID_BODY_PLANNING_
+#define OMPLAPP_SE2_RIGID_BODY_PLANNING_
 
 #include "AppBase.hpp"
-#include <ompl/base/spaces/SE3StateSpace.h>
+#include <ompl/base/spaces/SE2StateSpace.h>
 
 namespace ompl {
 namespace app {
 
 /** \brief Wrapper for ompl::app::RigidBodyPlanning that plans
-    for rigid bodies in SE3. */
-class SE3RigidBodyPlanning : public AppBase<GEOMETRIC> {
+    for rigid bodies in SE2. */
+class SE2RigidBodyPlanning : public AppBase<GEOMETRIC> {
 public:
 
-	SE3RigidBodyPlanning(void) : AppBase<GEOMETRIC>(base::StateSpacePtr(new base::SE3StateSpace()), Motion_3D) {
-		name_ = "Rigid body planning (3D)";
+	SE2RigidBodyPlanning(void) : AppBase<GEOMETRIC>(base::StateSpacePtr(new base::SE2StateSpace()), Motion_2D) {
+		name_ = "Rigid body planning (2D)";
 	}
 
-	virtual ~SE3RigidBodyPlanning(void) {
+	virtual ~SE2RigidBodyPlanning(void) {
 	}
 
 	bool isSelfCollisionEnabled(void) const {
 		return false;
 	}
 
-	ompl::base::ScopedState<> getDefaultStartState(void) const {
-		base::ScopedState<base::SE3StateSpace> st(getGeometricComponentStateSpace());
+	virtual base::ScopedState<> getDefaultStartState(void) const {
+		base::ScopedState<base::SE2StateSpace> st(getGeometricComponentStateSpace());
 		aiVector3D s = getRobotCenter(0);
 
 		st->setX(s.x);
 		st->setY(s.y);
-		st->setZ(s.z);
-		st->rotation().setIdentity();
+		st->setYaw(0.0);
 
 		return st;
 	}

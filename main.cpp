@@ -20,13 +20,19 @@ GlobalParameters globalParameters;
 #include <ompl/control/planners/syclop/SyclopRRT.h>
 #include <ompl/control/planners/syclop/SyclopEST.h>
 
+#include "domains/DynamicCarPlanning.hpp"
+#include "domains/KinematicCarPlanning.hpp"
+
 #include "domains/blimp.hpp"
 #include "domains/quadrotor.hpp"
+#include "domains/carsetup.hpp"
 
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
 
 int main(int argc, char *argv[]) {
+    auto benchmarkData4 = carBenchmark<ompl::app::KinematicCarPlanning>();
+    auto benchmarkData3 = carBenchmark<ompl::app::DynamicCarPlanning>();
     auto benchmarkData2 = quadrotorBenchmark();
     auto benchmarkData = blimpBenchmark();
 
