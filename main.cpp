@@ -18,10 +18,10 @@ ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
 int main(int argc, char *argv[]) {
     auto benchmarkData = blimpBenchmark();
 
-    double omega = 8;
-    double stateRadius = 25;
-    double shellPreference = 0.85;
-    double shellRadius = 200;
+    double omega = 16;
+    double stateRadius = 150;
+    double shellPreference = 0.8;
+    double shellRadius = 500;
 
     auto rrt = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
     auto fbiasedrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
@@ -30,16 +30,19 @@ int main(int argc, char *argv[]) {
     auto sycloprrt = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
     auto syclopest = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
 
-    std::vector<ompl::base::PlannerPtr> planners = {kpiece, rrt, fbiasedrrt, fbiasedshellrrt, sycloprrt, syclopest};
+    std::vector<ompl::base::PlannerPtr> planners = {//kpiece, rrt, 
+        fbiasedrrt
+        //, fbiasedshellrrt, sycloprrt, syclopest
+    };
 
     for(auto &planner : planners) {
         benchmarkData.benchmark->addPlanner(planner);
     }
 
 	ompl::tools::Benchmark::Request req;
-	req.maxTime = 900.0;
+	req.maxTime = 300.0;
 	req.maxMem = 1000.0;
-	req.runCount = 50;
+	req.runCount = 25;
 	req.displayProgress = true;
 	benchmarkData.benchmark->benchmark(req);
 	

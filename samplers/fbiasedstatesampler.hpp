@@ -7,7 +7,8 @@
 #include <ompl/datastructures/NearestNeighborsGNAT.h>
 #include <ompl/datastructures/NearestNeighborsGNATNoThreadSafety.h>
 
-#include "../domains/geometry/detail/FCLContinuousMotionValidator.hpp"
+#include "../domains/geometry/detail/FCLStateValidityChecker.hpp"
+#include "../domains/SE3RigidBodyPlanning.hpp"
 
 #include "../structs/probabilitydensityfunction.hpp"
 #include "../structs/inplacebinaryheap.hpp"
@@ -87,7 +88,11 @@ protected:
 	double abstractDistanceFunction(const Vertex *a, const Vertex *b) const {
 		assert(a->state != NULL);
 		assert(b->state != NULL);
-		return abstractSpace->distance(a->state, b->state);
+		return abstractPlanningSpace.getStateSpace()->distance(a->state, b->state);
+	}
+
+	const base::State *stateIsAlreadyGeometric(const base::State *state, unsigned int /*index*/) const {
+		return state;
 	}
 
 public:
@@ -107,22 +112,32 @@ public:
 
 		nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
 
-		abstractSpace = globalAppBaseControl->getGeometricComponentStateSpace();
-		ompl::base::StateSamplerPtr abstractSampler = abstractSpace->allocStateSampler();
+		struct passwd *pw = getpwuid(getuid());
+    	const char *homedir = pw->pw_dir;
+    	std::string homeDirString(homedir);
 
-		ompl::base::SpaceInformationPtr abstractSpaceInfoPtr(new ompl::base::SpaceInformation(abstractSpace));
+		abstractPlanningSpace.setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
+		abstractPlanningSpace.setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
+		abstractPlanningSpace.setStartAndGoalStates(abstractPlanningSpace.getDefaultStartState(), abstractPlanningSpace.getDefaultStartState(), 1);
 
-		abstractSpaceInfoPtr->setup();
+		// set the bounds for the R^3 part of SE(3)
+		ompl::base::RealVectorBounds bounds(3);
+		bounds.setLow(0, 0);
+		bounds.setLow(1, -4);
+		bounds.setLow(2, -8.23);
+		bounds.setHigh(0, 39.65);
+		bounds.setHigh(1, 30);
+		bounds.setHigh(2, 0);
+		abstractPlanningSpace.getStateSpace()->as<base::SE3StateSpace>()->setBounds(bounds);
 
-		ompl::base::MotionValidatorPtr motionValidatorPtr = abstractSpaceInfoPtr->getMotionValidator();
+		abstractPlanningSpace.setup();
 
-		generateVertices(10000, abstractSpace, abstractSampler);
-		generateEdges(10, motionValidatorPtr);
+		generateVertices(10000);
+		generateEdges(10);
 
 		Vertex startVertex(0);
 		startVertex.state = start;
 		dijkstraG(nn->nearest(&startVertex));
-
 
 		unsigned int bestId = 0;
 		double minDistance = std::numeric_limits<double>::infinity();
@@ -138,7 +153,6 @@ public:
 				minDistance = distance;
 			}
 		}
-
 		dijkstraH(vertices[bestId]);
 
 		generateRegionScores();
@@ -152,6 +166,71 @@ public:
 	}
 
 	virtual ~FBiasedStateSampler() {}
+
+	std::vector<double> getColor(double min, double max, double value) const {
+		std::vector<double> color(3);
+
+		value = ((value - min) / (max - min)) * 765;
+
+		if(value < 255) {
+			color[0] = 0;
+			color[1] = value / 2;
+			color[2] = 255 - value;
+		} else if(value < 510) {
+			double relVal = value - 255;
+			color[0] = relVal;
+			color[1] = (relVal + 255) / 2;
+			color[2] = 0;
+		} else {
+			double relVal = value - 510;
+			color[0] = 255;
+			color[1] = 255 - relVal;
+			color[2] = 0;
+		}
+
+		for(unsigned int i = 0; i < 3; ++i) {
+			color[i] /= 255;
+		}
+
+		return color;
+	}
+
+	void generatePythonPlotting() {
+		FILE* f = fopen("prm.py", "w");
+
+		double min = std::numeric_limits<double>::infinity();
+		double max = -std::numeric_limits<double>::infinity();
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			if(vertices[i]->score < min) min = vertices[i]->score;
+			if(vertices[i]->score > max) max = vertices[i]->score;
+		}
+
+		fprintf(f, "import numpy as np\nfrom mpl_toolkits.mplot3d import Axes3D\nimport matplotlib.pyplot as plt\n");
+		fprintf(f, "fig = plt.figure()\nax = fig.add_subplot(111, projection='3d')\nax.scatter(");
+
+		for(unsigned int coord = 0; coord < 4; ++coord) {
+			if(coord == 3) {
+				fprintf(f, "c=");
+			}
+			fprintf(f, "[");
+			for(unsigned int i = 0; i < vertices.size(); ++i) {
+				auto state = vertices[i]->state->as<ompl::base::SE3StateSpace::StateType>();
+				if(coord == 0) {
+					fprintf(f, (i < vertices.size()-1) ? "%g, ": "%g", state->getX());
+				} else if(coord == 1) {
+					fprintf(f, (i < vertices.size()-1) ? "%g, ": "%g", state->getY());
+				} else if(coord == 2) {
+					fprintf(f, (i < vertices.size()-1) ? "%g, ": "%g", state->getZ());
+				} else if(coord == 3) {
+					auto color = getColor(min, max, vertices[i]->score);
+					fprintf(f, (i < vertices.size()-1) ? "(%g, %g, %g), ": "(%g, %g, %g)", color[0], color[1], color[2]);
+				}
+			}
+			fprintf(f, (coord < 3) ? "]," : "], depthshade=False");
+		}
+		fprintf(f, ")\nplt.show()\n");
+		fclose(f);
+	}
 
 	virtual bool sample(ompl::base::State *state) {
 		Vertex *randomVertex = pdf.sample();
@@ -171,24 +250,43 @@ public:
 	}
 
 protected:
-	void generateVertices(unsigned int howMany, const ompl::base::StateSpacePtr &abstractSpace, const ompl::base::StateSamplerPtr &abstractSampler) {
+	void generateVertices(unsigned int howMany) {
+		ompl::base::StateSpacePtr abstractSpace = abstractPlanningSpace.getStateSpace();
+		ompl::base::StateSamplerPtr abstractSampler = abstractSpace->allocStateSampler();
+		ompl::base::StateValidityCheckerPtr stateValidityCheckerPtr = abstractPlanningSpace.getSpaceInformation()->getStateValidityChecker();
+
 		vertices.resize(howMany);
+
 		for(unsigned int i = 0; i < howMany; ++i) {
 			vertices[i] = new Vertex(i);
 			vertices[i]->state = abstractSpace->allocState();
-			abstractSampler->sampleUniform(vertices[i]->state);
+			do {
+				abstractSampler->sampleUniform(vertices[i]->state);
+			} while(!stateValidityCheckerPtr->isValid(vertices[i]->state));
+			
 			nn->add(vertices[i]);
 		}
 	}
 
-	void generateEdges(unsigned int howManyConnections, const ompl::base::MotionValidatorPtr motionValidator) {
+	void generateEdges(unsigned int howManyConnections) {
+		ompl::base::MotionValidatorPtr motionValidator = abstractPlanningSpace.getSpaceInformation()->getMotionValidator();;
+
 		auto distanceFunc = nn->getDistanceFunction();
 
 		std::vector<Vertex *> neighbors;
 		for(auto vertex : vertices) {
 			neighbors.clear();
 			nn->nearestK(vertex, howManyConnections+1, neighbors);
+
+			assert(howManyConnections+1 >= neighbors.size());
+
 			for(auto neighbor : neighbors) {
+
+				if(edges.find(vertex->id) != edges.end() && 
+					edges[vertex->id].find(neighbor->id) != edges[vertex->id].end()) {
+					continue;
+				}
+
 				double distance = distanceFunc(vertex, neighbor);
 				if(distance == 0) continue;
 
@@ -306,8 +404,9 @@ protected:
 		}
 	}
 
+	ompl::app::SE3RigidBodyPlanning abstractPlanningSpace;
+
 	StateSamplerPtr fullStateSampler;
-	ompl::base::StateSpacePtr abstractSpace;
 	boost::shared_ptr< NearestNeighbors<Vertex *> > nn;
 	std::vector<Vertex *> vertices;
 	std::unordered_map<unsigned int, std::unordered_map<unsigned int, Edge>> edges;

@@ -24,25 +24,25 @@ BenchmarkData blimpBenchmark() {
     // set the bounds for the R^3 part of SE(3)
     ompl::base::RealVectorBounds bounds(3);
     bounds.setLow(0, 0);
-    bounds.setLow(1, -200);
-    bounds.setLow(2, -324);
-    bounds.setHigh(0, 1561);
-    bounds.setHigh(1, 1200);
+    bounds.setLow(1, -4);
+    bounds.setLow(2, -8.23);
+    bounds.setHigh(0, 39.65);
+    bounds.setHigh(1, 30);
     bounds.setHigh(2, 0);
     stateSpace->as<ompl::base::CompoundStateSpace>()->as<ompl::base::SE3StateSpace>(0)->setBounds(bounds);
 
     // define start state
     ompl::base::ScopedState<ompl::base::SE3StateSpace> start(blimp->getGeometricComponentStateSpace());
-    start->setX(250);
-    start->setY(-100);
-    start->setZ(-100);
+    start->setX(5);
+    start->setY(-2);
+    start->setZ(-4);
     start->rotation().setIdentity();
 
     // define goal state
     ompl::base::ScopedState<ompl::base::SE3StateSpace> goal(blimp->getGeometricComponentStateSpace());
-    goal->setX(250);
-    goal->setY(1100);
-    goal->setZ(-100);
+    goal->setX(5);
+    goal->setY(28);
+    goal->setZ(-4);
     goal->rotation().setIdentity();
 
     // set the start & goal states
