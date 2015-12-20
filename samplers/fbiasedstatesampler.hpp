@@ -8,7 +8,6 @@
 #include <ompl/datastructures/NearestNeighborsGNATNoThreadSafety.h>
 
 #include "../domains/geometry/detail/FCLStateValidityChecker.hpp"
-#include "../domains/SE3RigidBodyPlanning.hpp"
 
 #include "../structs/probabilitydensityfunction.hpp"
 #include "../structs/inplacebinaryheap.hpp"
@@ -88,7 +87,7 @@ protected:
 	double abstractDistanceFunction(const Vertex *a, const Vertex *b) const {
 		assert(a->state != NULL);
 		assert(b->state != NULL);
-		return abstractPlanningSpace.getStateSpace()->distance(a->state, b->state);
+		return globalParameters.globalAbstractAppBaseGeometric->getStateSpace()->distance(a->state, b->state);
 	}
 
 	const base::State *stateIsAlreadyGeometric(const base::State *state, unsigned int /*index*/) const {
@@ -112,26 +111,6 @@ public:
 
 		nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
 
-		struct passwd *pw = getpwuid(getuid());
-    	const char *homedir = pw->pw_dir;
-    	std::string homeDirString(homedir);
-
-		abstractPlanningSpace.setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
-		abstractPlanningSpace.setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
-		abstractPlanningSpace.setStartAndGoalStates(abstractPlanningSpace.getDefaultStartState(), abstractPlanningSpace.getDefaultStartState(), 1);
-
-		// set the bounds for the R^3 part of SE(3)
-		ompl::base::RealVectorBounds bounds(3);
-		bounds.setLow(0, 0);
-		bounds.setLow(1, -4);
-		bounds.setLow(2, -8.23);
-		bounds.setHigh(0, 39.65);
-		bounds.setHigh(1, 30);
-		bounds.setHigh(2, 0);
-		abstractPlanningSpace.getStateSpace()->as<base::SE3StateSpace>()->setBounds(bounds);
-
-		abstractPlanningSpace.setup();
-
 		generateVertices(10000);
 		generateEdges(10);
 
@@ -143,9 +122,9 @@ public:
 		double minDistance = std::numeric_limits<double>::infinity();
 		double distance;
 		for(auto vertex : vertices) {
-			ompl::base::ScopedState<> vertexState(globalAppBaseControl->getGeometricComponentStateSpace());
+			ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
 			vertexState = vertex->state;
-			ompl::base::ScopedState<> fullState = globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
+			ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
 			goal->isSatisfied(fullState.get(), &distance);
 			if(distance <  minDistance) {
@@ -235,10 +214,10 @@ public:
 	virtual bool sample(ompl::base::State *state) {
 		Vertex *randomVertex = pdf.sample();
 
-		ompl::base::ScopedState<> vertexState(globalAppBaseControl->getGeometricComponentStateSpace());
+		ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
 		vertexState = randomVertex->state;
 
-		ompl::base::ScopedState<> fullState = globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
+		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
 		fullStateSampler->sampleUniformNear(fullState.get(), state, stateRadius);
 		return true;
@@ -251,25 +230,22 @@ public:
 
 protected:
 	void generateVertices(unsigned int howMany) {
-		ompl::base::StateSpacePtr abstractSpace = abstractPlanningSpace.getStateSpace();
-		ompl::base::StateSamplerPtr abstractSampler = abstractSpace->allocStateSampler();
-		ompl::base::StateValidityCheckerPtr stateValidityCheckerPtr = abstractPlanningSpace.getSpaceInformation()->getStateValidityChecker();
+		ompl::base::StateSpacePtr abstractSpace = globalParameters.globalAbstractAppBaseGeometric->getStateSpace();
+		ompl::base::ValidStateSamplerPtr abstractSampler = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->allocValidStateSampler();
+
 
 		vertices.resize(howMany);
 
 		for(unsigned int i = 0; i < howMany; ++i) {
 			vertices[i] = new Vertex(i);
 			vertices[i]->state = abstractSpace->allocState();
-			do {
-				abstractSampler->sampleUniform(vertices[i]->state);
-			} while(!stateValidityCheckerPtr->isValid(vertices[i]->state));
-			
+			abstractSampler->sample(vertices[i]->state);
 			nn->add(vertices[i]);
 		}
 	}
 
 	void generateEdges(unsigned int howManyConnections) {
-		ompl::base::MotionValidatorPtr motionValidator = abstractPlanningSpace.getSpaceInformation()->getMotionValidator();;
+		ompl::base::MotionValidatorPtr motionValidator = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator();;
 
 		auto distanceFunc = nn->getDistanceFunction();
 
@@ -404,7 +380,7 @@ protected:
 		}
 	}
 
-	ompl::app::SE3RigidBodyPlanning abstractPlanningSpace;
+	
 
 	StateSamplerPtr fullStateSampler;
 	boost::shared_ptr< NearestNeighbors<Vertex *> > nn;

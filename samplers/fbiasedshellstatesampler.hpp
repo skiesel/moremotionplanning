@@ -49,10 +49,10 @@ public:
       randomVertex = interior.sample();
     }
 
-    ompl::base::ScopedState<> vertexState(globalAppBaseControl->getGeometricComponentStateSpace());
+    ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
     vertexState = randomVertex->state;
 
-    ompl::base::ScopedState<> fullState = globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
+    ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
     fullStateSampler->sampleUniformNear(fullState.get(), state, stateRadius);
 

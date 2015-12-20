@@ -1,6 +1,11 @@
 #include "domains/AppBase.hpp"
 
-ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
+struct GlobalParameters {
+    ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
+    ompl::app::AppBase<ompl::app::GEOMETRIC> *globalAbstractAppBaseGeometric = NULL;
+};
+
+GlobalParameters globalParameters;
 
 #include <ompl/tools/benchmark/Benchmark.h>
 
@@ -18,10 +23,10 @@ ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
 int main(int argc, char *argv[]) {
     auto benchmarkData = blimpBenchmark();
 
-    double omega = 16;
-    double stateRadius = 150;
+    double omega = 8;
+    double stateRadius = 1;
     double shellPreference = 0.8;
-    double shellRadius = 500;
+    double shellRadius = 1;
 
     auto rrt = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
     auto fbiasedrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
@@ -30,10 +35,7 @@ int main(int argc, char *argv[]) {
     auto sycloprrt = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
     auto syclopest = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
 
-    std::vector<ompl::base::PlannerPtr> planners = {//kpiece, rrt, 
-        fbiasedrrt
-        //, fbiasedshellrrt, sycloprrt, syclopest
-    };
+    std::vector<ompl::base::PlannerPtr> planners = {/*kpiece, rrt, */fbiasedrrt, /*fbiasedshellrrt, sycloprrt, syclopest*/};
 
     for(auto &planner : planners) {
         benchmarkData.benchmark->addPlanner(planner);
