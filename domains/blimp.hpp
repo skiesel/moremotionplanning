@@ -8,12 +8,6 @@
 #include "SE3RigidBodyPlanning.hpp"
 #include "config.hpp"
 
-struct BenchmarkData {
-    ompl::tools::Benchmark* benchmark;
-    ompl::control::SimpleSetupPtr simplesetup;
-    ompl::control::DecompositionPtr decomposition;
-};
-
 ompl::base::ValidStateSamplerPtr SE3ZOnlyValidStateSamplerAllocator(const ompl::base::SpaceInformation *si) {
     class SE3ZOnlyValidStateSampler : public ompl::base::UniformValidStateSampler {
     public:
@@ -84,9 +78,9 @@ BenchmarkData blimpBenchmark() {
     // set the start & goal states
     blimpPtr->setStartAndGoalStates(
         blimp->getFullStateFromGeometricComponent(start),
-        blimp->getFullStateFromGeometricComponent(goal), 10);
+        blimp->getFullStateFromGeometricComponent(goal), 0.5);
 
-    abstract->setStartAndGoalStates(start, goal, 1);
+    abstract->setStartAndGoalStates(start, goal, 0.5);
 
     struct passwd *pw = getpwuid(getuid());
     const char *homedir = pw->pw_dir;

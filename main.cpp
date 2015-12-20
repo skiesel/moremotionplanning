@@ -1,4 +1,11 @@
+#include <ompl/tools/benchmark/Benchmark.h>
 #include "domains/AppBase.hpp"
+
+struct BenchmarkData {
+    ompl::tools::Benchmark* benchmark;
+    ompl::control::SimpleSetupPtr simplesetup;
+    ompl::control::DecompositionPtr decomposition;
+};
 
 struct GlobalParameters {
     ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
@@ -7,8 +14,6 @@ struct GlobalParameters {
 
 GlobalParameters globalParameters;
 
-#include <ompl/tools/benchmark/Benchmark.h>
-
 #include <ompl/control/planners/rrt/RRT.h>
 #include <ompl/control/planners/kpiece/KPIECE1.h>
 #include <ompl/control/planners/kpiece/KPIECE1.h>
@@ -16,11 +21,13 @@ GlobalParameters globalParameters;
 #include <ompl/control/planners/syclop/SyclopEST.h>
 
 #include "domains/blimp.hpp"
+#include "domains/quadrotor.hpp"
 
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
 
 int main(int argc, char *argv[]) {
+    auto benchmarkData2 = quadrotorBenchmark();
     auto benchmarkData = blimpBenchmark();
 
     double omega = 8;
@@ -35,7 +42,7 @@ int main(int argc, char *argv[]) {
     auto sycloprrt = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
     auto syclopest = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
 
-    std::vector<ompl::base::PlannerPtr> planners = {/*kpiece, rrt, */fbiasedrrt, /*fbiasedshellrrt, sycloprrt, syclopest*/};
+    std::vector<ompl::base::PlannerPtr> planners = {/*kpiece, rrt, fbiasedrrt,*/ fbiasedshellrrt/*, sycloprrt, syclopest*/};
 
     for(auto &planner : planners) {
         benchmarkData.benchmark->addPlanner(planner);
