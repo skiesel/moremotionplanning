@@ -89,7 +89,7 @@ protected:
   void reached(ompl::base::State *state, double shellDepth) {
     //we have a local shellDepth passed in, and a object level shellDepth -- maybe we want to alter it during runtime?
     struct node {
-      node(unsigned int id, unsigned int depth, double value) : id(id), value(value) {}
+      node(unsigned int id, unsigned int depth, double value) : id(id), depth(depth), value(value) {}
 
       static bool pred(const node *a, const node *b) {
         return a->value < b->value;
@@ -142,7 +142,7 @@ protected:
 
         double newValue = current->value + getEdgeCostBetweenCells(current->id, kid);
 
-        if(newValue <= shellDepth /*|| current->depth == 0*/) {
+        if(newValue <= shellDepth || current->depth == 0) {
           if(lookup.find(kid) != lookup.end()) {
             if(newValue < lookup[kid]->value) {
               lookup[kid]->value = newValue;

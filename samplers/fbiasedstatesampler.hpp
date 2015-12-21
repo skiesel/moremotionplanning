@@ -142,6 +142,8 @@ public:
 				vertices[i]->pdfID = el->getId();
 			}
 		}
+
+		// dumpToStderr();
 	}
 
 	virtual ~FBiasedStateSampler() {}
@@ -174,7 +176,23 @@ public:
 		return color;
 	}
 
-	void generatePythonPlotting() {
+	void dumpToStderr() const {
+		double min = std::numeric_limits<double>::infinity();
+		double max = -std::numeric_limits<double>::infinity();
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			if(vertices[i]->score < min) min = vertices[i]->score;
+			if(vertices[i]->score > max) max = vertices[i]->score;
+		}
+
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			auto state = vertices[i]->state->as<ompl::base::SE3StateSpace::StateType>();
+			auto color = getColor(min, max, vertices[i]->score);
+
+			fprintf(stderr, "point %g %g %g %g %g %g 1\n", state->getX(), state->getY(), state->getZ(), color[0], color[1], color[2]);
+		}
+	}
+
+	void generatePythonPlotting() const {
 		FILE* f = fopen("prm.py", "w");
 
 		double min = std::numeric_limits<double>::infinity();
@@ -219,7 +237,9 @@ public:
 
 		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
-		fullStateSampler->sampleUniformNear(fullState.get(), state, stateRadius);
+		fullStateSampler->sampleUniformNear(state, fullState.get(), stateRadius);
+		// fullStateSampler->sampleUniform(state);
+
 		return true;
 	}
 
@@ -232,7 +252,6 @@ protected:
 	void generateVertices(unsigned int howMany) {
 		ompl::base::StateSpacePtr abstractSpace = globalParameters.globalAbstractAppBaseGeometric->getStateSpace();
 		ompl::base::ValidStateSamplerPtr abstractSampler = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->allocValidStateSampler();
-
 
 		vertices.resize(howMany);
 
