@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 	ompl::tools::Benchmark::Request req;
 	req.maxTime = 300.0;
 	req.maxMem = 1000.0;
-	req.runCount = 1;
+	req.runCount = 10;
 	req.displayProgress = true;
 	benchmarkData.benchmark->benchmark(req);
 	
