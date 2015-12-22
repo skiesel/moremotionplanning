@@ -32,20 +32,15 @@ GlobalParameters globalParameters;
 #include "planners/plakurrt.hpp"
 #include "planners/RRT.hpp"
 
-int main(int argc, char *argv[]) {
-	// auto benchmarkData4 = carBenchmark<ompl::app::KinematicCarPlanning>();
-	// auto benchmarkData3 = carBenchmark<ompl::app::DynamicCarPlanning>();
-	// auto benchmarkData2 = quadrotorBenchmark();
-	auto benchmarkData = blimpBenchmark();
+double omega = 16;
+double stateRadius = 1;
+double shellPreference = 0.8;
+double shellRadius = 5;
 
-	double omega = 16;
-	double stateRadius = 1;
-	double shellPreference = 0.8;
-	double shellRadius = 5;
+double alpha = 0.85;
+double b = 0.85;
 
-	double alpha = 0.85;
-	double b = 0.85;
-
+void doBenchmarkRun(BenchmarkData &benchmarkData, std::string resultsFileName) {
 	auto rrt = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
 	auto rrtlocal = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	auto fbiasedrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
@@ -62,21 +57,36 @@ int main(int argc, char *argv[]) {
 		rrt,
 		fbiasedrrt,
 		fbiasedshellrrt,
-        plakurrt,
+		plakurrt,
 	};
+
+	ompl::tools::Benchmark::Request req;
+	req.maxTime = 1.0;
+	req.maxMem = 1000.0;
+	req.runCount = 1;
+	req.displayProgress = true;
 
 	for(auto &planner : planners) {
 		benchmarkData.benchmark->addPlanner(planner);
 	}
 
-	ompl::tools::Benchmark::Request req;
-	req.maxTime = 300.0;
-	req.maxMem = 1000.0;
-	req.runCount = 25;
-	req.displayProgress = true;
 	benchmarkData.benchmark->benchmark(req);
+	benchmarkData.benchmark->saveResultsToFile(resultsFileName.c_str());
+}
 
-	benchmarkData.benchmark->saveResultsToFile();
 
+int main(int argc, char *argv[]) {
+	auto benchmarkData = blimpBenchmark();
+	doBenchmarkRun(benchmarkData, "BlimpPlanning.log");
+
+	benchmarkData = quadrotorBenchmark();
+	doBenchmarkRun(benchmarkData, "QuadrotorPlanning.log");
+
+	benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>("Polygon");
+	doBenchmarkRun(benchmarkData, "KinematicCarPlanning.log");
+
+	benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>("Polygon");
+	doBenchmarkRun(benchmarkData, "DynamicCarPlanning.log");
+	
 	return 0;
 }

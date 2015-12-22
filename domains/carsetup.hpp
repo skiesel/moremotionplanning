@@ -7,7 +7,6 @@
 #include <ompl/tools/benchmark/Benchmark.h>
 #include "SE2RigidBodyPlanning.hpp"
 #include "config.hpp"
-#include "carsetup.hpp"
 
 struct EnvironmentDetails {
 	EnvironmentDetails(const ompl::base::StateSpacePtr &stateSpacePtr) : start(stateSpacePtr), goal(stateSpacePtr) {}
@@ -18,8 +17,7 @@ struct EnvironmentDetails {
 	ompl::base::ScopedState<ompl::base::SE2StateSpace> goal;
 };
 
-EnvironmentDetails getRandomPolygonEnvironmentDetails(const ompl::base::StateSpacePtr &stateSpacePtr) {
-	EnvironmentDetails details(stateSpacePtr);
+void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
 	details.start->setX(-1.1);
 	details.start->setY(-1.1);
 	details.start->setYaw(0);
@@ -30,12 +28,9 @@ EnvironmentDetails getRandomPolygonEnvironmentDetails(const ompl::base::StateSpa
 
 	details.agentMesh = "car1_planar_robot.dae";
 	details.environmentMesh = "RandomPolygons_planar_env.dae";
-
-	return details;
 }
 
-EnvironmentDetails getMazeEnvironmentDetails(const ompl::base::StateSpacePtr &stateSpacePtr) {
-	EnvironmentDetails details(stateSpacePtr);
+void getMazeEnvironmentDetails(EnvironmentDetails &details) {
 	details.start->setX(0);
 	details.start->setY(1.15);
 	details.start->setYaw(0);
@@ -46,12 +41,9 @@ EnvironmentDetails getMazeEnvironmentDetails(const ompl::base::StateSpacePtr &st
 
 	details.agentMesh = "car1_planar_robot.dae";
 	details.environmentMesh = "RandomPolygons_planar_env.dae";
-
-	return details;
 }
 
-EnvironmentDetails getUniqueMazeEnvironmentDetails(const ompl::base::StateSpacePtr &stateSpacePtr) {
-	EnvironmentDetails details(stateSpacePtr);
+void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
 	details.start->setX(-1.1);
 	details.start->setY(-1.1);
 	details.start->setYaw(0);
@@ -62,12 +54,10 @@ EnvironmentDetails getUniqueMazeEnvironmentDetails(const ompl::base::StateSpaceP
 
 	details.agentMesh = "car1_planar_robot.dae";
 	details.environmentMesh = "RandomPolygons_planar_env.dae";
-
-	return details;
 }
 
 template <class Car>
-BenchmarkData carBenchmark() {
+BenchmarkData carBenchmark(std::string which) {
 	Car *car = new Car();
 
 	globalParameters.globalAppBaseControl = car;
@@ -80,9 +70,14 @@ BenchmarkData carBenchmark() {
 
 	ompl::base::StateSpacePtr stateSpace(carPtr->getStateSpace());
 
-	auto details = getRandomPolygonEnvironmentDetails(stateSpace);
-	// auto details = getRandomPolygonEnvironmentDetails(stateSpace);
-	// auto details = getRandomPolygonEnvironmentDetails(stateSpace);
+	EnvironmentDetails details(car->getGeometricComponentStateSpace());
+
+	if(which.compare("Polygon") == 0)
+	 	getRandomPolygonEnvironmentDetails(details);
+	else if(which.compare("Maze") == 0)
+		getRandomPolygonEnvironmentDetails(details);
+	else if(which.compare("UniqueMaze") == 0)
+		getRandomPolygonEnvironmentDetails(details);
 
 	// set the start & goal states
 	carPtr->setStartAndGoalStates(
