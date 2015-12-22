@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     double omega = 16;
     double stateRadius = 1;
     double shellPreference = 0.8;
-    double shellRadius = 10;
+    double shellRadius = 5;
 
     auto rrt = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
     auto rrtlocal = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 	ompl::tools::Benchmark::Request req;
 	req.maxTime = 300.0;
 	req.maxMem = 1000.0;
-	req.runCount = 10;
+	req.runCount = 25;
 	req.displayProgress = true;
 	benchmarkData.benchmark->benchmark(req);
 	
