@@ -134,7 +134,7 @@ public:
 
 // auto p = nmotion->state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
 // auto q = motion->state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
-// //fprintf(stderr, "line %g %g %g %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ(), q->getX(), q->getY(), q->getZ());
+//fprintf(stderr, "line %g %g %g %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ(), q->getX(), q->getY(), q->getZ());
 
 // fprintf(stderr, "point %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ());
 // fprintf(stderr, "point %g %g %g 1 0 0 1\n", q->getX(), q->getY(), q->getZ());
@@ -143,6 +143,7 @@ public:
 					double dist = 0.0;
 					bool solv = goal->isSatisfied(motion->state, &dist);
 					if(solv) {
+// fprintf(stderr, "SOLVED!\n");
 						approxdif = dist;
 						solution = motion;
 						break;
