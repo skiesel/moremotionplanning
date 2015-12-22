@@ -61,9 +61,9 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::string resultsFileName) {
 	};
 
 	ompl::tools::Benchmark::Request req;
-	req.maxTime = 1.0;
+	req.maxTime = 600.0;
 	req.maxMem = 1000.0;
-	req.runCount = 1;
+	req.runCount = 25;
 	req.displayProgress = true;
 
 	for(auto &planner : planners) {
