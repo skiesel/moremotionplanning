@@ -32,6 +32,8 @@ public:
       vertex->extraData = new ExtraData();
     }
 
+// dumpToStderr();
+
     reached(start);
 	}
 
@@ -54,7 +56,8 @@ public:
 
     ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
-    fullStateSampler->sampleUniformNear(fullState.get(), state, stateRadius);
+    fullStateSampler->sampleUniformNear(state, fullState.get(), stateRadius);
+    // fullStateSampler->sampleUniform(state);
 
     return true;
 	}
@@ -105,9 +108,15 @@ protected:
       double value;
     };
 
+
+    ompl::base::ScopedState<> incomingState(si_->getStateSpace());
+    incomingState = state;
+
     Vertex v(0);
-    v.state = state;
+    auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
+    v.state = ss.get();
     unsigned int start = nn->nearest(&v)->id;
+
     if(wasTouched(vertices[start])) {
       return;
     }
@@ -142,7 +151,7 @@ protected:
 
         double newValue = current->value + getEdgeCostBetweenCells(current->id, kid);
 
-        if(newValue <= shellDepth || current->depth == 0) {
+        if(newValue <= shellDepth /*|| current->depth == 0*/) {
           if(lookup.find(kid) != lookup.end()) {
             if(newValue < lookup[kid]->value) {
               lookup[kid]->value = newValue;
