@@ -50,17 +50,17 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::string resultsFileName) {
 	auto syclopest = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
 
 	std::vector<ompl::base::PlannerPtr> planners = {
-		// kpiece,
-		// sycloprrt,
-		// syclopest,
-		// rrt,
+		kpiece,
+		sycloprrt,
+		syclopest,
+		rrt,
 		fbiasedrrt,
-		// fbiasedshellrrt,
-		// plakurrt,
+		fbiasedshellrrt,
+		plakurrt,
 	};
 
 	ompl::tools::Benchmark::Request req;
-	req.maxTime = 120.0;
+	req.maxTime = 300.0;
 	req.maxMem = 1000.0;
 	req.runCount = 50;
 	req.displayProgress = true;
