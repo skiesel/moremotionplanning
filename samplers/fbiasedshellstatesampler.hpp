@@ -40,7 +40,6 @@ public:
 	virtual ~FBiasedShellStateSampler() {
     for(auto vertex : vertices) {
       delete (ExtraData*)vertex->extraData;
-      delete vertex;
     }
   }
 

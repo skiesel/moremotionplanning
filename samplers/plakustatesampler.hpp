@@ -188,7 +188,11 @@ public:
 		reached(start);
 	}
 
-	virtual ~PlakuStateSampler() {}
+	virtual ~PlakuStateSampler() {
+		for(auto vertex : vertices) {
+			delete vertex;
+		}
+	}
 
 	std::vector<double> getColor(double min, double max, double value) const {
 		std::vector<double> color(3);
