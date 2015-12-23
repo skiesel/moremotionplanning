@@ -16,7 +16,8 @@ class FBiasedRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedRRT(const SpaceInformationPtr &si, double omega, double stateRadius) : ompl::control::RRT(si), omega(omega), stateRadius(stateRadius) {
+	FBiasedRRT(const SpaceInformationPtr &si, double omega, double stateRadius) : ompl::control::RRT(si), omega(omega), stateRadius(stateRadius),
+	fbiasedSampler_(NULL) {
 		setName("FBiased RRT");
 	}
 
@@ -40,10 +41,9 @@ public:
 			return base::PlannerStatus::INVALID_START;
 		}
 
-		if(!sampler_) {
-			sampler_ = ompl::base::ValidStateSamplerPtr(new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				omega, stateRadius));
-			// sampler_ = si_->allocStateSampler();
+		if(!fbiasedSampler_) {
+			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+				omega, stateRadius);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -64,7 +64,7 @@ public:
 			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
 				goal_s->sampleGoal(rstate);
 			else {
-				sampler_->sample(rstate);
+				fbiasedSampler_->sample(rstate);
 			}
 
 // auto samp = rmotion->state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
@@ -196,10 +196,16 @@ public:
 		return base::PlannerStatus(solved, approximate);
 	}
 
+	virtual void clear() {
+		RRT::clear();
+		delete fbiasedSampler_;
+		fbiasedSampler_ = NULL;
+	}
+
 protected:
 
 	/** \brief State sampler */
-	base::ValidStateSamplerPtr                     sampler_;
+	base::FBiasedStateSampler                     *fbiasedSampler_;
 	double omega, stateRadius;
 };
 

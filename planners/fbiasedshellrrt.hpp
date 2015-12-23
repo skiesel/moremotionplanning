@@ -196,6 +196,12 @@ public:
 		return base::PlannerStatus(solved, approximate);
 	}
 
+	virtual void clear() {
+		RRT::clear();
+		delete shellsampler_;
+		shellsampler_ = NULL;
+	}
+
 protected:
 
 	ompl::base::FBiasedShellStateSampler *shellsampler_;

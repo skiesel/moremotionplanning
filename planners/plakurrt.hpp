@@ -194,6 +194,12 @@ public:
 		return base::PlannerStatus(solved, approximate);
 	}
 
+	virtual void clear() {
+		RRT::clear();
+		delete plakusampler_;
+		plakusampler_ = NULL;
+	}
+
 protected:
 
 	ompl::base::PlakuStateSampler *plakusampler_;
