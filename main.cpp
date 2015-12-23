@@ -34,7 +34,7 @@ GlobalParameters globalParameters;
 
 double omega = 16;
 double stateRadius = 1;
-double shellPreference = 0.8;
+double shellPreference = 0.85;
 double shellRadius = 5;
 
 double alpha = 0.85;
@@ -42,7 +42,6 @@ double b = 0.85;
 
 void doBenchmarkRun(BenchmarkData &benchmarkData, std::string resultsFileName) {
 	auto rrt = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-	auto rrtlocal = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	auto fbiasedrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
 	auto fbiasedshellrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
 	auto plakurrt = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, shellRadius));
@@ -51,19 +50,19 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::string resultsFileName) {
 	auto syclopest = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
 
 	std::vector<ompl::base::PlannerPtr> planners = {
-		kpiece,
-		sycloprrt,
-		syclopest,
-		rrt,
+		// kpiece,
+		// sycloprrt,
+		// syclopest,
+		// rrt,
 		fbiasedrrt,
-		fbiasedshellrrt,
-		plakurrt,
+		// fbiasedshellrrt,
+		// plakurrt,
 	};
 
 	ompl::tools::Benchmark::Request req;
-	req.maxTime = 600.0;
+	req.maxTime = 120.0;
 	req.maxMem = 1000.0;
-	req.runCount = 25;
+	req.runCount = 50;
 	req.displayProgress = true;
 
 	for(auto &planner : planners) {

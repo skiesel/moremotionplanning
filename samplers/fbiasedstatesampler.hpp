@@ -99,40 +99,54 @@ public:
 	                    double omega, double stateRadius, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
 	fullStateSampler(base->allocStateSampler()), omega(omega), stateRadius(stateRadius) {
 
-		//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-		if(base->getStateSpace()->isMetricSpace()) {
-			// if (specs.multithreaded)
-			//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
-			//else
-			nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
-		} else {
-			nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
-		}
-
-		nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
-
-		generateVertices(10000);
-		generateEdges(10);
-
-		Vertex startVertex(0);
-		startVertex.state = start;
-		dijkstraG(nn->nearest(&startVertex));
-
-		unsigned int bestId = 0;
-		double minDistance = std::numeric_limits<double>::infinity();
-		double distance;
-		for(auto vertex : vertices) {
-			ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-			vertexState = vertex->state;
-			ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
-
-			goal->isSatisfied(fullState.get(), &distance);
-			if(distance <  minDistance) {
-				bestId = vertex->id;
-				minDistance = distance;
+		bool connected = false;
+		do {
+			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
+			if(base->getStateSpace()->isMetricSpace()) {
+				// if (specs.multithreaded)
+				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
+				//else
+				nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
+			} else {
+				nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
 			}
-		}
-		dijkstraH(vertices[bestId]);
+
+			nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
+
+			generateVertices(10000);
+			generateEdges(10);
+
+			unsigned int bestId = 0;
+			double minDistance = std::numeric_limits<double>::infinity();
+			double distance;
+			for(auto vertex : vertices) {
+				ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
+				vertexState = vertex->state;
+				ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
+
+				goal->isSatisfied(fullState.get(), &distance);
+				if(distance <  minDistance) {
+					bestId = vertex->id;
+					minDistance = distance;
+				}
+			}
+			dijkstraH(vertices[bestId]);
+
+			Vertex startVertex(0);
+			startVertex.state = start;
+			Vertex *startRegion = nn->nearest(&startVertex);
+
+			connected = !std::isinf(startRegion->h);
+
+			if(!connected) {
+				for(auto vert : vertices) {
+					delete vert;
+				}
+				edges.clear();
+			} else {
+				dijkstraG(startRegion);
+			}
+		} while(!connected);
 
 		generateRegionScores();
 
@@ -146,7 +160,11 @@ public:
 		// dumpToStderr();
 	}
 
-	virtual ~FBiasedStateSampler() {}
+	virtual ~FBiasedStateSampler() {
+		for(auto vert : vertices) {
+			delete vert;
+		}
+	}
 
 	std::vector<double> getColor(double min, double max, double value) const {
 		std::vector<double> color(3);

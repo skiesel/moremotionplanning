@@ -134,42 +134,56 @@ public:
 	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal, double alpha, double b, double stateRadius)
 		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(alpha), b(b), stateRadius(stateRadius), activeRegion(NULL) {
 
-		//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-		if(base->getStateSpace()->isMetricSpace()) {
-			// if (specs.multithreaded)
-			//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
-			//else
-			nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
-		} else {
-			nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
-		}
+		bool connected = false;
 
-		nn->setDistanceFunction(boost::bind(&PlakuStateSampler::abstractDistanceFunction, this, _1, _2));
-
-		generateVertices(10000);
-		generateEdges(10);
-
-		unsigned int bestId = 0;
-		double minDistance = std::numeric_limits<double>::infinity();
-		double distance;
-		for(auto vertex : vertices) {
-			ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-			vertexState = vertex->state;
-			ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
-
-			goal->isSatisfied(fullState.get(), &distance);
-			if(distance <  minDistance) {
-				bestId = vertex->id;
-				minDistance = distance;
+		do {
+			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
+			if(base->getStateSpace()->isMetricSpace()) {
+				// if (specs.multithreaded)
+				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
+				//else
+				nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
+			} else {
+				nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
 			}
-		}
 
-    Vertex startVertex(0);
-    startVertex.state = start;
-    startRegionId = nn->nearest(&startVertex)->id;
-    
-    goalRegionId = bestId;
-		dijkstra(vertices[goalRegionId]);
+			nn->setDistanceFunction(boost::bind(&PlakuStateSampler::abstractDistanceFunction, this, _1, _2));
+
+			generateVertices(10000);
+			generateEdges(10);
+
+			unsigned int bestId = 0;
+			double minDistance = std::numeric_limits<double>::infinity();
+			double distance;
+			for(auto vertex : vertices) {
+				ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
+				vertexState = vertex->state;
+				ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
+
+				goal->isSatisfied(fullState.get(), &distance);
+				if(distance <  minDistance) {
+					bestId = vertex->id;
+					minDistance = distance;
+				}
+			}
+
+		    Vertex startVertex(0);
+		    startVertex.state = start;
+		    Vertex *startRegion = nn->nearest(&startVertex);
+		    startRegionId = startRegion->id;
+	    
+	    	goalRegionId = bestId;
+			dijkstra(vertices[goalRegionId]);
+
+			connected = !std::isinf(startRegion->heuristic);
+
+			if(!connected) {
+				for(auto vert : vertices) {
+					delete vert;
+				}
+				edges.clear();
+			}
+		} while(!connected);
 
 		reached(start);
 	}
