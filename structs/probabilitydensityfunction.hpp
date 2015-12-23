@@ -69,6 +69,12 @@ public:
 
 	ProbabilityDensityFunction() : elements(1) {}
 
+	~ProbabilityDensityFunction() {
+		for(auto el : elements) {
+			delete el;
+		}
+	}
+
 	Element* add(Data *data, double weight) {
 		elements.push_back(new Element(data, weight, elements.size()));
 
