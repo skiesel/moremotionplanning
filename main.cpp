@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include <ompl/tools/benchmark/Benchmark.h>
 #include "domains/AppBase.hpp"
 
@@ -30,62 +32,106 @@ GlobalParameters globalParameters;
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
 #include "planners/plakurrt.hpp"
-#include "planners/RRT.hpp"
+// #include "planners/RRT.hpp"
+#include "planners/newplanner.hpp"
 
-double omega = 16;
-double stateRadius = 1;
-double shellPreference = 0.85;
-double shellRadius = 5;
 
-double alpha = 0.85;
-double b = 0.85;
-
-void doBenchmarkRun(BenchmarkData &benchmarkData, std::string resultsFileName) {
-	auto rrt = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-	auto fbiasedrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
-	auto fbiasedshellrrt = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
-	auto plakurrt = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, shellRadius));
-	auto kpiece = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
-	auto sycloprrt = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
-	auto syclopest = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
-
-	std::vector<ompl::base::PlannerPtr> planners = {
-		kpiece,
-		sycloprrt,
-		syclopest,
-		rrt,
-		fbiasedrrt,
-		fbiasedshellrrt,
-		plakurrt,
-	};
-
-	ompl::tools::Benchmark::Request req;
-	req.maxTime = 300.0;
-	req.maxMem = 1000.0;
-	req.runCount = 50;
-	req.displayProgress = true;
-
-	for(auto &planner : planners) {
-		benchmarkData.benchmark->addPlanner(planner);
+std::map<std::string, std::string> parseArgs(int argc, char *argv[]) {
+	std::map<std::string, std::string> params;
+	for(unsigned int i = 1; i < argc-1; i+=2) {
+		std::string arg(argv[i]);
+		std::string val(argv[i+1]);
+		params[arg.substr(1)] = val;
 	}
-
-	benchmarkData.benchmark->benchmark(req);
-	benchmarkData.benchmark->saveResultsToFile(resultsFileName.c_str());
+	return params;
 }
 
 
+void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::string> &params) {
+	auto planner = params["planner"];
+
+	ompl::base::PlannerPtr plannerPointer;
+	if(planner.compare("RRT") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+	}
+	else if(planner.compare("KPIECE1") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
+	}
+	else if(planner.compare("SyclopRRT") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
+	}
+	else if(planner.compare("SyclopEST") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
+	}
+	else if(planner.compare("FBiasedRRT") == 0) {
+		double omega = std::stod(params["omega"]);
+		double stateRadius = std::stod(params["staterRadius"]);
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
+	}
+	else if(planner.compare("FBiasedShellRRT") == 0) {
+		double omega = std::stod(params["omega"]);
+		double stateRadius = std::stod(params["staterRadius"]);
+		double shellPreference = std::stod(params["shellPreference"]);
+		double shellRadius = std::stod(params["shellRadius"]);
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
+	}
+	else if(planner.compare("PlakuRRT") == 0) {
+		double alpha = std::stod(params["alpha"]);
+		double b = std::stod(params["b"]);
+		double stateRadius = std::stod(params["staterRadius"]);
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, stateRadius));
+	}
+	else if(planner.compare("NewPlanner") == 0) {
+		double omega = std::stod(params["omega"]);
+		double stateRadius = std::stod(params["staterRadius"]);
+		double shellPreference = std::stod(params["shellPreference"]);
+		double shellRadius = std::stod(params["shellRadius"]);
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
+	}
+	else {
+		fprintf(stderr, "unrecognized planner\n");
+		return;
+	}
+
+	if(plannerPointer->params().hasParam("intermediate_states")) {
+		plannerPointer->params().setParam("intermediate_states", "true");
+	}
+	benchmarkData.benchmark->addPlanner(plannerPointer);
+
+	ompl::tools::Benchmark::Request req;
+	req.maxTime = std::stod(params["timeout"]);
+	req.maxMem = std::stod(params["memory"]);
+	req.runCount = std::stod(params["runs"]);
+	req.displayProgress = true;
+
+	benchmarkData.benchmark->benchmark(req);
+	benchmarkData.benchmark->saveResultsToFile(params["output"].c_str());
+}
+
 int main(int argc, char *argv[]) {
-	auto benchmarkData = blimpBenchmark();
-	doBenchmarkRun(benchmarkData, "BlimpPlanning.log");
+	auto params = parseArgs(argc, argv);
 
-	benchmarkData = quadrotorBenchmark();
-	doBenchmarkRun(benchmarkData, "QuadrotorPlanning.log");
-
-	benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>("Polygon");
-	doBenchmarkRun(benchmarkData, "KinematicCarPlanning.log");
-
-	benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>("Polygon");
-	doBenchmarkRun(benchmarkData, "DynamicCarPlanning.log");
+	auto domain = params["domain"];
+	if(domain.compare("Blimp") == 0) {
+		auto benchmarkData = blimpBenchmark();
+		doBenchmarkRun(benchmarkData, params);
+	}
+	else if(domain.compare("Quadrotor") == 0) {
+		auto benchmarkData = quadrotorBenchmark();
+		doBenchmarkRun(benchmarkData, params);
+	}
+	else if(domain.compare("KinematicCar") == 0) {
+		auto benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>("Polygon");
+		doBenchmarkRun(benchmarkData, params);
+	}
+	else if(domain.compare("DynamicCar") == 0) {
+		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>("Polygon");
+		doBenchmarkRun(benchmarkData, params);
+	}
+	else {
+		fprintf(stderr, "unrecognized domain\n");
+	}
 	
 	return 0;
 }
