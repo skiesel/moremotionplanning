@@ -78,9 +78,9 @@ BenchmarkData blimpBenchmark() {
 	// set the start & goal states
 	blimpPtr->setStartAndGoalStates(
 	    blimp->getFullStateFromGeometricComponent(start),
-	    blimp->getFullStateFromGeometricComponent(goal), 5);
+	    blimp->getFullStateFromGeometricComponent(goal), 1);
 
-	abstract->setStartAndGoalStates(start, goal, 5);
+	abstract->setStartAndGoalStates(start, goal, 1);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;
@@ -89,8 +89,8 @@ BenchmarkData blimpBenchmark() {
 	blimp->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
 	blimp->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
-	blimpPtr->getSpaceInformation()->setMinMaxControlDuration(1, 10);
-	blimpPtr->getSpaceInformation()->setPropagationStepSize(0.1);
+	blimpPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
+	blimpPtr->getSpaceInformation()->setPropagationStepSize(0.5);
 
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
