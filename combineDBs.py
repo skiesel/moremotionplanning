@@ -1,12 +1,18 @@
 import sqlite3
 import sys
-from subprocess import call
-
-print "DB: " + sys.argv[1]
-print "Source Log: " + sys.argv[2]
+from subprocess import call, Popen, PIPE
 
 tempDB = "temp.db"
-call(["python2.7", "/opt/local/bin/ompl_benchmark_statistics.py", sys.argv[2], "-d", tempDB])
+
+p = Popen(["which", "ompl_benchmark_statistics.py"], stdout=PIPE)
+output, err = p.communicate()
+ompl_benchmark_statistics = output.rstrip()
+
+if ompl_benchmark_statistics == "":
+	print "'which ompl_benchmark_statistics.py' failed to return a file"
+	sys.exit(1)
+
+call(["python2.7", ompl_benchmark_statistics, sys.argv[2], "-d", tempDB])
 
 srcConnection = sqlite3.connect(tempDB)
 srcConnection.row_factory = sqlite3.Row
@@ -46,7 +52,6 @@ experimentName = (experimentData["name"],)
 dstCursor.execute("SELECT id FROM experiments WHERE name=?", experimentName)
 row = dstCursor.fetchone()
 if row == None:
-	print "experiment did not exist"
 	cols = []
 	for index, val in enumerate(experimentDataColumns):
 		cols.append(val)
@@ -65,8 +70,6 @@ if row == None:
 	dstCursor.execute("SELECT id FROM experiments WHERE name=?", experimentName)
 
 	row = dstCursor.fetchone()
-else:
-	print "experiment exists"
 
 experimentID = row["id"]
 
@@ -76,7 +79,6 @@ plannerConfig = (plannerData["name"], plannerData["settings"],)
 dstCursor.execute("SELECT id FROM plannerConfigs WHERE name=? AND settings=?", plannerConfig)
 row = dstCursor.fetchone()
 if row == None:
-	print "planner config did not exist"
 	cols = []
 	for index, val in enumerate(plannerDataColumns):
 		cols.append(val)
@@ -95,11 +97,8 @@ if row == None:
 	dstCursor.execute("SELECT id FROM plannerConfigs WHERE name=? AND settings=?", plannerConfig)
 
 	row = dstCursor.fetchone()
-else:
-	print "planner config exists"
 
 plannerID = row["id"]
-print plannerID
 
 #let's assume that we only run this for each experiment run once
 #so there's no checking to see if this row already exists
