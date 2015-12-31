@@ -33,7 +33,7 @@ GlobalParameters globalParameters;
 #include "planners/fbiasedshellrrt.hpp"
 #include "planners/plakurrt.hpp"
 // #include "planners/RRT.hpp"
-#include "planners/newplanner.hpp"
+// #include "planners/newplanner.hpp"
 
 
 std::map<std::string, std::string> parseArgs(int argc, char *argv[]) {
@@ -55,7 +55,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::str
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
 		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	}
-	else if(planner.compare("KPIECE1") == 0) {
+	else if(planner.compare("KPIECE") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
 	}
 	else if(planner.compare("SyclopRRT") == 0) {
@@ -82,13 +82,13 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::str
 		double stateRadius = std::stod(params["staterRadius"]);
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, stateRadius));
 	}
-	else if(planner.compare("NewPlanner") == 0) {
-		double omega = std::stod(params["omega"]);
-		double stateRadius = std::stod(params["staterRadius"]);
-		double shellPreference = std::stod(params["shellPreference"]);
-		double shellRadius = std::stod(params["shellRadius"]);
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
-	}
+	// else if(planner.compare("NewPlanner") == 0) {
+	// 	double omega = std::stod(params["omega"]);
+	// 	double stateRadius = std::stod(params["staterRadius"]);
+	// 	double shellPreference = std::stod(params["shellPreference"]);
+	// 	double shellRadius = std::stod(params["shellRadius"]);
+	// 	plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
+	// }
 	else {
 		fprintf(stderr, "unrecognized planner\n");
 		return;
@@ -111,6 +111,8 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::str
 
 int main(int argc, char *argv[]) {
 	auto params = parseArgs(argc, argv);
+
+	ompl::RNG::setSeed(std::stol(params["seed"]));
 
 	auto domain = params["domain"];
 	if(domain.compare("Blimp") == 0) {
