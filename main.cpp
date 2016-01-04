@@ -32,7 +32,8 @@ GlobalParameters globalParameters;
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
 #include "planners/plakurrt.hpp"
-// #include "planners/RRT.hpp"
+#include "planners/RRT.hpp"
+#include "planners/KPIECE.hpp"
 // #include "planners/newplanner.hpp"
 
 
@@ -52,11 +53,12 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::str
 
 	ompl::base::PlannerPtr plannerPointer;
 	if(planner.compare("RRT") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	}
 	else if(planner.compare("KPIECE") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
 	}
 	else if(planner.compare("SyclopRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
