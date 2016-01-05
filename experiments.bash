@@ -6,10 +6,6 @@ RUNS=25
 
 pwd=${PWD}
 
-TEST="test\ntest2"
-
-echo printf \"$TEST\"
-
 declare -a DOMAINS=("Blimp" "Quadrotor" "KinematicCar" "DynamicCar")
 declare -a PLANNERS=("RRT" "KPIECE" "SyclopRRT" "SyclopEST" "FBiasedRRT" "FBiasedShellRRT" "PlakuRRT")
 
