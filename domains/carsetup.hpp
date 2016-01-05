@@ -18,12 +18,12 @@ struct EnvironmentDetails {
 };
 
 void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(-1.1);
-	details.start->setY(-1.1);
+	details.start->setX(-1.2);
+	details.start->setY(-1.0);
 	details.start->setYaw(0);
 
 	details.goal->setX(1.1);
-	details.goal->setY(1.15);
+	details.goal->setY(1.05);
 	details.goal->setYaw(0);
 
 	details.agentMesh = "car2_planar_robot.dae";

@@ -99,13 +99,17 @@ public:
 		base::RealVectorBounds bounds(2);
 		bounds.low[0] = -1.;
 		bounds.high[0] = 1.;
-		bounds.low[1] = -boost::math::constants::pi<double>() * 30. / 180.;
-		bounds.high[1] = boost::math::constants::pi<double>() * 30. / 180.;
+
+//These used to be "* 30." but I needed the car to be able to turn more sharply for these maps
+		bounds.low[1] = -boost::math::constants::pi<double>() * 60. / 180.;
+		bounds.high[1] = boost::math::constants::pi<double>() * 60. / 180.;
 		getStateSpace()->as<base::CompoundStateSpace>()->as<base::RealVectorStateSpace>(1)->setBounds(bounds);
 		bounds.low[0] = -.5;
 		bounds.high[0] = .5;
-		bounds.low[1] = -boost::math::constants::pi<double>() * 2. / 180.;
-		bounds.high[1] = boost::math::constants::pi<double>() * 2. / 180.;
+
+//These used to be "* 2." but I needed the car to be able to turn more sharply for these maps
+		bounds.low[1] = -boost::math::constants::pi<double>() * 8. / 180.;
+		bounds.high[1] = boost::math::constants::pi<double>() * 8. / 180.;
 		getControlSpace()->as<control::RealVectorControlSpace>()->setBounds(bounds);
 	}
 
