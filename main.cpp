@@ -14,6 +14,18 @@ struct GlobalParameters {
 	ompl::app::AppBase<ompl::app::GEOMETRIC> *globalAbstractAppBaseGeometric = NULL;
 };
 
+std::function<void(const ompl::base::State*, double, double, double, double)> streamPoint;
+
+void stream3DPoint(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
+	auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+	fprintf(stderr, "point %g %g %g %g %g %g %g\n", s->getX(), s->getY(), s->getZ(), red, green, blue, alpha);
+}
+
+void stream2DPoint(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
+	auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+	fprintf(stderr, "point %g %g 0 %g %g %g %g\n", s->getX(), s->getY(), red, green, blue, alpha);
+}
+
 GlobalParameters globalParameters;
 
 #include <ompl/control/planners/rrt/RRT.h>
@@ -119,18 +131,22 @@ int main(int argc, char *argv[]) {
 	auto domain = params["domain"];
 	if(domain.compare("Blimp") == 0) {
 		auto benchmarkData = blimpBenchmark();
+		streamPoint = stream3DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	}
 	else if(domain.compare("Quadrotor") == 0) {
 		auto benchmarkData = quadrotorBenchmark();
+		streamPoint = stream3DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	}
 	else if(domain.compare("KinematicCar") == 0) {
 		auto benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>("Polygon");
+		streamPoint = stream2DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	}
 	else if(domain.compare("DynamicCar") == 0) {
 		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>("Polygon");
+		streamPoint = stream2DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	}
 	else {

@@ -20,7 +20,8 @@ class FBiasedStateSampler : public ompl::base::UniformValidStateSampler {
 
 protected:
 	struct Vertex {
-		Vertex(unsigned int id) : id(id), g(std::numeric_limits<double>::infinity()), h(std::numeric_limits<double>::infinity()), pdfID(0), state(NULL), extraData(NULL) {}
+		Vertex(unsigned int id) : id(id), g(std::numeric_limits<double>::infinity()), h(std::numeric_limits<double>::infinity()),
+		edgeCandidates(0), actualEdges(0), pdfID(0), state(NULL), extraData(NULL) {}
 
 		~Vertex() {}
 
@@ -59,7 +60,7 @@ protected:
 		unsigned int id;
 		double g, h, f;
 		double score;
-		unsigned int pdfID;
+		unsigned int edgeCandidates, actualEdges, pdfID;
 		ompl::base::State *state;
 
 		void *extraData;
@@ -157,7 +158,7 @@ public:
 			}
 		}
 
-		// dumpToStderr();
+		// streamVisualization();
 	}
 
 	virtual ~FBiasedStateSampler() {
@@ -194,7 +195,7 @@ public:
 		return color;
 	}
 
-	void dumpToStderr() const {
+	void streamVisualization() const {
 		double min = std::numeric_limits<double>::infinity();
 		double max = -std::numeric_limits<double>::infinity();
 		for(unsigned int i = 0; i < vertices.size(); ++i) {
@@ -206,7 +207,7 @@ public:
 			auto state = vertices[i]->state->as<ompl::base::SE3StateSpace::StateType>();
 			auto color = getColor(min, max, vertices[i]->score);
 
-			fprintf(stderr, "point %g %g %g %g %g %g 1\n", state->getX(), state->getY(), state->getZ(), color[0], color[1], color[2]);
+			streamPoint(state, color[0], color[1], color[2], 1);
 		}
 	}
 
@@ -288,8 +289,12 @@ protected:
 
 		std::vector<Vertex *> neighbors;
 		for(auto vertex : vertices) {
+			edges[vertex->id];
+
 			neighbors.clear();
 			nn->nearestK(vertex, howManyConnections+1, neighbors);
+
+			vertex->edgeCandidates = neighbors.size() - 1;
 
 			assert(howManyConnections+1 >= neighbors.size());
 
@@ -306,6 +311,9 @@ protected:
 				if(motionValidator->checkMotion(vertex->state, neighbor->state)) {
 					edges[vertex->id][neighbor->id] = Edge(neighbor->id, distance);
 					edges[neighbor->id][vertex->id] = Edge(vertex->id, distance);
+
+					vertex->actualEdges++;
+					vertices[neighbor->id]->actualEdges++;
 				}
 			}
 		}

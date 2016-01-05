@@ -176,6 +176,9 @@ public:
 			if(cd >= siC_->getMinControlDuration()) {
 				std::size_t avgCov_two_thirds = (2 * tree_.size) / (3 * tree_.grid.size());
 				bool interestingMotion = false;
+#ifdef STREAM_GRAPHICS
+	streamPoint(existing->state, 1, 0, 0, 1);
+#endif
 
 				// split the motion into smaller ones, so we do not cross cell boundaries
 				for(unsigned int i = 0 ; i < cd ; ++i) {
@@ -199,13 +202,9 @@ public:
 						motion->steps = nextIndex - index + 1;
 						motion->parent = existing;
 
-auto p = existing->state->as<base::CompoundState>()->components[0]->as<ompl::base::SE3StateSpace::StateType>();
-auto q = motion->state->as<base::CompoundState>()->components[0]->as<ompl::base::SE3StateSpace::StateType>();
-//fprintf(stderr, "line %g %g %g %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ(), q->getX(), q->getY(), q->getZ());
-
-fprintf(stderr, "point %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ());
-fprintf(stderr, "point %g %g %g 1 0 0 1\n", q->getX(), q->getY(), q->getZ());
-
+#ifdef STREAM_GRAPHICS
+	streamPoint(motion->state, 1, 0, 0, 1);
+#endif
 
 						double dist = 0.0;
 						bool solv = goal->isSatisfied(motion->state, &dist);

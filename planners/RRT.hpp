@@ -125,6 +125,10 @@ public:
 			else
 				sampler_->sampleUniform(rstate);
 
+#ifdef STREAM_GRAPHICS
+	streamPoint(rmotion->state, 0, 1, 0, 1);
+#endif
+
 			/* find closest state in the tree */
 			Motion *nmotion = nn_->nearest(rmotion);
 
@@ -144,6 +148,11 @@ public:
 						/* create a motion */
 						Motion *motion = new Motion();
 						motion->state = pstates[p];
+
+#ifdef STREAM_GRAPHICS
+	streamPoint(pstates[p], 1, 0, 0, 1);
+#endif
+
 						//we need multiple copies of rctrl
 						motion->control = siC_->allocControl();
 						siC_->copyControl(motion->control, rctrl);
@@ -181,12 +190,10 @@ public:
 					motion->steps = cd;
 					motion->parent = nmotion;
 
-auto p = nmotion->state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
-auto q = motion->state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
-//fprintf(stderr, "line %g %g %g %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ(), q->getX(), q->getY(), q->getZ());
-
-fprintf(stderr, "point %g %g %g 1 0 0 1\n", p->getX(), p->getY(), p->getZ());
-fprintf(stderr, "point %g %g %g 1 0 0 1\n", q->getX(), q->getY(), q->getZ());
+#ifdef STREAM_GRAPHICS
+	streamPoint(nmotion->state, 1, 0, 0, 1);
+	streamPoint(motion->state, 1, 0, 0, 1);
+#endif
 
 					nn_->add(motion);
 					double dist = 0.0;
