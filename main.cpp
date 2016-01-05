@@ -26,6 +26,11 @@ void stream2DPoint(const ompl::base::State *state, double red=1, double green=0,
 	fprintf(stderr, "point %g %g 0 %g %g %g %g\n", s->getX(), s->getY(), red, green, blue, alpha);
 }
 
+void stream2DPoint2(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
+	auto s = state->as<ompl::base::SE2StateSpace::StateType>();
+	fprintf(stderr, "point %g %g 0 %g %g %g %g\n", s->getX(), s->getY(), red, green, blue, alpha);
+}
+
 GlobalParameters globalParameters;
 
 #include <ompl/control/planners/rrt/RRT.h>
@@ -141,7 +146,7 @@ int main(int argc, char *argv[]) {
 	}
 	else if(domain.compare("KinematicCar") == 0) {
 		auto benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>("Polygon");
-		streamPoint = stream2DPoint;
+		streamPoint = stream2DPoint2;
 		doBenchmarkRun(benchmarkData, params);
 	}
 	else if(domain.compare("DynamicCar") == 0) {
