@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 
 #include <ompl/tools/benchmark/Benchmark.h>
@@ -51,22 +52,13 @@ GlobalParameters globalParameters;
 #include "planners/plakurrt.hpp"
 #include "planners/RRT.hpp"
 #include "planners/KPIECE.hpp"
-// #include "planners/newplanner.hpp"
+#include "planners/newplanner.hpp"
+
+#include "structs/filemap.hpp"
 
 
-std::map<std::string, std::string> parseArgs(int argc, char *argv[]) {
-	std::map<std::string, std::string> params;
-	for(unsigned int i = 1; i < argc-1; i+=2) {
-		std::string arg(argv[i]);
-		std::string val(argv[i+1]);
-		params[arg.substr(1)] = val;
-	}
-	return params;
-}
-
-
-void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::string> &params) {
-	auto planner = params["planner"];
+void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
+	auto planner = params.stringVal("Planner");
 
 	ompl::base::PlannerPtr plannerPointer;
 	if(planner.compare("RRT") == 0) {
@@ -84,28 +76,28 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::str
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
 	}
 	else if(planner.compare("FBiasedRRT") == 0) {
-		double omega = std::stod(params["omega"]);
-		double stateRadius = std::stod(params["staterRadius"]);
+		double omega = params.doubleVal("Omega");
+		double stateRadius = params.doubleVal("StaterRadius");
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
 	}
 	else if(planner.compare("FBiasedShellRRT") == 0) {
-		double omega = std::stod(params["omega"]);
-		double stateRadius = std::stod(params["staterRadius"]);
-		double shellPreference = std::stod(params["shellPreference"]);
-		double shellRadius = std::stod(params["shellRadius"]);
+		double omega = params.doubleVal("Omega");
+		double stateRadius = params.doubleVal("StaterRadius");
+		double shellPreference = params.doubleVal("ShellPreference");
+		double shellRadius = params.doubleVal("ShellRadius");
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
 	}
 	else if(planner.compare("PlakuRRT") == 0) {
-		double alpha = std::stod(params["alpha"]);
-		double b = std::stod(params["b"]);
-		double stateRadius = std::stod(params["staterRadius"]);
+		double alpha = params.doubleVal("Alpha");
+		double b = params.doubleVal("B");
+		double stateRadius = params.doubleVal("StaterRadius");
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, stateRadius));
 	}
 	// else if(planner.compare("NewPlanner") == 0) {
-	// 	double omega = std::stod(params["omega"]);
-	// 	double stateRadius = std::stod(params["staterRadius"]);
-	// 	double shellPreference = std::stod(params["shellPreference"]);
-	// 	double shellRadius = std::stod(params["shellRadius"]);
+	// 	double omega = params.doubleVal("Omega");
+	// 	double stateRadius = params.doubleVal("StaterRadius");
+	// 	double shellPreference = params.doubleVal("ShellPreference");
+	// 	double shellRadius = params.doubleVal("ShellRadius");
 	// 	plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
 	// }
 	else {
@@ -119,21 +111,21 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, std::map<std::string, std::str
 	benchmarkData.benchmark->addPlanner(plannerPointer);
 
 	ompl::tools::Benchmark::Request req;
-	req.maxTime = std::stod(params["timeout"]);
-	req.maxMem = std::stod(params["memory"]);
-	req.runCount = std::stod(params["runs"]);
+	req.maxTime = params.doubleVal("Timeout");
+	req.maxMem = params.doubleVal("Memory");
+	req.runCount = params.doubleVal("Runs");
 	req.displayProgress = true;
 
 	benchmarkData.benchmark->benchmark(req);
-	benchmarkData.benchmark->saveResultsToFile(params["output"].c_str());
+	benchmarkData.benchmark->saveResultsToFile(params.stringVal("output").c_str());
 }
 
 int main(int argc, char *argv[]) {
-	auto params = parseArgs(argc, argv);
+	FileMap params(std::cin);
 
-	ompl::RNG::setSeed(std::stol(params["seed"]));
+	ompl::RNG::setSeed(params.integerVal("Seed"));
 
-	auto domain = params["domain"];
+	auto domain = params.stringVal("Domain");
 	if(domain.compare("Blimp") == 0) {
 		auto benchmarkData = blimpBenchmark();
 		streamPoint = stream3DPoint;
