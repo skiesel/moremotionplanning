@@ -26,7 +26,7 @@ void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
 	details.goal->setY(1.15);
 	details.goal->setYaw(0);
 
-	details.agentMesh = "car1_planar_robot.dae";
+	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "RandomPolygons_planar_env.dae";
 }
 
@@ -39,8 +39,8 @@ void getMazeEnvironmentDetails(EnvironmentDetails &details) {
 	details.goal->setY(1.15);
 	details.goal->setYaw(0);
 
-	details.agentMesh = "car1_planar_robot.dae";
-	details.environmentMesh = "RandomPolygons_planar_env.dae";
+	details.agentMesh = "car2_planar_robot.dae";
+	details.environmentMesh = "Maze_planar_env.dae";
 }
 
 void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
@@ -52,8 +52,8 @@ void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
 	details.goal->setY(1.15);
 	details.goal->setYaw(0);
 
-	details.agentMesh = "car1_planar_robot.dae";
-	details.environmentMesh = "RandomPolygons_planar_env.dae";
+	details.agentMesh = "car2_planar_robot.dae";
+	details.environmentMesh = "UniqueSolutionMaze_env.dae";
 }
 
 template <class Car>
@@ -70,14 +70,14 @@ BenchmarkData carBenchmark(std::string which) {
 
 	ompl::base::StateSpacePtr stateSpace(carPtr->getStateSpace());
 
-	EnvironmentDetails details(car->getGeometricComponentStateSpace());
+	EnvironmentDetails details(abstract->getStateSpace());
 
 	if(which.compare("Polygon") == 0)
 	 	getRandomPolygonEnvironmentDetails(details);
 	else if(which.compare("Maze") == 0)
-		getRandomPolygonEnvironmentDetails(details);
+		getMazeEnvironmentDetails(details);
 	else if(which.compare("UniqueMaze") == 0)
-		getRandomPolygonEnvironmentDetails(details);
+		getUniqueMazeEnvironmentDetails(details);
 
 	// set the start & goal states
 	carPtr->setStartAndGoalStates(
@@ -96,8 +96,8 @@ BenchmarkData carBenchmark(std::string which) {
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + details.agentMesh);
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/"  + details.environmentMesh);
 
-	carPtr->getSpaceInformation()->setMinMaxControlDuration(1, 500);
-	carPtr->getSpaceInformation()->setPropagationStepSize(0.1);
+	carPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
+	// carPtr->getSpaceInformation()->setPropagationStepSize(0.1);
 
 	carPtr->setup();
 	abstract->setup();

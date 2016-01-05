@@ -57,7 +57,6 @@ BenchmarkData blimpBenchmark() {
 	bounds.setHigh(2, 0);
 	stateSpace->as<ompl::base::CompoundStateSpace>()->as<ompl::base::SE3StateSpace>(0)->setBounds(bounds);
 
-	// bounds.resize();
 	abstract->getStateSpace()->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
 	abstract->getSpaceInformation()->setValidStateSamplerAllocator(SE3ZOnlyValidStateSamplerAllocator);
 
@@ -90,7 +89,7 @@ BenchmarkData blimpBenchmark() {
 	blimp->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
 	blimpPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
-	blimpPtr->getSpaceInformation()->setPropagationStepSize(0.5);
+	// blimpPtr->getSpaceInformation()->setPropagationStepSize(0.5);
 
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
