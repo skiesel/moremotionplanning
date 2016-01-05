@@ -48,7 +48,6 @@ do
 			fi
 
 			echo printf \"$PARAMFILE\" "|" $pwd/build/MoreMotionPlanning
-			exit
 		done
 	done
 done
