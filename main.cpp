@@ -117,7 +117,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	req.displayProgress = true;
 
 	benchmarkData.benchmark->benchmark(req);
-	benchmarkData.benchmark->saveResultsToFile(params.stringVal("output").c_str());
+	benchmarkData.benchmark->saveResultsToFile(params.stringVal("Output").c_str());
 }
 
 int main(int argc, char *argv[]) {
