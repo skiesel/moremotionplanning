@@ -58,13 +58,13 @@ BenchmarkData quadrotorBenchmark() {
 	std::string homeDirString(homedir);
 
 	quadrotor->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/quadrotor.dae");
-	//quadrotor->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
+	quadrotor->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
 	quadrotorPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
 	quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.1);
 
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/quadrotor.dae");
-	//abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
+	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
 	quadrotorPtr->setup();
 	abstract->setup();
