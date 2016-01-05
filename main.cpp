@@ -52,7 +52,7 @@ GlobalParameters globalParameters;
 #include "planners/plakurrt.hpp"
 #include "planners/RRT.hpp"
 #include "planners/KPIECE.hpp"
-#include "planners/newplanner.hpp"
+// #include "planners/newplanner.hpp"
 
 #include "structs/filemap.hpp"
 
