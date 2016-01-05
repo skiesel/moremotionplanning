@@ -6,6 +6,9 @@ set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3")
 
 add_executable(MoreMotionPlanning main.cpp)
 
+#set_target_properties(MoreMotionPlanning PROPERTIES
+#COMPILE_DEFINITIONS "STREAM_GRAPHICS")
+
 find_package(OMPL REQUIRED)
 find_package(ASSIMP REQUIRED)
 
