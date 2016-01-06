@@ -44,11 +44,15 @@ public:
   }
 
 	virtual bool sample(ompl::base::State *state) {
-    Vertex *randomVertex;
-    if(randomNumbers.uniform01() < shellPreference) {
+    Vertex *randomVertex = NULL;
+    if(randomNumbers.uniform01() < shellPreference && !exterior.isEmpty()) {
       randomVertex = exterior.sample();
-    } else {
+    } else if(!exterior.isEmpty()) {
       randomVertex = interior.sample();
+    }
+    
+    if(randomVertex == NULL) {
+      return UniformValidStateSampler::sample(state);
     }
 
     ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());

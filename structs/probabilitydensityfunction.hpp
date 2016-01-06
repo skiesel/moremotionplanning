@@ -75,6 +75,10 @@ public:
 		}
 	}
 
+	bool isEmpty() const {
+		return elements.size() <= 1;
+	}
+
 	Element* add(Data *data, double weight) {
 		elements.push_back(new Element(data, weight, elements.size()));
 
