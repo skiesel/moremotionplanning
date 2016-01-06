@@ -19,8 +19,6 @@ public:
 	FBiasedRRT(const SpaceInformationPtr &si, double omega, double stateRadius, bool cheat = false) : ompl::control::RRT(si), omega(omega), stateRadius(stateRadius),
 	fbiasedSampler_(NULL), cheat(cheat) {
 		if(cheat) {
-			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				omega, stateRadius);
 			setName("FBiased RRT [cheat]");
 		} else {
 			setName("FBiased RRT");

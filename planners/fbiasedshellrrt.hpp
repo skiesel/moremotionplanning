@@ -20,8 +20,6 @@ public:
 	ompl::control::RRT(si), shellsampler_(NULL), omega(omega), stateRadius(stateRadius), shellPreference(shellPreference),
 	shellDepth(shellDepth), cheat(cheat) {
 		if(cheat) {
-			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				omega, stateRadius, shellPreference, shellDepth);
 			setName("FBiased RRT Shell [cheat]");
 		} else {
 			setName("FBiased RRT Shell");

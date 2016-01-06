@@ -19,7 +19,6 @@ public:
 	PlakuRRT(const SpaceInformationPtr &si, double alpha, double b, double stateRadius, bool cheat = false) :
 	ompl::control::RRT(si), plakusampler_(NULL), alpha(alpha), b(b), stateRadius(stateRadius), cheat(cheat) {
 		if(cheat) {
-			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), alpha, b, stateRadius);
 			setName("Plaku RRT [cheat]");
 		} else {
 			setName("Plaku RRT");
