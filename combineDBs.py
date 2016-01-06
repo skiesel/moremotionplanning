@@ -1,8 +1,13 @@
 import sqlite3
 import sys
+import os.path
 from subprocess import call, Popen, PIPE
 
 tempDB = "temp.db"
+
+if not os.path.isfile(sys.argv[2]):
+	print sys.argv[2] + ": not a file, skipping"
+	sys.exit(0)
 
 p = Popen(["which", "ompl_benchmark_statistics.py"], stdout=PIPE)
 output, err = p.communicate()
@@ -11,6 +16,10 @@ ompl_benchmark_statistics = output.rstrip()
 if ompl_benchmark_statistics == "":
 	print "'which ompl_benchmark_statistics.py' failed to return a file"
 	sys.exit(1)
+
+if not os.path.isfile(sys.argv[1]):
+	call(["python2.7", ompl_benchmark_statistics, sys.argv[2]])
+	sys.exit(0)
 
 call(["python2.7", ompl_benchmark_statistics, sys.argv[2], "-d", tempDB])
 
