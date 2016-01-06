@@ -16,9 +16,16 @@ class FBiasedRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedRRT(const SpaceInformationPtr &si, double omega, double stateRadius) : ompl::control::RRT(si), omega(omega), stateRadius(stateRadius),
-	fbiasedSampler_(NULL) {
-		setName("FBiased RRT");
+	FBiasedRRT(const SpaceInformationPtr &si, double omega, double stateRadius, bool cheat = false) : ompl::control::RRT(si), omega(omega), stateRadius(stateRadius),
+	fbiasedSampler_(NULL), cheat(cheat) {
+		if(cheat) {
+			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+				omega, stateRadius);
+			setName("FBiased RRT [cheat]");
+		} else {
+			setName("FBiased RRT");
+		}
+		
 	}
 
 	virtual ~FBiasedRRT() {}
@@ -195,8 +202,10 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		delete fbiasedSampler_;
-		fbiasedSampler_ = NULL;
+		if(!cheat) {
+			delete fbiasedSampler_;
+			fbiasedSampler_ = NULL;
+		}
 	}
 
 protected:
@@ -204,6 +213,7 @@ protected:
 	/** \brief State sampler */
 	base::FBiasedStateSampler                     *fbiasedSampler_;
 	double omega, stateRadius;
+	bool cheat;
 };
 
 }

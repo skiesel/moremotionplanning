@@ -16,10 +16,16 @@ class FBiasedShellRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedShellRRT(const SpaceInformationPtr &si, double omega, double stateRadius, double shellPreference, double shellDepth) :
+	FBiasedShellRRT(const SpaceInformationPtr &si, double omega, double stateRadius, double shellPreference, double shellDepth, bool cheat = false) :
 	ompl::control::RRT(si), shellsampler_(NULL), omega(omega), stateRadius(stateRadius), shellPreference(shellPreference),
-	shellDepth(shellDepth) {
-		setName("FBiased RRT Shell");
+	shellDepth(shellDepth), cheat(cheat) {
+		if(cheat) {
+			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+				omega, stateRadius, shellPreference, shellDepth);
+			setName("FBiased RRT Shell [cheat]");
+		} else {
+			setName("FBiased RRT Shell");
+		}
 	}
 
 	virtual ~FBiasedShellRRT() {}
@@ -44,7 +50,7 @@ public:
 
 		if(!shellsampler_) {
 			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-			omega, stateRadius, shellPreference, shellDepth);
+				omega, stateRadius, shellPreference, shellDepth);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -201,14 +207,17 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		delete shellsampler_;
-		shellsampler_ = NULL;
+		if(!cheat) {
+			delete shellsampler_;
+			shellsampler_ = NULL;
+		}
 	}
 
 protected:
 
 	ompl::base::FBiasedShellStateSampler *shellsampler_;
 	double omega, stateRadius, shellPreference, shellDepth;
+	bool cheat;
 };
 
 }

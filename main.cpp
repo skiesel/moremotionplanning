@@ -78,20 +78,23 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	else if(planner.compare("FBiasedRRT") == 0) {
 		double omega = params.doubleVal("Omega");
 		double stateRadius = params.doubleVal("StateRadius");
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius));
+		bool cheat = params.stringVal("Cheat").compare("true") == 0;
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, cheat));
 	}
 	else if(planner.compare("FBiasedShellRRT") == 0) {
 		double omega = params.doubleVal("Omega");
 		double stateRadius = params.doubleVal("StateRadius");
 		double shellPreference = params.doubleVal("ShellPreference");
 		double shellRadius = params.doubleVal("ShellRadius");
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius));
+		bool cheat = params.stringVal("Cheat").compare("true") == 0;
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius, cheat));
 	}
 	else if(planner.compare("PlakuRRT") == 0) {
 		double alpha = params.doubleVal("Alpha");
 		double b = params.doubleVal("B");
 		double stateRadius = params.doubleVal("StateRadius");
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, stateRadius));
+		bool cheat = params.stringVal("Cheat").compare("true") == 0;
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, stateRadius, cheat));
 	}
 	// else if(planner.compare("NewPlanner") == 0) {
 	// 	double omega = params.doubleVal("Omega");

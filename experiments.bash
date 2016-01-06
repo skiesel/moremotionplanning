@@ -13,6 +13,8 @@ FBiasedRRTConfig="Omega ? 8\nStateRadius ? 1\n"
 FBiasedShellRRTConfig="Omega ? 8\nStateRadius ? 1\nShellPreference ? 0.9\nShellRadius ? 1\n"
 PlakuRRTConfig="Alpha ? 0.85\nB ? 0.85\nStateRadius ? 1\n"
 
+CHEAT=1
+
 for DOMAIN in "${DOMAINS[@]}"
 do
 
@@ -21,7 +23,13 @@ do
 
 		for COUNTER in $(seq 1 $RUNS)
 		do
-			OUTPUT="data/$DOMAIN$PLANNER$COUNTER"
+			OUTPUT="data/$DOMAIN$PLANNER$COUNTER"			
+
+			if [ "$CHEAT" -eq "1" ];
+			then
+				PARAMFILE=$PARAMFILE"Cheat ? true\n"
+				OUTPUT=$OUTPUT"_cheat"
+			fi
 
 			PARAMFILE="Timeout ? $TIMEOUT\n"
 			PARAMFILE=$PARAMFILE"Memory ? $MEMORY\n"
@@ -44,6 +52,7 @@ do
 			fi
 
 			echo printf \"$PARAMFILE\" "|" $pwd/build/MoreMotionPlanning
+			exit
 		done
 	done
 done

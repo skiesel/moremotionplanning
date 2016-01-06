@@ -16,9 +16,14 @@ class PlakuRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	PlakuRRT(const SpaceInformationPtr &si, double alpha, double b, double stateRadius) :
-	ompl::control::RRT(si), plakusampler_(NULL), alpha(alpha), b(b), stateRadius(stateRadius) {
-		setName("Plaku RRT");
+	PlakuRRT(const SpaceInformationPtr &si, double alpha, double b, double stateRadius, bool cheat = false) :
+	ompl::control::RRT(si), plakusampler_(NULL), alpha(alpha), b(b), stateRadius(stateRadius), cheat(cheat) {
+		if(cheat) {
+			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), alpha, b, stateRadius);
+			setName("Plaku RRT [cheat]");
+		} else {
+			setName("Plaku RRT");
+		}
 	}
 
 	virtual ~PlakuRRT() {}
@@ -198,14 +203,17 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		delete plakusampler_;
-		plakusampler_ = NULL;
+		if(!cheat) {
+			delete plakusampler_;
+			plakusampler_ = NULL;
+		}
 	}
 
 protected:
 
 	ompl::base::PlakuStateSampler *plakusampler_;
 	double alpha, b, stateRadius;
+	bool cheat;
 };
 
 }
