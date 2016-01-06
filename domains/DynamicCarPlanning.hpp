@@ -42,7 +42,7 @@ class DynamicCarPlanning : public AppBase<CONTROL> {
 public:
 	DynamicCarPlanning()
 		: AppBase<CONTROL>(constructControlSpace(), Motion_2D), timeStep_(1e-2), lengthInv_(1.), mass_(1.), odeSolver(new control::ODEBasicSolver<>(si_, boost::bind(&DynamicCarPlanning::ode, this, _1, _2, _3))) {
-		name_ = std::string("Dynamic car");
+		name_ = std::string("DynamicCar");
 		setDefaultBounds();
 
 		si_->setStatePropagator(control::ODESolver::getStatePropagator(odeSolver, boost::bind(&DynamicCarPlanning::postPropagate, this, _1, _2, _3, _4)));

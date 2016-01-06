@@ -39,7 +39,7 @@ class KinematicCarPlanning : public AppBase<CONTROL> {
 public:
 	KinematicCarPlanning()
 		: AppBase<CONTROL>(constructControlSpace(), Motion_2D), timeStep_(1e-2), lengthInv_(1.), odeSolver(new control::ODEBasicSolver<>(si_, boost::bind(&KinematicCarPlanning::ode, this, _1, _2, _3))) {
-		name_ = std::string("Kinematic car");
+		name_ = std::string("KinematicCar");
 		setDefaultControlBounds();
 
 		si_->setStatePropagator(control::ODESolver::getStatePropagator(odeSolver, boost::bind(&KinematicCarPlanning::postPropagate, this, _1, _2, _3, _4)));
