@@ -6,6 +6,8 @@ RUNS=25
 
 pwd=${PWD}
 
+EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pwd}/build; "
+
 declare -a DOMAINS=("Blimp" "Quadrotor" "KinematicCar" "DynamicCar")
 declare -a PLANNERS=("RRT" "KPIECE" "SyclopRRT" "SyclopEST" "FBiasedRRT" "FBiasedShellRRT" "PlakuRRT")
 
@@ -23,7 +25,7 @@ do
 
 		for COUNTER in $(seq 1 $RUNS)
 		do
-			OUTPUT="data/$DOMAIN$PLANNER$COUNTER"			
+			OUTPUT="$pwd/data/$DOMAIN$PLANNER$COUNTER"			
 
 			if [ "$CHEAT" -eq "1" ];
 			then
@@ -51,7 +53,7 @@ do
 				PARAMFILE=$PARAMFILE$PlakuRRTConfig
 			fi
 
-			echo printf \"$PARAMFILE\" "|" $pwd/build/MoreMotionPlanning
+			echo $EXPORT_CMD printf \"$PARAMFILE\" "|" $pwd/build/MoreMotionPlanning
 			exit
 		done
 	done
