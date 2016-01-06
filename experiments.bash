@@ -9,7 +9,8 @@ pwd=${PWD}
 EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pwd}/build; "
 
 declare -a DOMAINS=("Blimp" "Quadrotor" "KinematicCar" "DynamicCar")
-declare -a PLANNERS=("RRT" "KPIECE" "SyclopRRT" "SyclopEST" "FBiasedRRT" "FBiasedShellRRT" "PlakuRRT")
+declare -a PLANNERS=("FBiasedRRT" "FBiasedShellRRT" "PlakuRRT")
+#"RRT" "KPIECE" "SyclopRRT" "SyclopEST" 
 
 FBiasedRRTConfig="Omega ? 8\nStateRadius ? 1\n"
 FBiasedShellRRTConfig="Omega ? 8\nStateRadius ? 1\nShellPreference ? 0.9\nShellRadius ? 1\n"
@@ -27,18 +28,18 @@ do
 		do
 			OUTPUT="$pwd/data/$DOMAIN$PLANNER$COUNTER"			
 
+			PARAMFILE="Timeout ? $TIMEOUT\n"
+			PARAMFILE=$PARAMFILE"Memory ? $MEMORY\n"
+			PARAMFILE=$PARAMFILE"Seed ? $COUNTER\n"
+			PARAMFILE=$PARAMFILE"Runs ? 1\n"
+
 			if [ "$CHEAT" -eq "1" ];
 			then
 				PARAMFILE=$PARAMFILE"Cheat ? true\n"
 				OUTPUT=$OUTPUT"_cheat"
 			fi
 
-			PARAMFILE="Timeout ? $TIMEOUT\n"
-			PARAMFILE=$PARAMFILE"Memory ? $MEMORY\n"
-			PARAMFILE=$PARAMFILE"Seed ? $COUNTER\n"
-			PARAMFILE=$PARAMFILE"Runs ? 1\n"
 			PARAMFILE=$PARAMFILE"Output ? $OUTPUT\n"
-
 			PARAMFILE=$PARAMFILE"Domain ? $DOMAIN\n"
 			PARAMFILE=$PARAMFILE"Planner ? $PLANNER\n"
 			
@@ -54,7 +55,6 @@ do
 			fi
 
 			echo $EXPORT_CMD printf \"$PARAMFILE\" "|" $pwd/build/MoreMotionPlanning
-			exit
 		done
 	done
 done
