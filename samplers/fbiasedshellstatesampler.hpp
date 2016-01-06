@@ -50,7 +50,7 @@ public:
     } else if(!exterior.isEmpty()) {
       randomVertex = interior.sample();
     }
-    
+
     if(randomVertex == NULL) {
       return UniformValidStateSampler::sample(state);
     }
@@ -151,7 +151,7 @@ protected:
 
       std::vector<unsigned int> kids = getNeighboringCells(current->id);
       for(unsigned int kid : kids) {
-        if(closed.find(kid) != closed.end()) continue;
+        if(closed.find(kid) != closed.end() || wasTouched(vertices[kid])) continue;
 
         double newValue = current->value + getEdgeCostBetweenCells(current->id, kid);
 
