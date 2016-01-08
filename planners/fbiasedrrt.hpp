@@ -1,5 +1,4 @@
-#ifndef OMPL_CONTROL_PLANNERS_FBIASEDRRT_
-#define OMPL_CONTROL_PLANNERS_FBIASEDRRT_
+#pragma once
 
 #include "ompl/control/planners/PlannerIncludes.h"
 #include "ompl/datastructures/NearestNeighbors.h"
@@ -200,7 +199,7 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat) {
+		if(!cheat && fbiasedSampler_ != NULL) {
 			delete fbiasedSampler_;
 			fbiasedSampler_ = NULL;
 		}
@@ -216,5 +215,3 @@ protected:
 
 }
 }
-
-#endif

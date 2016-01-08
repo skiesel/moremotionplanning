@@ -1,5 +1,4 @@
-#ifndef OMPL_CONTROL_PLANNERS_PLAKURRT_
-#define OMPL_CONTROL_PLANNERS_PLAKURRT_
+#pragma once
 
 #include "ompl/control/planners/PlannerIncludes.h"
 #include "ompl/datastructures/NearestNeighbors.h"
@@ -202,7 +201,7 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat) {
+		if(!cheat && plakusampler_ != NULL) {
 			delete plakusampler_;
 			plakusampler_ = NULL;
 		}
@@ -217,5 +216,3 @@ protected:
 
 }
 }
-
-#endif
