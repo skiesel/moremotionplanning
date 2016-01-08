@@ -1,5 +1,9 @@
+#pragma once
+
 #include <unordered_set>
 #include <unordered_map>
+#include <functional>
+#include <thread>
 
 #include <ompl/base/samplers/UniformValidStateSampler.h>
 
@@ -21,57 +25,150 @@ class FBiasedStateSampler : public ompl::base::UniformValidStateSampler {
 protected:
 	struct Vertex {
 		Vertex(unsigned int id) : id(id), g(std::numeric_limits<double>::infinity()), h(std::numeric_limits<double>::infinity()),
-		edgeCandidates(0), actualEdges(0), pdfID(0), state(NULL), extraData(NULL) {}
+		pdfID(0), state(NULL), extraData(NULL) {}
 
-		~Vertex() {}
-
-		static double getG(const Vertex *n) {
-			return n->g;
-		}
-		static void setG(Vertex *n, double c) {
-			n->g = c;
-		}
-		static bool sortG(const Vertex *n1, const Vertex *n2) {
-			return n1->g < n2->g;
-		}
-
-		static double getH(const Vertex *n) {
-			return n->h;
-		}
-		static void setH(Vertex *n, double c) {
-			n->h = c;
-		}
-		static bool sortH(const Vertex *n1, const Vertex *n2) {
-			return n1->h < n2->h;
-		}
-
-		unsigned int heapIndex;
-		static bool pred(const Vertex *a, const Vertex *b) {
-			return sort(a,b);
-		}
-		static unsigned int getHeapIndex(const Vertex *r) {
-			return r->heapIndex;
-		}
-		static void setHeapIndex(Vertex *r, unsigned int i) {
-			r->heapIndex = i;
-		}
-
-		static std::function<bool(const Vertex *, const Vertex *)> sort;
 		unsigned int id;
 		double g, h, f;
 		double score;
-		unsigned int edgeCandidates, actualEdges, pdfID;
+		unsigned int pdfID;
 		ompl::base::State *state;
 
 		void *extraData;
 	};
 
+	struct VertexWrapper {
+		VertexWrapper(Vertex *vertex) : vertex(vertex), onOpen(false), onClosed(false), currentParent(NULL) {}
+
+		virtual ~VertexWrapper() {
+			for(auto p : parents) {
+				delete p;
+			}
+		}
+
+		inline unsigned int getId() const {
+			return vertex->id;
+		}
+
+		virtual double getVal() const = 0;
+		virtual void setVal(double) = 0;
+		virtual bool sort(const VertexWrapper*) const = 0;
+
+		static bool pred(const VertexWrapper *a, const VertexWrapper *b) {
+			return a->sort(b);
+		}
+		static unsigned int getHeapIndex(const VertexWrapper *r) {
+			return r->heapIndex;
+		}
+		static void setHeapIndex(VertexWrapper *r, unsigned int i) {
+			r->heapIndex = i;
+		}
+
+		Vertex *vertex;
+		bool onOpen, onClosed;
+		unsigned int heapIndex;
+
+		struct Parent {
+			Parent(unsigned int parent, double cost) : parent(parent), cost(cost) {}
+			static bool HeapCompare(const Parent *r1, const Parent *r2) {
+				return r1->cost < r2->cost;
+			}
+			unsigned int parent;
+			double cost;
+		};
+		
+		bool addParent(unsigned int parent, double cost) {
+			if(currentParent == NULL) {
+				currentParent = new Parent(parent, cost);
+				setVal(currentParent->cost);
+				return true;
+			} else {
+				if(cost < currentParent->cost) {
+					parents.push_back(currentParent);
+					std::push_heap(parents.begin(), parents.end(), Parent::HeapCompare);
+					currentParent = new Parent(parent, cost);
+					setVal(currentParent->cost);
+					return true;
+				} else {
+					parents.push_back(new Parent(parent, cost));
+					std::push_heap(parents.begin(), parents.end(), Parent::HeapCompare);
+					return false;
+				}
+			}
+		}
+
+		bool hasMoreParents() const {
+			return !parents.empty() || currentParent != NULL;
+		}
+
+		unsigned int getBestParentIndex() const {
+			assert(currentParent != NULL);
+			return currentParent->parent;
+		}
+
+		void popBestParent() {
+			assert(currentParent != NULL);
+
+			delete currentParent;
+
+			if(parents.size() == 0) {
+				currentParent = NULL;
+				setVal(std::numeric_limits<double>::infinity());
+			} else {
+				currentParent = parents.front();
+				std::pop_heap(parents.begin(), parents.end(), Parent::HeapCompare);
+				parents.pop_back();
+				setVal(currentParent->cost);
+			}
+		}
+
+		std::vector<Parent*> parents;
+		Parent *currentParent;
+	};
+
+	struct VertexGWrapper : public VertexWrapper {
+		VertexGWrapper(Vertex *vertex) : VertexWrapper(vertex) {}
+
+		double getVal() const {
+			return vertex->h;
+		}
+		void setVal(double c) {
+			vertex->h = c;
+		}
+		bool sort(const VertexWrapper *n2) const {
+			return this->vertex->h < n2->vertex->h;
+		}
+		bool operator<(const VertexWrapper *n2) const {
+			return this->vertex->h < n2->vertex->h;
+		}
+	};
+
+	struct VertexHWrapper : public VertexWrapper {
+		VertexHWrapper(Vertex *vertex) : VertexWrapper(vertex) {}
+
+		double getVal() const {
+			return vertex->g;
+		}
+		void setVal(double c) {
+			vertex->g = c;
+		}
+		bool sort(const VertexWrapper *n2) const {
+			return this->vertex->g < n2->vertex->g;
+		}
+		bool operator<(const VertexWrapper *n2) const {
+			return this->vertex->g < n2->vertex->g;
+		}
+	};
+
 	struct Edge {
+		enum CollisionCheckingStatus {
+			UNKNOWN = 0,
+			INVALID = 1,
+			VALID = 2,
+		};
+
 		Edge() {}
 
-		Edge(unsigned int endpoint, double weight) : endpoint(endpoint), weight(weight) {
-
-		}
+		Edge(unsigned int endpoint, double weight) : endpoint(endpoint), weight(weight), edgeStatus(UNKNOWN) {}
 
 		std::size_t operator()(const Edge &e) const {
 			return e.endpoint;
@@ -83,6 +180,7 @@ protected:
 
 		unsigned int endpoint;
 		double weight;
+		unsigned int edgeStatus;
 	};
 
 	double abstractDistanceFunction(const Vertex *a, const Vertex *b) const {
@@ -96,9 +194,27 @@ protected:
 	}
 
 public:
+	struct Timer {
+		Timer(const std::string &print) : print(print) {
+			OMPL_INFORM("starting : %s", print.c_str());
+			start = clock();
+
+		}
+		~Timer() {
+			OMPL_INFORM("ending : %s : \t%g", print.c_str(), (double)(clock()-start) / CLOCKS_PER_SEC);
+		}
+		clock_t start;
+		std::string print;
+	};
+
 	FBiasedStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	                    double omega, double stateRadius, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
-	fullStateSampler(base->allocStateSampler()), omega(omega), stateRadius(stateRadius) {
+		fullStateSampler(base->allocStateSampler()), omega(omega), stateRadius(stateRadius),
+		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
+
+
+		Timer timer("Abstraction Computation");
+		unsigned numVertex = 10000;
 
 		bool connected = false;
 		do {
@@ -114,7 +230,7 @@ public:
 
 			nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
 
-			generateVertices(10000);
+			generateVertices(numVertex);
 			generateEdges(10);
 
 			unsigned int bestId = 0;
@@ -131,21 +247,43 @@ public:
 					minDistance = distance;
 				}
 			}
-			dijkstraH(vertices[bestId]);
+
+			std::vector<VertexWrapper*> wrappers;
+			wrappers.reserve(vertices.size());
+			std::vector<VertexHWrapper> hWrappers;
+			hWrappers.reserve(vertices.size());
+			for(auto v : vertices) {
+				hWrappers.emplace_back(v);
+				wrappers.emplace_back(&hWrappers.back());
+			}
+
+			dijkstra(wrappers[bestId], wrappers);
 
 			Vertex startVertex(0);
 			startVertex.state = start;
 			Vertex *startRegion = nn->nearest(&startVertex);
 
+			std::vector<VertexGWrapper> gWrappers;
+			gWrappers.reserve(vertices.size());
+			unsigned int i = 0;
+			for(auto v : vertices) {
+				gWrappers.emplace_back(v);
+				wrappers[i++] = &gWrappers.back();
+			}
+
+			dijkstra(wrappers[startRegion->id], wrappers);
+
 			connected = !std::isinf(startRegion->h);
 
 			if(!connected) {
+				OMPL_WARN("not connected! recomputing...");
 				for(auto vert : vertices) {
 					delete vert;
 				}
 				edges.clear();
+				numVertex *= 1.5;
 			} else {
-				dijkstraG(startRegion);
+				
 			}
 		} while(!connected);
 
@@ -158,7 +296,7 @@ public:
 			}
 		}
 
-		// streamVisualization();
+		// generatePythonPlotting();
 	}
 
 	virtual ~FBiasedStateSampler() {
@@ -257,7 +395,6 @@ public:
 		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
 		fullStateSampler->sampleUniformNear(state, fullState.get(), stateRadius);
-		// fullStateSampler->sampleUniform(state);
 
 		return true;
 	}
@@ -269,6 +406,7 @@ public:
 
 protected:
 	void generateVertices(unsigned int howMany) {
+		Timer timer("Vertex Generation");
 		ompl::base::StateSpacePtr abstractSpace = globalParameters.globalAbstractAppBaseGeometric->getStateSpace();
 		ompl::base::ValidStateSamplerPtr abstractSampler = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->allocValidStateSampler();
 
@@ -282,39 +420,65 @@ protected:
 		}
 	}
 
-	void generateEdges(unsigned int howManyConnections) {
-		ompl::base::MotionValidatorPtr motionValidator = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator();;
+	void setEdgeStatus(unsigned int a, unsigned int b, unsigned int status) {
+		auto vertexAndEdges = edges.find(a);
+		if(vertexAndEdges == edges.end()) {
+			return;
+		}
 
+		auto &edges = vertexAndEdges->second;
+
+		auto edge = edges.find(b);
+		if(edge == edges.end()) {
+			return;
+		}
+
+		edge->second.edgeStatus = status;
+	}
+
+	bool isValidEdge(unsigned int a, unsigned int b) {
+		auto vertexAndEdges = edges.find(a);
+		if(vertexAndEdges == edges.end()) {
+			return false;
+		}
+
+		auto &edges = vertexAndEdges->second;
+
+		auto edge = edges.find(b);
+		if(edge == edges.end()) {
+			return false;
+		}
+
+		if(edge->second.edgeStatus == Edge::UNKNOWN) {
+			if(motionValidator->checkMotion(vertices[a]->state, vertices[b]->state)) {
+				edge->second.edgeStatus = Edge::VALID;
+				setEdgeStatus(b, a, Edge::VALID);
+			} else {
+				edge->second.edgeStatus = Edge::INVALID;
+				setEdgeStatus(b, a, Edge::INVALID);
+			}
+		}
+
+		return edge->second.edgeStatus == Edge::VALID;
+	}
+
+	void generateEdges(unsigned int howManyConnections) {
+		Timer timer("Edge Generation");
 		auto distanceFunc = nn->getDistanceFunction();
 
-		std::vector<Vertex *> neighbors;
-		for(auto vertex : vertices) {
+		for(Vertex* vertex : vertices) {
 			edges[vertex->id];
 
-			neighbors.clear();
+			std::vector<Vertex *> neighbors;
 			nn->nearestK(vertex, howManyConnections+1, neighbors);
-
-			vertex->edgeCandidates = neighbors.size() - 1;
 
 			assert(howManyConnections+1 >= neighbors.size());
 
-			for(auto neighbor : neighbors) {
-
-				if(edges.find(vertex->id) != edges.end() && 
-					edges[vertex->id].find(neighbor->id) != edges[vertex->id].end()) {
-					continue;
-				}
-
+			for(Vertex* neighbor : neighbors) {
 				double distance = distanceFunc(vertex, neighbor);
 				if(distance == 0) continue;
 
-				if(motionValidator->checkMotion(vertex->state, neighbor->state)) {
-					edges[vertex->id][neighbor->id] = Edge(neighbor->id, distance);
-					edges[neighbor->id][vertex->id] = Edge(vertex->id, distance);
-
-					vertex->actualEdges++;
-					vertices[neighbor->id]->actualEdges++;
-				}
+				edges[vertex->id][neighbor->id] = Edge(neighbor->id, distance);
 			}
 		}
 	}
@@ -346,47 +510,50 @@ protected:
 		return edge->second.weight;
 	}
 
-	void dijkstraG(Vertex *start) {
-		Vertex::sort = Vertex::sortG;
-		dijkstra(start, Vertex::getG, Vertex::setG);
-	}
-
-	void dijkstraH(Vertex *start) {
-		Vertex::sort = Vertex::sortH;
-		dijkstra(start, Vertex::getH, Vertex::setH);
-	}
-
-	void dijkstra(Vertex *start,
-	              std::function<double(const Vertex *)> peek,
-	              std::function<void(Vertex *, double)> update) {
-
-		InPlaceBinaryHeap<Vertex, Vertex> open;
+	void dijkstra(VertexWrapper *start, const std::vector<VertexWrapper*> &wrappers) {
+		Timer t("dijkstra");
+		InPlaceBinaryHeap<VertexWrapper, VertexWrapper> open;
 		std::unordered_set<unsigned int> closed;
-		update(start, 0);
+		start->setVal(0);
 		open.push(start);
 
-		closed.insert(start->id);
+		closed.insert(start->getId());
 
 		while(!open.isEmpty()) {
-			Vertex *current = open.pop();
+			VertexWrapper *current = open.pop();
 
-			closed.insert(current->id);
+			if(current->getId() != start->getId()) {
+				unsigned int parentIndex = current->getBestParentIndex();
+				if(!isValidEdge(parentIndex, current->getId())) {
+					//this will update the value of the vertex if needed
+					current->popBestParent();
+					if(current->hasMoreParents()) {
+						open.push(current);
+					}
+					continue;
+				}
+			}
 
-			std::vector<unsigned int> kids = getNeighboringCells(current->id);
+			closed.insert(current->getId());
+
+			if(closed.size() == wrappers.size()) break;
+
+			std::vector<unsigned int> kids = getNeighboringCells(current->getId());
 			for(unsigned int kidIndex : kids) {
 				if(closed.find(kidIndex) != closed.end()) continue;
 
-				double newValue = peek(current) + getEdgeCostBetweenCells(current->id, kidIndex);
-				Vertex *kid = vertices[kidIndex];
+				double newValue = current->getVal() + getEdgeCostBetweenCells(current->getId(), kidIndex);
+				VertexWrapper *kid = wrappers[kidIndex];
 
-				if(newValue < peek(kid)) {
-					update(kid, newValue);
+				//this will update the value of the vertex if needed
+				bool addedBetterParent = kid->addParent(current->getId(), newValue);
 
-					if(open.inHeap(kid)) {
+				if(open.inHeap(kid)) {
+					if(addedBetterParent) {
 						open.siftFromItem(kid);
-					} else {
-						open.push(kid);
 					}
+				} else {
+					open.push(kid);
 				}
 			}
 		}
@@ -402,7 +569,7 @@ protected:
 					minF = n->f;
 				}
 			} else {
-				untouched.push_back(n);
+				untouched.emplace_back(n);
 			}
 		}
 
@@ -433,9 +600,9 @@ protected:
 	std::unordered_map<unsigned int, std::unordered_map<unsigned int, Edge>> edges;
 	ProbabilityDensityFunction<Vertex> pdf;
 	double omega, stateRadius;
+	ompl::base::MotionValidatorPtr motionValidator;
 };
 
-std::function<bool(const typename FBiasedStateSampler::Vertex *, const typename FBiasedStateSampler::Vertex *)> FBiasedStateSampler::Vertex::sort = FBiasedStateSampler::Vertex::sortG;
 }
 
 }
