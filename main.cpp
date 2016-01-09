@@ -62,12 +62,12 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 
 	ompl::base::PlannerPtr plannerPointer;
 	if(planner.compare("RRT") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	}
 	else if(planner.compare("KPIECE") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
 	}
 	else if(planner.compare("SyclopRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 		doBenchmarkRun(benchmarkData, params);
 	}
 	else if(domain.compare("DynamicCar") == 0) {
-		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>("Polygon");
+		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>("Barriers");
 		streamPoint = stream2DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	}
