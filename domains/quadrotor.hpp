@@ -36,7 +36,7 @@ BenchmarkData quadrotorBenchmark() {
 	ompl::base::ScopedState<ompl::base::SE3StateSpace> start(quadrotor->getGeometricComponentStateSpace());
 	start->setX(5);
 	start->setY(-2);
-	start->setZ(-1);
+	start->setZ(-0.1);
 	start->rotation().setIdentity();
 
 	// define goal state
@@ -61,7 +61,8 @@ BenchmarkData quadrotorBenchmark() {
 	quadrotor->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
 	quadrotorPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
-	// quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.1);
+	//Don't use the default propagation step size for this environment!!
+	quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.1);
 
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/quadrotor.dae");
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
