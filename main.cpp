@@ -78,7 +78,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	else if(planner.compare("FBiasedRRT") == 0) {
 		double omega = params.doubleVal("Omega");
 		double stateRadius = params.doubleVal("StateRadius");
-		bool cheat = params.stringVal("Cheat").compare("true") == 0;
+		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, cheat));
 		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
 	}
@@ -87,7 +87,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		double stateRadius = params.doubleVal("StateRadius");
 		double shellPreference = params.doubleVal("ShellPreference");
 		double shellRadius = params.doubleVal("ShellRadius");
-		bool cheat = params.stringVal("Cheat").compare("true") == 0;
+		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), omega, stateRadius, shellPreference, shellRadius, cheat));
 		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
 	}
@@ -95,7 +95,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		double alpha = params.doubleVal("Alpha");
 		double b = params.doubleVal("B");
 		double stateRadius = params.doubleVal("StateRadius");
-		bool cheat = params.stringVal("Cheat").compare("true") == 0;
+		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), alpha, b, stateRadius, cheat));
 		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
 	}
