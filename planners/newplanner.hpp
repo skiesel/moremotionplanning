@@ -4,28 +4,35 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
-#include "../samplers/fbiasedstatesampler.hpp"
+#include "../samplers/newsampler.hpp"
 #include <limits>
 
 namespace ompl {
 
 namespace control {
 
-class FBiasedRRT : public ompl::control::RRT {
+
+// si_->getStateValidityChecker()->clearance(s)
+
+//
+
+
+
+class NewPlanner : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedRRT(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, bool cheat = false) :
-	ompl::control::RRT(si), omega(omega), stateRadius(stateRadius), fbiasedSampler_(NULL), prmSize(prmSize), numEdges(numEdges), cheat(cheat) {
+	NewPlanner(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, double shellPreference, double shellDepth, bool cheat = false) :
+	ompl::control::RRT(si), newsampler_(NULL), prmSize(prmSize), numEdges(numEdges), omega(omega), stateRadius(stateRadius), shellPreference(shellPreference),
+	shellDepth(shellDepth), cheat(cheat) {
 		if(cheat) {
-			setName("FBiased RRT [cheat]");
+			setName("NewPlanner_cheat");
 		} else {
-			setName("FBiased RRT");
+			setName("NewPlanner");
 		}
-		
 	}
 
-	virtual ~FBiasedRRT() {}
+	virtual ~NewPlanner() {}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -45,10 +52,10 @@ public:
 			return base::PlannerStatus::INVALID_START;
 		}
 
-		if(!fbiasedSampler_) {
-			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				prmSize, numEdges, omega, stateRadius);
-			fbiasedSampler_->initialize();
+		if(!newsampler_) {
+			newsampler_ = new ompl::base::NewSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+			prmSize, numEdges, omega, stateRadius);
+			newsampler_->initialize();
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -69,7 +76,7 @@ public:
 			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
 				goal_s->sampleGoal(rstate);
 			else {
-				fbiasedSampler_->sample(rstate);
+				newsampler_->sample(rstate);
 			}
 
 #ifdef STREAM_GRAPHICS
@@ -92,14 +99,15 @@ public:
 					bool solved = false;
 					size_t p = 0;
 					for(; p < pstates.size(); ++p) {
-						/* create a motion */
-						Motion *motion = new Motion();
-						motion->state = pstates[p];
+						newsampler_->reached(pstates[p]);
 
 #ifdef STREAM_GRAPHICS
 	streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
+						/* create a motion */
+						Motion *motion = new Motion();
+						motion->state = pstates[p];
 						//we need multiple copies of rctrl
 						motion->control = siC_->allocControl();
 						siC_->copyControl(motion->control, rctrl);
@@ -132,10 +140,13 @@ public:
 				if(cd >= siC_->getMinControlDuration()) {
 					/* create a motion */
 					Motion *motion = new Motion(siC_);
+
 					si_->copyState(motion->state, rmotion->state);
 					siC_->copyControl(motion->control, rctrl);
 					motion->steps = cd;
 					motion->parent = nmotion;
+
+					newsampler_->reached(motion->state);
 
 #ifdef STREAM_GRAPHICS
 	streamPoint(nmotion->state, 1, 0, 0, 1);
@@ -200,16 +211,17 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat && fbiasedSampler_ != NULL) {
-			delete fbiasedSampler_;
-			fbiasedSampler_ = NULL;
+		if(!cheat) {
+			delete newsampler_;
+			newsampler_ = NULL;
 		}
 	}
 
 protected:
-	base::FBiasedStateSampler *fbiasedSampler_;
-	double omega, stateRadius;
+
+	ompl::base::NewSampler *newsampler_;
 	unsigned int prmSize, numEdges;
+	double omega, stateRadius, shellPreference, shellDepth;
 	bool cheat;
 };
 

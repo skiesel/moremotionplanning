@@ -6,6 +6,7 @@
 #include <thread>
 
 #include <ompl/base/samplers/UniformValidStateSampler.h>
+#include <ompl/base/goals/GoalState.h>
 
 #include <ompl/datastructures/NearestNeighborsSqrtApprox.h>
 #include <ompl/datastructures/NearestNeighborsGNAT.h>
@@ -129,23 +130,6 @@ protected:
 		VertexGWrapper(Vertex *vertex) : VertexWrapper(vertex) {}
 
 		double getVal() const {
-			return vertex->h;
-		}
-		void setVal(double c) {
-			vertex->h = c;
-		}
-		bool sort(const VertexWrapper *n2) const {
-			return this->vertex->h < n2->vertex->h;
-		}
-		bool operator<(const VertexWrapper *n2) const {
-			return this->vertex->h < n2->vertex->h;
-		}
-	};
-
-	struct VertexHWrapper : public VertexWrapper {
-		VertexHWrapper(Vertex *vertex) : VertexWrapper(vertex) {}
-
-		double getVal() const {
 			return vertex->g;
 		}
 		void setVal(double c) {
@@ -156,6 +140,23 @@ protected:
 		}
 		bool operator<(const VertexWrapper *n2) const {
 			return this->vertex->g < n2->vertex->g;
+		}
+	};
+
+	struct VertexHWrapper : public VertexWrapper {
+		VertexHWrapper(Vertex *vertex) : VertexWrapper(vertex) {}
+
+		double getVal() const {
+			return vertex->h;
+		}
+		void setVal(double c) {
+			vertex->h = c;
+		}
+		bool sort(const VertexWrapper *n2) const {
+			return this->vertex->h < n2->vertex->h;
+		}
+		bool operator<(const VertexWrapper *n2) const {
+			return this->vertex->h < n2->vertex->h;
 		}
 	};
 
@@ -208,18 +209,27 @@ public:
 	};
 
 	FBiasedStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	                    double omega, double stateRadius, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
-		fullStateSampler(base->allocStateSampler()), omega(omega), stateRadius(stateRadius),
+	                    unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
+		fullStateSampler(base->allocStateSampler()), addAllRegionsToPDF(addAllRegionsToPDF), prmSize(prmSize), numEdges(numEdges), omega(omega), stateRadius(stateRadius),
 		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
+	}
 
+	virtual ~FBiasedStateSampler() {
+		for(auto vert : vertices) {
+			delete vert;
+		}
+	}
 
+	virtual void initialize() {
 		Timer timer("Abstraction Computation");
-		unsigned numVertex = 10000;
+
+		auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
+		auto abstractGoal = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getGoal()->as<ompl::base::GoalState>()->getState();
 
 		bool connected = false;
 		do {
 			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-			if(base->getStateSpace()->isMetricSpace()) {
+			if(si_->getStateSpace()->isMetricSpace()) {
 				// if (specs.multithreaded)
 				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
 				//else
@@ -230,23 +240,8 @@ public:
 
 			nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
 
-			generateVertices(numVertex);
-			generateEdges(10);
-
-			unsigned int bestId = 0;
-			double minDistance = std::numeric_limits<double>::infinity();
-			double distance;
-			for(auto vertex : vertices) {
-				ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-				vertexState = vertex->state;
-				ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
-
-				goal->isSatisfied(fullState.get(), &distance);
-				if(distance <  minDistance) {
-					bestId = vertex->id;
-					minDistance = distance;
-				}
-			}
+			generateVertices(abstractStart, abstractGoal, prmSize);
+			generateEdges(numEdges);
 
 			std::vector<VertexWrapper*> wrappers;
 			wrappers.reserve(vertices.size());
@@ -257,11 +252,7 @@ public:
 				wrappers.emplace_back(&hWrappers.back());
 			}
 
-			dijkstra(wrappers[bestId], wrappers);
-
-			Vertex startVertex(0);
-			startVertex.state = start;
-			Vertex *startRegion = nn->nearest(&startVertex);
+			dijkstra(wrappers[1], wrappers);
 
 			std::vector<VertexGWrapper> gWrappers;
 			gWrappers.reserve(vertices.size());
@@ -271,17 +262,17 @@ public:
 				wrappers[i++] = &gWrappers.back();
 			}
 
-			dijkstra(wrappers[startRegion->id], wrappers);
+			dijkstra(wrappers[0], wrappers);
 
-			connected = !std::isinf(startRegion->h);
+			connected = !(std::isinf(vertices[0]->g) || std::isinf(vertices[0]->h) || std::isinf(vertices[1]->g) || std::isinf(vertices[1]->h));
 
 			if(!connected) {
-				OMPL_WARN("not connected! recomputing...");
+				OMPL_INFORM("not connected! recomputing...");
 				for(auto vert : vertices) {
 					delete vert;
 				}
 				edges.clear();
-				numVertex *= 1.5;
+				prmSize *= 1.5;
 			} else {
 				
 			}
@@ -295,14 +286,9 @@ public:
 				vertices[i]->pdfID = el->getId();
 			}
 		}
-
-		// generatePythonPlotting();
-	}
-
-	virtual ~FBiasedStateSampler() {
-		for(auto vert : vertices) {
-			delete vert;
-		}
+#ifdef STREAM_GRAPHICS
+		generatePythonPlotting();
+#endif
 	}
 
 	std::vector<double> getColor(double min, double max, double value) const {
@@ -405,14 +391,24 @@ public:
 	}
 
 protected:
-	void generateVertices(unsigned int howMany) {
+	virtual void generateVertices(const ompl::base::State *start, const ompl::base::State *goal, unsigned int howMany) {
 		Timer timer("Vertex Generation");
 		ompl::base::StateSpacePtr abstractSpace = globalParameters.globalAbstractAppBaseGeometric->getStateSpace();
 		ompl::base::ValidStateSamplerPtr abstractSampler = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->allocValidStateSampler();
 
 		vertices.resize(howMany);
 
-		for(unsigned int i = 0; i < howMany; ++i) {
+		vertices[0] = new Vertex(0);
+		vertices[0]->state = abstractSpace->allocState();
+		abstractSpace->copyState(vertices[0]->state, start);
+		nn->add(vertices[0]);
+
+		vertices[1] = new Vertex(1);
+		vertices[1]->state = abstractSpace->allocState();
+		abstractSpace->copyState(vertices[1]->state, goal);
+		nn->add(vertices[1]);
+
+		for(unsigned int i = 2; i < howMany; ++i) {
 			vertices[i] = new Vertex(i);
 			vertices[i]->state = abstractSpace->allocState();
 			abstractSampler->sample(vertices[i]->state);
@@ -462,7 +458,7 @@ protected:
 		return edge->second.edgeStatus == Edge::VALID;
 	}
 
-	void generateEdges(unsigned int howManyConnections) {
+	virtual void generateEdges(unsigned int howManyConnections) {
 		Timer timer("Edge Generation");
 		auto distanceFunc = nn->getDistanceFunction();
 
@@ -482,6 +478,32 @@ protected:
 			}
 		}
 	}
+
+	// virtual void generateEdges(unsigned int howManyConnections) {
+	// 	Timer timer("Edge Generation");
+	// 	auto distanceFunc = nn->getDistanceFunction();
+
+	// 	std::vector<Vertex *> neighbors;
+	// 	for(auto vertex : vertices) {
+	// 		edges[vertex->id];
+
+	// 		neighbors.clear();
+	// 		nn->nearestK(vertex, howManyConnections+1, neighbors);
+
+	// 		assert(howManyConnections+1 >= neighbors.size());
+
+	// 		for(auto neighbor : neighbors) {
+	// 			double distance = distanceFunc(vertex, neighbor);
+	// 			if(distance == 0) continue;
+
+	// 			if(motionValidator->checkMotion(vertex->state, neighbor->state)) {
+	// 				edges[vertex->id][neighbor->id] = Edge(neighbor->id, distance);
+	// 				edges[neighbor->id][vertex->id] = Edge(vertex->id, distance);
+	// 			}
+	// 		}
+	// 	}
+	// }
+
 
 	std::vector<unsigned int> getNeighboringCells(unsigned int index) const {
 		auto vertexAndEdges = edges.find(index);
@@ -559,6 +581,40 @@ protected:
 		}
 	}
 
+	// void dijkstra(VertexWrapper *start, const std::vector<VertexWrapper*> &wrappers) {
+	// 	Timer t("dijkstra");
+	// 	InPlaceBinaryHeap<VertexWrapper, VertexWrapper> open;
+	// 	std::unordered_set<unsigned int> closed;
+	// 	start->setVal(0);
+	// 	open.push(start);
+
+	// 	closed.insert(start->getId());
+
+	// 	while(!open.isEmpty()) {
+	// 		VertexWrapper *current = open.pop();
+
+	// 		closed.insert(current->getId());
+
+	// 		std::vector<unsigned int> kids = getNeighboringCells(current->getId());
+	// 		for(unsigned int kidIndex : kids) {
+	// 			if(closed.find(kidIndex) != closed.end()) continue;
+
+	// 			double newValue = current->getVal() + getEdgeCostBetweenCells(current->getId(), kidIndex);
+	// 			VertexWrapper *kid = wrappers[kidIndex];
+
+	// 			if(newValue < kid->getVal()) {
+	// 				kid->setVal(newValue);
+
+	// 				if(open.inHeap(kid)) {
+	// 					open.siftFromItem(kid);
+	// 				} else {
+	// 					open.push(kid);
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+
 	void generateRegionScores() {
 		double minF = std::numeric_limits<double>::infinity();
 		std::vector<Vertex *> untouched;
@@ -599,6 +655,8 @@ protected:
 	std::vector<Vertex *> vertices;
 	std::unordered_map<unsigned int, std::unordered_map<unsigned int, Edge>> edges;
 	ProbabilityDensityFunction<Vertex> pdf;
+	bool addAllRegionsToPDF;
+	unsigned int prmSize, numEdges;
 	double omega, stateRadius;
 	ompl::base::MotionValidatorPtr motionValidator;
 };

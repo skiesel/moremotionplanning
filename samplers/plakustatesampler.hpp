@@ -181,16 +181,29 @@ public:
 		std::string print;
 	};
 
-	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal, double alpha, double b, double stateRadius)
+	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal, unsigned int prmSize, unsigned int numEdges, double alpha, double b, double stateRadius)
 		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(alpha), b(b), stateRadius(stateRadius), activeRegion(NULL),
 		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
+
+		base->getStateSpace()->copyState(start, start_);
+	}
+
+	virtual ~PlakuStateSampler() {
+		for(auto vertex : vertices) {
+			delete vertex;
+		}
+	}
+
+	virtual void initialize() {
 		Timer timer("Abstraction Computation");
-		unsigned numVertex = 10000;
+
+		auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
+		auto abstractGoal = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getGoal()->as<ompl::base::GoalState>()->getState();
 
 		bool connected = false;
 		do {
 			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-			if(base->getStateSpace()->isMetricSpace()) {
+			if(si_->getStateSpace()->isMetricSpace()) {
 				// if (specs.multithreaded)
 				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
 				//else
@@ -201,33 +214,15 @@ public:
 
 			nn->setDistanceFunction(boost::bind(&PlakuStateSampler::abstractDistanceFunction, this, _1, _2));
 
-			generateVertices(numVertex);
-			generateEdges(10);
+			generateVertices(abstractStart, abstractGoal, prmSize);
+			generateEdges(numEdges);
 
-			unsigned int bestId = 0;
-			double minDistance = std::numeric_limits<double>::infinity();
-			double distance;
-			for(auto vertex : vertices) {
-				ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-				vertexState = vertex->state;
-				ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
-				goal->isSatisfied(fullState.get(), &distance);
-				if(distance <  minDistance) {
-					bestId = vertex->id;
-					minDistance = distance;
-				}
-			}
-
-		    Vertex startVertex(0);
-		    startVertex.state = start;
-		    Vertex *startRegion = nn->nearest(&startVertex);
-		    startRegionId = startRegion->id;
-	    
-	    	goalRegionId = bestId;
+		    startRegionId = 0;
+	    	goalRegionId = 1;
 			dijkstra(vertices[goalRegionId]);
 
-			connected = !std::isinf(startRegion->heuristic);
+			connected = !std::isinf(vertices[startRegionId]->heuristic);
 
 			if(!connected) {
 				OMPL_WARN("not connected! recomputing...");
@@ -235,7 +230,7 @@ public:
 					delete vert;
 				}
 				edges.clear();
-				numVertex *= 1.5;
+				prmSize *= 1.5;
 			}
 		} while(!connected);
 
@@ -253,12 +248,6 @@ public:
 		// generatePythonPlotting();
 
 		reached(start);
-	}
-
-	virtual ~PlakuStateSampler() {
-		for(auto vertex : vertices) {
-			delete vertex;
-		}
 	}
 
 	std::vector<double> getColor(double min, double max, double value) const {
@@ -390,14 +379,24 @@ public:
 	}
 
 protected:
-	void generateVertices(unsigned int howMany) {
+	virtual void generateVertices(const ompl::base::State *start, const ompl::base::State *goal, unsigned int howMany) {
 		Timer timer("Vertex Generation");
 		ompl::base::StateSpacePtr abstractSpace = globalParameters.globalAbstractAppBaseGeometric->getStateSpace();
 		ompl::base::ValidStateSamplerPtr abstractSampler = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->allocValidStateSampler();
 
 		vertices.resize(howMany);
 
-		for(unsigned int i = 0; i < howMany; ++i) {
+		vertices[0] = new Vertex(0);
+		vertices[0]->state = abstractSpace->allocState();
+		abstractSpace->copyState(vertices[0]->state, start);
+		nn->add(vertices[0]);
+
+		vertices[1] = new Vertex(1);
+		vertices[1]->state = abstractSpace->allocState();
+		abstractSpace->copyState(vertices[1]->state, goal);
+		nn->add(vertices[1]);
+
+		for(unsigned int i = 2; i < howMany; ++i) {
 			vertices[i] = new Vertex(i);
 			vertices[i]->state = abstractSpace->allocState();
 			abstractSampler->sample(vertices[i]->state);
@@ -572,7 +571,8 @@ protected:
 	ompl::RNG randomNumbers;
 	ompl::base::MotionValidatorPtr motionValidator;
 
-	unsigned int startRegionId, goalRegionId;
+	ompl::base::State *start;
+	unsigned int startRegionId, goalRegionId, prmSize, numEdges;
 	Vertex *activeRegion;
 
 	double alpha, b, stateRadius;

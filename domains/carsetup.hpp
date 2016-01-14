@@ -69,6 +69,32 @@ void getBarriersEasyEnvironmentDetails(EnvironmentDetails &details) {
 	details.environmentMesh = "Barriers_easy_env.dae";
 }
 
+void getEffortExampleEnvironmentDetails(EnvironmentDetails &details) {
+	details.start->setX(-3.0);
+	details.start->setY(0.0);
+	details.start->setYaw(0.0);
+
+	details.goal->setX(5.0);
+	details.goal->setY(-3.0);
+	details.goal->setYaw(0.0);
+
+	details.agentMesh = "car2_planar_robot.dae";
+	details.environmentMesh = "EffortEnvironment.dae";
+}
+
+void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
+	details.start->setX(-5.0);
+	details.start->setY(2.0);
+	details.start->setYaw(0.0);
+
+	details.goal->setX(5.00);
+	details.goal->setY(2.0);
+	details.goal->setYaw(0.0);
+
+	details.agentMesh = "car2_planar_robot.dae";
+	details.environmentMesh = "EffortEnvironment2.dae";
+}
+
 template <class Car>
 BenchmarkData carBenchmark(std::string which) {
 	Car *car = new Car();
@@ -93,6 +119,10 @@ BenchmarkData carBenchmark(std::string which) {
 		getUniqueMazeEnvironmentDetails(details);
 	else if(which.compare("Barriers") == 0)
 		getBarriersEasyEnvironmentDetails(details);
+	else if(which.compare("Effort") == 0)
+		getEffortExampleEnvironmentDetails(details);
+	else if(which.compare("Effort2") == 0)
+		getEffortExample2EnvironmentDetails(details);
 
 	// set the start & goal states
 	carPtr->setStartAndGoalStates(

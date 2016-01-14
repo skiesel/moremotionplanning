@@ -15,8 +15,8 @@ class FBiasedShellRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedShellRRT(const SpaceInformationPtr &si, double omega, double stateRadius, double shellPreference, double shellDepth, bool cheat = false) :
-	ompl::control::RRT(si), shellsampler_(NULL), omega(omega), stateRadius(stateRadius), shellPreference(shellPreference),
+	FBiasedShellRRT(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, double shellPreference, double shellDepth, bool cheat = false) :
+	ompl::control::RRT(si), shellsampler_(NULL), prmSize(prmSize), numEdges(numEdges), omega(omega), stateRadius(stateRadius), shellPreference(shellPreference),
 	shellDepth(shellDepth), cheat(cheat) {
 		if(cheat) {
 			setName("FBiased RRT Shell [cheat]");
@@ -47,7 +47,8 @@ public:
 
 		if(!shellsampler_) {
 			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				omega, stateRadius, shellPreference, shellDepth);
+				prmSize, numEdges, omega, stateRadius, shellPreference, shellDepth);
+			shellsampler_->initialize();
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -214,6 +215,7 @@ protected:
 
 	ompl::base::FBiasedShellStateSampler *shellsampler_;
 	double omega, stateRadius, shellPreference, shellDepth;
+	unsigned int prmSize, numEdges;
 	bool cheat;
 };
 

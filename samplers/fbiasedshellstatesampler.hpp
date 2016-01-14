@@ -26,23 +26,27 @@ class FBiasedShellStateSampler : public ompl::base::FBiasedStateSampler {
 	};
 
 public:
-	FBiasedShellStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-    double omega, double stateRadius, double shellPreference, double shellDepth) :
-		FBiasedStateSampler(base, start, goal, omega, stateRadius, false), shellPreference(shellPreference), shellDepth(shellDepth) {
+	FBiasedShellStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal,
+    unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, double shellPreference, double shellDepth) :
+		FBiasedStateSampler(base, start_, goal, prmSize, numEdges, omega, stateRadius, false), shellPreference(shellPreference), shellDepth(shellDepth) {
 
-    for(auto vertex : vertices) {
-      vertex->extraData = new ExtraData();
-    }
-
-// dumpToStderr();
-
-    reached(start);
+      base->getStateSpace()->copyState(start, start_);
 	}
 
 	virtual ~FBiasedShellStateSampler() {
     for(auto vertex : vertices) {
       delete (ExtraData*)vertex->extraData;
     }
+  }
+
+  virtual void initialize() {
+    FBiasedStateSampler::initialize();
+    
+    for(auto vertex : vertices) {
+      vertex->extraData = new ExtraData();
+    }
+
+    reached(start);
   }
 
 	virtual bool sample(ompl::base::State *state) {
@@ -184,6 +188,7 @@ protected:
   }
 
 	ProbabilityDensityFunction<Vertex> interior, exterior;
+  ompl::base::State *start;
 	double shellPreference, shellDepth;
 	ompl::RNG randomNumbers;
 };

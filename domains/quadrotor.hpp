@@ -62,7 +62,7 @@ BenchmarkData quadrotorBenchmark() {
 
 	quadrotorPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
 	//Don't use the default propagation step size for this environment!!
-	quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.1);
+	quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.25);
 
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/quadrotor.dae");
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");

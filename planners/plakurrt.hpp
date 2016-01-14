@@ -15,8 +15,8 @@ class PlakuRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	PlakuRRT(const SpaceInformationPtr &si, double alpha, double b, double stateRadius, bool cheat = false) :
-	ompl::control::RRT(si), plakusampler_(NULL), alpha(alpha), b(b), stateRadius(stateRadius), cheat(cheat) {
+	PlakuRRT(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double alpha, double b, double stateRadius, bool cheat = false) :
+	ompl::control::RRT(si), plakusampler_(NULL), prmSize(prmSize), numEdges(numEdges), alpha(alpha), b(b), stateRadius(stateRadius), cheat(cheat) {
 		if(cheat) {
 			setName("Plaku RRT [cheat]");
 		} else {
@@ -45,7 +45,9 @@ public:
 		}
 
 		if(!plakusampler_) {
-			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), alpha, b, stateRadius);
+			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+				prmSize, numEdges, alpha, b, stateRadius);
+			plakusampler_->initialize();
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -211,6 +213,7 @@ protected:
 
 	ompl::base::PlakuStateSampler *plakusampler_;
 	double alpha, b, stateRadius;
+	unsigned int prmSize, numEdges;
 	bool cheat;
 };
 
