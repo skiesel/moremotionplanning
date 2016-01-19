@@ -44,7 +44,6 @@ GlobalParameters globalParameters;
 
 #include "domains/DynamicCarPlanning.hpp"
 #include "domains/KinematicCarPlanning.hpp"
-
 #include "domains/blimp.hpp"
 #include "domains/quadrotor.hpp"
 #include "domains/carsetup.hpp"
@@ -55,6 +54,7 @@ GlobalParameters globalParameters;
 #include "planners/RRT.hpp"
 #include "planners/KPIECE.hpp"
 #include "planners/newplanner.hpp"
+#include "planners/bestfirstplanner.hpp"
 
 #include "structs/filemap.hpp"
 
@@ -83,51 +83,29 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	else if(planner.compare("PDST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PDST(benchmarkData.simplesetup->getSpaceInformation()));
 	}
+	else if(planner.compare("BestFirst") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::BestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));	
+	}
 	else if(planner.compare("FBiasedRRT") == 0) {
-		unsigned int prmSize = params.integerVal("PRMSize");
-		unsigned int numEdges = params.integerVal("NumEdges");
-		double omega = params.doubleVal("Omega");
-		double stateRadius = params.doubleVal("StateRadius");
-		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), prmSize, numEdges, omega, stateRadius, cheat));
-		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
 	}
 	else if(planner.compare("FBiasedShellRRT") == 0) {
-		unsigned int prmSize = params.integerVal("PRMSize");
-		unsigned int numEdges = params.integerVal("NumEdges");
-		double omega = params.doubleVal("Omega");
-		double stateRadius = params.doubleVal("StateRadius");
-		double shellPreference = params.doubleVal("ShellPreference");
-		double shellRadius = params.doubleVal("ShellRadius");
-		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), prmSize, numEdges, omega, stateRadius, shellPreference, shellRadius, cheat));
-		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
 	}
 	else if(planner.compare("PlakuRRT") == 0) {
-		unsigned int prmSize = params.integerVal("PRMSize");
-		unsigned int numEdges = params.integerVal("NumEdges");
-		double alpha = params.doubleVal("Alpha");
-		double b = params.doubleVal("B");
-		double stateRadius = params.doubleVal("StateRadius");
-		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), prmSize, numEdges, alpha, b, stateRadius, cheat));
-		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
 	}
 	else if(planner.compare("NewPlanner") == 0) {
-		unsigned int prmSize = params.integerVal("PRMSize");
-		unsigned int numEdges = params.integerVal("NumEdges");
-		double omega = params.doubleVal("Omega");
-		double stateRadius = params.doubleVal("StateRadius");
-		double shellPreference = params.doubleVal("ShellPreference");
-		double shellRadius = params.doubleVal("ShellRadius");
-		bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), prmSize, numEdges, omega, stateRadius, shellPreference, shellRadius, cheat));
-		if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
 	}
 	else {
 		fprintf(stderr, "unrecognized planner\n");
 		return;
 	}
+
+	// cheat and allow the planner to initialize datastructures before the actual timing begins
+	bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
+	if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
 
 	if(plannerPointer->params().hasParam("intermediate_states")) {
 		plannerPointer->params().setParam("intermediate_states", "true");
@@ -139,6 +117,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	req.maxMem = params.doubleVal("Memory");
 	req.runCount = params.doubleVal("Runs");
 	req.displayProgress = true;
+	req.saveConsoleOutput = false;
 
 	benchmarkData.benchmark->benchmark(req);
 	benchmarkData.benchmark->saveResultsToFile(params.stringVal("Output").c_str());

@@ -7,30 +7,37 @@
 
 #include "../structs/filemap.hpp"
 
-#include "../samplers/newsampler.hpp"
+#include "../samplers/bestfirstsampler.hpp"
+#include "../samplers/bestfirst/astarsampler.hpp"
+#include "../samplers/bestfirst/dijkstrasampler.hpp"
+#include "../samplers/bestfirst/speedysampler.hpp"
+#include "../samplers/bestfirst/greedysampler.hpp"
 #include <limits>
 
 namespace ompl {
 
 namespace control {
 
-class NewPlanner : public ompl::control::RRT {
+class BestFirstPlanner : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	NewPlanner(const SpaceInformationPtr &si, const FileMap &params) :
-	ompl::control::RRT(si), newsampler_(NULL), params(params) {
+	BestFirstPlanner(const SpaceInformationPtr &si, const FileMap &params) :
+	ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
 
+		whichBestFirst = params.stringVal("WhichBestFirst");
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
+		std::string plannerName = "BestFirst_" + whichBestFirst;
 		if(cheat) {
-			setName("NewPlanner_cheat");
+			plannerName += "_cheat";
+			setName(plannerName);
 		} else {
-			setName("NewPlanner");
+			setName(plannerName);
 		}
 	}
 
-	virtual ~NewPlanner() {}
+	virtual ~BestFirstPlanner() {}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -50,10 +57,19 @@ public:
 			return base::PlannerStatus::INVALID_START;
 		}
 
-		if(!newsampler_) {
-			newsampler_ = new ompl::base::NewSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-			params);
-			newsampler_->initialize();
+		if(!bestFirstSampler_) {
+			if(whichBestFirst.compare("A*") == 0) {
+				bestFirstSampler_ = new ompl::base::AstarSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
+			} else if(whichBestFirst.compare("Dijkstra") == 0) {
+				bestFirstSampler_ = new ompl::base::DijkstraSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
+			} else if(whichBestFirst.compare("Speedy") == 0) {
+				bestFirstSampler_ = new ompl::base::SpeedySampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
+			} else if(whichBestFirst.compare("Greedy") == 0) {
+				bestFirstSampler_ = new ompl::base::GreedySampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
+			}
+
+			
+			bestFirstSampler_->initialize();
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -74,7 +90,7 @@ public:
 			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
 				goal_s->sampleGoal(rstate);
 			else {
-				newsampler_->sample(rstate);
+				bestFirstSampler_->sample(rstate);
 			}
 
 #ifdef STREAM_GRAPHICS
@@ -97,7 +113,7 @@ public:
 					bool solved = false;
 					size_t p = 0;
 					for(; p < pstates.size(); ++p) {
-						newsampler_->reached(pstates[p]);
+						bestFirstSampler_->reached(nmotion->state, pstates[p]);
 
 #ifdef STREAM_GRAPHICS
 	streamPoint(pstates[p], 1, 0, 0, 1);
@@ -144,7 +160,7 @@ public:
 					motion->steps = cd;
 					motion->parent = nmotion;
 
-					newsampler_->reached(motion->state);
+					bestFirstSampler_->reached(nmotion->state, motion->state);
 
 #ifdef STREAM_GRAPHICS
 	streamPoint(nmotion->state, 1, 0, 0, 1);
@@ -210,14 +226,14 @@ public:
 	virtual void clear() {
 		RRT::clear();
 		if(!cheat) {
-			delete newsampler_;
-			newsampler_ = NULL;
+			delete bestFirstSampler_;
+			bestFirstSampler_ = NULL;
 		}
 	}
 
 protected:
-
-	ompl::base::NewSampler *newsampler_;
+	ompl::base::BestFirstSampler *bestFirstSampler_;
+	std::string whichBestFirst;
 	bool cheat;
 	const FileMap &params;
 };

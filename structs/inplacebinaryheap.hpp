@@ -75,7 +75,6 @@ public:
 		fill--;
 		siftDown(1);
 		Ops::setHeapIndex(ret_T, std::numeric_limits<unsigned int>::max());
-
 		return ret_T;
 	}
 

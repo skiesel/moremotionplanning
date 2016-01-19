@@ -48,8 +48,8 @@ class NewSampler : public ompl::base::FBiasedStateSampler {
 public:
 
   NewSampler( ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-    unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius) :
-    FBiasedStateSampler(base, start, goal, prmSize, numEdges, omega, stateRadius),
+    const FileMap &params) :
+    FBiasedStateSampler(base, start, goal, params),
     motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()),
     effortEstimator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()) {
 

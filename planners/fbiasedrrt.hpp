@@ -4,6 +4,8 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
+
+#include "../structs/filemap.hpp"
 #include "../samplers/fbiasedstatesampler.hpp"
 #include <limits>
 
@@ -15,8 +17,11 @@ class FBiasedRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedRRT(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, bool cheat = false) :
-	ompl::control::RRT(si), omega(omega), stateRadius(stateRadius), fbiasedSampler_(NULL), prmSize(prmSize), numEdges(numEdges), cheat(cheat) {
+	FBiasedRRT(const SpaceInformationPtr &si, const FileMap &params) :
+	ompl::control::RRT(si), fbiasedSampler_(NULL), params(params) {
+
+		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
+
 		if(cheat) {
 			setName("FBiased RRT [cheat]");
 		} else {
@@ -46,8 +51,7 @@ public:
 		}
 
 		if(!fbiasedSampler_) {
-			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				prmSize, numEdges, omega, stateRadius);
+			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
 			fbiasedSampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -208,9 +212,8 @@ public:
 
 protected:
 	base::FBiasedStateSampler *fbiasedSampler_;
-	double omega, stateRadius;
-	unsigned int prmSize, numEdges;
 	bool cheat;
+	const FileMap &params;
 };
 
 }

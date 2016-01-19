@@ -4,6 +4,9 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
+
+#include "../structs/filemap.hpp"
+
 #include "../samplers/fbiasedshellstatesampler.hpp"
 #include <limits>
 
@@ -15,9 +18,11 @@ class FBiasedShellRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	FBiasedShellRRT(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, double shellPreference, double shellDepth, bool cheat = false) :
-	ompl::control::RRT(si), shellsampler_(NULL), prmSize(prmSize), numEdges(numEdges), omega(omega), stateRadius(stateRadius), shellPreference(shellPreference),
-	shellDepth(shellDepth), cheat(cheat) {
+	FBiasedShellRRT(const SpaceInformationPtr &si, const FileMap &params) :
+	ompl::control::RRT(si), shellsampler_(NULL), params(params) {
+
+		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
+
 		if(cheat) {
 			setName("FBiased RRT Shell [cheat]");
 		} else {
@@ -47,7 +52,7 @@ public:
 
 		if(!shellsampler_) {
 			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				prmSize, numEdges, omega, stateRadius, shellPreference, shellDepth);
+				params);
 			shellsampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -214,9 +219,8 @@ public:
 protected:
 
 	ompl::base::FBiasedShellStateSampler *shellsampler_;
-	double omega, stateRadius, shellPreference, shellDepth;
-	unsigned int prmSize, numEdges;
 	bool cheat;
+	const FileMap &params;
 };
 
 }

@@ -184,17 +184,17 @@ protected:
 		unsigned int edgeStatus;
 	};
 
+	const base::State *stateIsAlreadyGeometric(const base::State *state, unsigned int /*index*/) const {
+		return state;
+	}
+
+public:
 	double abstractDistanceFunction(const Vertex *a, const Vertex *b) const {
 		assert(a->state != NULL);
 		assert(b->state != NULL);
 		return globalParameters.globalAbstractAppBaseGeometric->getStateSpace()->distance(a->state, b->state);
 	}
 
-	const base::State *stateIsAlreadyGeometric(const base::State *state, unsigned int /*index*/) const {
-		return state;
-	}
-
-public:
 	struct Timer {
 		Timer(const std::string &print) : print(print) {
 			OMPL_INFORM("starting : %s", print.c_str());
@@ -209,10 +209,10 @@ public:
 	};
 
 	FBiasedStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	                    unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
-		fullStateSampler(base->allocStateSampler()), addAllRegionsToPDF(addAllRegionsToPDF), prmSize(prmSize), numEdges(numEdges), omega(omega), stateRadius(stateRadius),
-		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
-	}
+	                    const FileMap &params, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
+		fullStateSampler(base->allocStateSampler()), addAllRegionsToPDF(addAllRegionsToPDF), prmSize(params.integerVal("PRMSize")),
+		numEdges(params.integerVal("NumEdges")), omega(params.doubleVal("Omega")), stateRadius(params.doubleVal("StateRadius")),
+		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {}
 
 	virtual ~FBiasedStateSampler() {
 		for(auto vert : vertices) {
@@ -532,7 +532,7 @@ protected:
 		return edge->second.weight;
 	}
 
-	void dijkstra(VertexWrapper *start, const std::vector<VertexWrapper*> &wrappers) {
+	virtual void dijkstra(VertexWrapper *start, const std::vector<VertexWrapper*> &wrappers) {
 		Timer t("dijkstra");
 		InPlaceBinaryHeap<VertexWrapper, VertexWrapper> open;
 		std::unordered_set<unsigned int> closed;

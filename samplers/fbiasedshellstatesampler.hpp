@@ -27,9 +27,9 @@ class FBiasedShellStateSampler : public ompl::base::FBiasedStateSampler {
 
 public:
 	FBiasedShellStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal,
-    unsigned int prmSize, unsigned int numEdges, double omega, double stateRadius, double shellPreference, double shellDepth) :
-		FBiasedStateSampler(base, start_, goal, prmSize, numEdges, omega, stateRadius, false), shellPreference(shellPreference), shellDepth(shellDepth) {
-
+    const FileMap &params) :
+		FBiasedStateSampler(base, start_, goal, params, false), shellPreference(params.doubleVal("ShellPreference")),
+    shellDepth(params.doubleVal("ShellDepth")), start(base->getStateSpace()->allocState()) {
       base->getStateSpace()->copyState(start, start_);
 	}
 
@@ -41,7 +41,7 @@ public:
 
   virtual void initialize() {
     FBiasedStateSampler::initialize();
-    
+
     for(auto vertex : vertices) {
       vertex->extraData = new ExtraData();
     }
@@ -53,7 +53,7 @@ public:
     Vertex *randomVertex = NULL;
     if(randomNumbers.uniform01() < shellPreference && !exterior.isEmpty()) {
       randomVertex = exterior.sample();
-    } else if(!exterior.isEmpty()) {
+    } else if(!interior.isEmpty()) {
       randomVertex = interior.sample();
     }
 

@@ -181,9 +181,9 @@ public:
 		std::string print;
 	};
 
-	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal, unsigned int prmSize, unsigned int numEdges, double alpha, double b, double stateRadius)
-		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(alpha), b(b), stateRadius(stateRadius), activeRegion(NULL),
-		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
+	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal, const FileMap &params)
+		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(params.doubleVal("Alpha")), b(params.doubleVal("B")), stateRadius(params.doubleVal("StateRadius")), activeRegion(NULL),
+		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()), start(base->getStateSpace()->allocState()) {
 
 		base->getStateSpace()->copyState(start, start_);
 	}

@@ -15,8 +15,11 @@ class PlakuRRT : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	PlakuRRT(const SpaceInformationPtr &si, unsigned int prmSize, unsigned int numEdges, double alpha, double b, double stateRadius, bool cheat = false) :
-	ompl::control::RRT(si), plakusampler_(NULL), prmSize(prmSize), numEdges(numEdges), alpha(alpha), b(b), stateRadius(stateRadius), cheat(cheat) {
+	PlakuRRT(const SpaceInformationPtr &si, const FileMap &params) :
+	ompl::control::RRT(si), plakusampler_(NULL), params(params) {
+
+		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
+
 		if(cheat) {
 			setName("Plaku RRT [cheat]");
 		} else {
@@ -46,7 +49,7 @@ public:
 
 		if(!plakusampler_) {
 			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				prmSize, numEdges, alpha, b, stateRadius);
+				params);
 			plakusampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -212,9 +215,8 @@ public:
 protected:
 
 	ompl::base::PlakuStateSampler *plakusampler_;
-	double alpha, b, stateRadius;
-	unsigned int prmSize, numEdges;
 	bool cheat;
+	const FileMap &params;
 };
 
 }
