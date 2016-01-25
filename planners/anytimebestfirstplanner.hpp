@@ -7,23 +7,19 @@
 
 #include "../structs/filemap.hpp"
 
-#include "../samplers/bestfirstsampler.hpp"
-#include "../samplers/bestfirst/single/astarsampler.hpp"
-#include "../samplers/bestfirst/single/dijkstrasampler.hpp"
-#include "../samplers/bestfirst/single/speedysampler.hpp"
-#include "../samplers/bestfirst/single/greedysampler.hpp"
-#include "../samplers/bestfirst/single/eessampler.hpp"
+#include "../samplers/anytimebestfirstsampler.hpp"
+#include "../samplers/bestfirst/anytime/eessampler.hpp"
 #include <limits>
 
 namespace ompl {
 
 namespace control {
 
-class BestFirstPlanner : public ompl::control::RRT {
+class AnytimeBestFirstPlanner : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	BestFirstPlanner(const SpaceInformationPtr &si, const FileMap &params) :
+	AnytimeBestFirstPlanner(const SpaceInformationPtr &si, const FileMap &params) :
 	ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
 
 		whichBestFirst = params.stringVal("WhichBestFirst");
@@ -38,9 +34,9 @@ public:
 		}
 	}
 
-	virtual ~BestFirstPlanner() {}
+	virtual ~AnytimeBestFirstPlanner() {}
 
-		/** \brief Continue solving for some amount of time. Return true if solution was found. */
+	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
 		checkValidity();
 		base::Goal                   *goal = pdef_->getGoal().get();
@@ -59,19 +55,13 @@ public:
 		}
 
 		if(!bestFirstSampler_) {
-			if(whichBestFirst.compare("A*") == 0) {
-				bestFirstSampler_ = new ompl::base::AstarSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("Dijkstra") == 0) {
-				bestFirstSampler_ = new ompl::base::DijkstraSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("Greedy") == 0) {
-				bestFirstSampler_ = new ompl::base::GreedySampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("Speedy") == 0) {
-				bestFirstSampler_ = new ompl::base::SpeedySampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("EES") == 0) {
-				bestFirstSampler_ = new ompl::base::EESSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
+			if(whichBestFirst.compare("AEES") == 0) {
+				bestFirstSampler_ = new ompl::base::AnytimeEESSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
 			} else {
-				throw ompl::Exception("Unrecognized best first search type", whichBestFirst.c_str());
+				throw ompl::Exception("Unrecognized anytime best first search type", whichBestFirst.c_str());
+				return base::PlannerStatus(false, false);
 			}
+			
 			bestFirstSampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -79,14 +69,11 @@ public:
 
 		OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size());
 
-		Motion *solution  = NULL;
-		Motion *approxsol = NULL;
-		double  approxdif = std::numeric_limits<double>::infinity();
-
 		Motion      *rmotion = new Motion(siC_);
 		base::State  *rstate = rmotion->state;
 		Control       *rctrl = rmotion->control;
 		base::State  *xstate = si_->allocState();
+		double       incumbentSolutionLength = std::numeric_limits<double>::infinity();
 
 		while(ptc == false) {
 			/* sample random state (with goal biasing) */
@@ -116,16 +103,15 @@ public:
 					bool solved = false;
 					size_t p = 0;
 					for(; p < pstates.size(); ++p) {
-						/* create a motion */
-						Motion *motion = new Motion();
-						motion->state = pstates[p];
-
 						bestFirstSampler_->reached(nmotion->state, pstates[p]);
 
 #ifdef STREAM_GRAPHICS
 	streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
+						/* create a motion */
+						Motion *motion = new Motion();
+						motion->state = pstates[p];
 						//we need multiple copies of rctrl
 						motion->control = siC_->allocControl();
 						siC_->copyControl(motion->control, rctrl);
@@ -136,13 +122,8 @@ public:
 						double dist = 0.0;
 						solved = goal->isSatisfied(motion->state, &dist);
 						if(solved) {
-							approxdif = dist;
-							solution = motion;
-							break;
-						}
-						if(dist < approxdif) {
-							approxdif = dist;
-							approxsol = motion;
+							double solutionLength = addSolutionPath(motion, dist);
+							bestFirstSampler_->foundGoal(nmotion->state, pstates[p], solutionLength);
 						}
 					}
 
@@ -175,44 +156,11 @@ public:
 					double dist = 0.0;
 					bool solv = goal->isSatisfied(motion->state, &dist);
 					if(solv) {
-						approxdif = dist;
-						solution = motion;
-						break;
-					}
-					if(dist < approxdif) {
-						approxdif = dist;
-						approxsol = motion;
+						double solutionLength = addSolutionPath(motion, dist);
+						bestFirstSampler_->foundGoal(nmotion->state, motion->state, solutionLength);
 					}
 				}
 			}
-		}
-
-		bool solved = false;
-		bool approximate = false;
-		if(solution == NULL) {
-			solution = approxsol;
-			approximate = true;
-		}
-
-		if(solution != NULL) {
-			lastGoalMotion_ = solution;
-
-			/* construct the solution path */
-			std::vector<Motion *> mpath;
-			while(solution != NULL) {
-				mpath.push_back(solution);
-				solution = solution->parent;
-			}
-
-			/* set the solution path */
-			PathControl *path = new PathControl(si_);
-			for(int i = mpath.size() - 1 ; i >= 0 ; --i)
-				if(mpath[i]->parent)
-					path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC_->getPropagationStepSize());
-				else
-					path->append(mpath[i]->state);
-			solved = true;
-			pdef_->addSolutionPath(base::PathPtr(path), approximate, approxdif, getName());
 		}
 
 		if(rmotion->state)
@@ -224,7 +172,7 @@ public:
 
 		OMPL_INFORM("%s: Created %u states", getName().c_str(), nn_->size());
 
-		return base::PlannerStatus(solved, approximate);
+		return base::PlannerStatus(pdef_->getSolutionCount() > 0, false);
 	}
 
 	virtual void clear() {
@@ -235,8 +183,36 @@ public:
 		}
 	}
 
+	double addSolutionPath(Motion *solution, double dist) {
+		std::vector<Motion *> mpath;
+		while(solution != NULL) {
+			mpath.push_back(solution);
+			solution = solution->parent;
+		}
+
+		PathControl *path = new PathControl(si_);
+		for(int i = mpath.size() - 1 ; i >= 0 ; --i)
+			if(mpath[i]->parent)
+				path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC_->getPropagationStepSize());
+			else
+				path->append(mpath[i]->state);
+
+		pdef_->addSolutionPath(base::PathPtr(path), false, dist, getName());
+
+		return path->length();
+	}
+
+	double getSolutionLength(Motion *solution) const {
+		double length = 0;
+		while(solution != NULL) {
+			length += solution->steps * siC_->getPropagationStepSize();
+			solution = solution->parent;
+		}
+		return length;
+	}
+
 protected:
-	ompl::base::BestFirstSampler *bestFirstSampler_;
+	ompl::base::AnytimeBestFirstSampler *bestFirstSampler_;
 	std::string whichBestFirst;
 	bool cheat;
 	const FileMap &params;

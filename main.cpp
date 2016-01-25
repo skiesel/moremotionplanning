@@ -55,6 +55,7 @@ GlobalParameters globalParameters;
 #include "planners/KPIECE.hpp"
 #include "planners/newplanner.hpp"
 #include "planners/bestfirstplanner.hpp"
+#include "planners/anytimebestfirstplanner.hpp"
 
 #include "structs/filemap.hpp"
 
@@ -85,6 +86,9 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	}
 	else if(planner.compare("BestFirst") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::BestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));	
+	}
+	else if(planner.compare("AnytimeBestFirst") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::AnytimeBestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));	
 	}
 	else if(planner.compare("FBiasedRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), params));

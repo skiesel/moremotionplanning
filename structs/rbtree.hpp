@@ -46,7 +46,7 @@ public:
 		return root == nil;
 	}
 
-	const T* peekLeftmost() const {
+	T* peekLeftmost() const {
 		if(root == nil) return NULL;
 
 		RBNode* min = root;

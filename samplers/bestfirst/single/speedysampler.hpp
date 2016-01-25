@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../bestfirstsampler.hpp"
+#include "../../bestfirstsampler.hpp"
 
 namespace ompl {
 
