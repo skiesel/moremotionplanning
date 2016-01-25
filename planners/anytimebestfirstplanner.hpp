@@ -20,7 +20,7 @@ public:
 
 	/** \brief Constructor */
 	AnytimeBestFirstPlanner(const SpaceInformationPtr &si, const FileMap &params) :
-	ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
+		ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
 
 		whichBestFirst = params.stringVal("WhichBestFirst");
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
@@ -32,9 +32,42 @@ public:
 		} else {
 			setName(plannerName);
 		}
+
+		Planner::declareParam<double>("state_radius", this, &AnytimeBestFirstPlanner::ignoreSetterDouble, &AnytimeBestFirstPlanner::getStateRadius);
+		Planner::declareParam<double>("random_state_probability", this, &AnytimeBestFirstPlanner::ignoreSetterDouble, &AnytimeBestFirstPlanner::getRandomStateProbability);
+		Planner::declareParam<double>("peek_penalty", this, &AnytimeBestFirstPlanner::ignoreSetterDouble, &AnytimeBestFirstPlanner::getPeekPenalty);
+		Planner::declareParam<double>("prm_size", this, &AnytimeBestFirstPlanner::ignoreSetterUnsigedInt, &AnytimeBestFirstPlanner::getPRMSize);
+		Planner::declareParam<double>("num_prm_edges", this, &AnytimeBestFirstPlanner::ignoreSetterUnsigedInt, &AnytimeBestFirstPlanner::getNumPRMEdges);
+
+		if(whichBestFirst.compare("AEES") == 0) {
+			Planner::declareParam<double>("weight", this, &AnytimeBestFirstPlanner::ignoreSetterUnsigedInt, &AnytimeBestFirstPlanner::getWeight);
+		}
 	}
 
 	virtual ~AnytimeBestFirstPlanner() {}
+
+	void ignoreSetterDouble(double) const {}
+	void ignoreSetterUnsigedInt(unsigned int) const {}
+
+	double getStateRadius() const {
+		return params.doubleVal("StateRadius");
+	}
+	double getRandomStateProbability() const {
+		return params.doubleVal("RandomStateProbability");
+	}
+	double getPeekPenalty() const {
+		return params.doubleVal("PeekPenalty");
+	}
+	unsigned int getPRMSize() const {
+		return params.integerVal("PRMSize");
+	}
+	unsigned int getNumPRMEdges() const {
+		return params.integerVal("NumEdges");
+	}
+
+	double getWeight() const {
+		return params.doubleVal("Weight");
+	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -61,7 +94,6 @@ public:
 				throw ompl::Exception("Unrecognized anytime best first search type", whichBestFirst.c_str());
 				return base::PlannerStatus(false, false);
 			}
-			
 			bestFirstSampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -84,7 +116,7 @@ public:
 			}
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(rmotion->state, 0, 1, 0, 1);
+			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
 
 			/* find closest state in the tree */
@@ -106,7 +138,7 @@ public:
 						bestFirstSampler_->reached(nmotion->state, pstates[p]);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(pstates[p], 1, 0, 0, 1);
+						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						/* create a motion */
@@ -148,8 +180,8 @@ public:
 					bestFirstSampler_->reached(nmotion->state, motion->state);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(nmotion->state, 1, 0, 0, 1);
-	streamPoint(motion->state, 1, 0, 0, 1);
+					streamPoint(nmotion->state, 1, 0, 0, 1);
+					streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);

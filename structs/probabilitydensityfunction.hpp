@@ -2,11 +2,11 @@
 
 template<class Data>
 class ProbabilityDensityFunction {
-public:	
+public:
 	struct Element {
 		Element(Data *data, double weight, unsigned int index) : data(data),  weight(weight), index(index), leftSubtreeWeight(0), rightSubtreeWeight(0) {}
 
-		Data* getData() const {
+		Data *getData() const {
 			return data;
 		}
 
@@ -18,15 +18,15 @@ public:
 		unsigned int leftChild() const {
 			return index * 2;
 		}
-		
+
 		unsigned int rightChild() const {
 			return index * 2 + 1;
 		}
-		
+
 		unsigned int parent() const {
 			return index / 2;
 		}
-		
+
 		bool isRoot() const {
 			return index == 1;
 		}
@@ -79,21 +79,21 @@ public:
 		return elements.size() <= 1;
 	}
 
-	Element* add(Data *data, double weight) {
+	Element *add(Data *data, double weight) {
 		elements.push_back(new Element(data, weight, elements.size()));
 
 		updateTree(elements.back(), weight);
 		return elements.back();
 	}
 
-	Element* update(unsigned int index, double weight) {
+	Element *update(unsigned int index, double weight) {
 		Element *element = elements[index];
 		updateTree(element, weight - element->weight);
 		element->weight = weight;
 		return element;
 	}
 
-	Element* remove(unsigned int index) {
+	Element *remove(unsigned int index) {
 		Element *element = elements[index];
 
 		if(index != elements.size()-1) {
@@ -117,7 +117,7 @@ public:
 		return index >= elements.size() ? NULL : elements[index];
 	}
 
-	Data* sample() const {
+	Data *sample() const {
 		double total = elements[1]->getSubtreeWeight();
 		double value = zeroToOne.uniform01() * total;
 
@@ -171,7 +171,7 @@ private:
 		return left + el->weight + right;
 	}
 
-	void updateTree(Element* el, double weight) {
+	void updateTree(Element *el, double weight) {
 		Element *cur = el;
 		Element *parent;
 
@@ -186,6 +186,6 @@ private:
 		}
 	}
 
-	std::vector<Element*> elements;
+	std::vector<Element *> elements;
 	mutable ompl::RNG zeroToOne;
 };

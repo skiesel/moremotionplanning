@@ -7,6 +7,7 @@
 
 #include <ompl/base/samplers/UniformValidStateSampler.h>
 #include <ompl/base/goals/GoalState.h>
+#include <ompl/base/GenericParam.h>
 
 #include <ompl/datastructures/NearestNeighborsSqrtApprox.h>
 #include <ompl/datastructures/NearestNeighborsGNAT.h>
@@ -26,7 +27,7 @@ class FBiasedStateSampler : public ompl::base::UniformValidStateSampler {
 protected:
 	struct Vertex {
 		Vertex(unsigned int id) : id(id), g(std::numeric_limits<double>::infinity()), h(std::numeric_limits<double>::infinity()),
-		pdfID(0), state(NULL), extraData(NULL) {}
+			pdfID(0), state(NULL), extraData(NULL) {}
 
 		unsigned int id;
 		double g, h, f;
@@ -52,7 +53,7 @@ protected:
 
 		virtual double getVal() const = 0;
 		virtual void setVal(double) = 0;
-		virtual bool sort(const VertexWrapper*) const = 0;
+		virtual bool sort(const VertexWrapper *) const = 0;
 
 		static bool pred(const VertexWrapper *a, const VertexWrapper *b) {
 			return a->sort(b);
@@ -76,7 +77,7 @@ protected:
 			unsigned int parent;
 			double cost;
 		};
-		
+
 		bool addParent(unsigned int parent, double cost) {
 			if(currentParent == NULL) {
 				currentParent = new Parent(parent, cost);
@@ -122,7 +123,7 @@ protected:
 			}
 		}
 
-		std::vector<Parent*> parents;
+		std::vector<Parent *> parents;
 		Parent *currentParent;
 	};
 
@@ -209,12 +210,12 @@ public:
 	};
 
 	FBiasedStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	                    const FileMap &params, bool addAllRegionsToPDF = true, bool generateAllRegionScores = true) : UniformValidStateSampler(base), 
+	                    const FileMap &params, bool addAllRegionsToPDF = true, bool generateAllRegionScores = true) : UniformValidStateSampler(base),
 		fullStateSampler(base->allocStateSampler()), addAllRegionsToPDF(addAllRegionsToPDF), generateAllRegionScores(generateAllRegionScores),
 		prmSize(params.integerVal("PRMSize")), numEdges(params.integerVal("NumEdges")), stateRadius(params.doubleVal("StateRadius")),
 		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
-			omega = params.exists("Omega") ? params.doubleVal("Omega") : 1.0;
-		}
+		omega = params.exists("Omega") ? params.doubleVal("Omega") : 1.0;
+	}
 
 	virtual ~FBiasedStateSampler() {
 		for(auto vert : vertices) {
@@ -245,7 +246,7 @@ public:
 			generateVertices(abstractStart, abstractGoal, prmSize);
 			generateEdges(numEdges);
 
-			std::vector<VertexWrapper*> wrappers;
+			std::vector<VertexWrapper *> wrappers;
 			wrappers.reserve(vertices.size());
 			std::vector<VertexHWrapper> hWrappers;
 			hWrappers.reserve(vertices.size());
@@ -276,7 +277,7 @@ public:
 				edges.clear();
 				prmSize *= 1.5;
 			} else {
-				
+
 			}
 		} while(!connected);
 
@@ -340,7 +341,7 @@ public:
 	}
 
 	void generatePythonPlotting() const {
-		FILE* f = fopen("prm.py", "w");
+		FILE *f = fopen("prm.py", "w");
 
 		double min = std::numeric_limits<double>::infinity();
 		double max = -std::numeric_limits<double>::infinity();
@@ -466,7 +467,7 @@ protected:
 		Timer timer("Edge Generation");
 		auto distanceFunc = nn->getDistanceFunction();
 
-		for(Vertex* vertex : vertices) {
+		for(Vertex *vertex : vertices) {
 			edges[vertex->id];
 
 			std::vector<Vertex *> neighbors;
@@ -474,7 +475,7 @@ protected:
 
 			assert(howManyConnections+1 >= neighbors.size());
 
-			for(Vertex* neighbor : neighbors) {
+			for(Vertex *neighbor : neighbors) {
 				double distance = distanceFunc(vertex, neighbor);
 				if(distance == 0) continue;
 
@@ -536,7 +537,7 @@ protected:
 		return edge->second.weight;
 	}
 
-	virtual void dijkstra(VertexWrapper *start, const std::vector<VertexWrapper*> &wrappers) {
+	virtual void dijkstra(VertexWrapper *start, const std::vector<VertexWrapper *> &wrappers) {
 		Timer t("dijkstra");
 		InPlaceBinaryHeap<VertexWrapper, VertexWrapper> open;
 		std::unordered_set<unsigned int> closed;
@@ -652,7 +653,7 @@ protected:
 		}
 	}
 
-	
+
 
 	StateSamplerPtr fullStateSampler;
 	boost::shared_ptr< NearestNeighbors<Vertex *> > nn;

@@ -23,31 +23,27 @@
 #include <boost/function.hpp>
 #include <ompl/base/State.h>
 
-namespace ompl
-{
-    namespace app
-    {
+namespace ompl {
+namespace app {
 
-        /// Specify whether bodies are moving in 2D or bodies moving in 3D
-        enum MotionModel { Motion_2D, Motion_3D };
+/// Specify whether bodies are moving in 2D or bodies moving in 3D
+enum MotionModel { Motion_2D, Motion_3D };
 
-        typedef boost::function<const base::State*(const base::State*, unsigned int)> GeometricStateExtractor;
+typedef boost::function<const base::State*(const base::State *, unsigned int)> GeometricStateExtractor;
 
-        class GeometrySpecification
-        {
-        public:
+class GeometrySpecification {
+public:
 
-            GeometrySpecification(void)
-            {
-            }
+	GeometrySpecification(void) {
+	}
 
-            std::vector<const aiScene *> robot;
-            std::vector<aiVector3D>      robotShift;
+	std::vector<const aiScene *> robot;
+	std::vector<aiVector3D>      robotShift;
 
-            std::vector<const aiScene *> obstacles;
-            std::vector<aiVector3D>      obstaclesShift;
-        };
+	std::vector<const aiScene *> obstacles;
+	std::vector<aiVector3D>      obstaclesShift;
+};
 
-    }
+}
 }
 #endif

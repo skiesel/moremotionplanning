@@ -8,7 +8,7 @@ template <class T, class Ops> class RBTree {
 
 	struct RBNode {
 		RBNode() : key(NULL), parent(this), left(this), right(this), color(BLACK) {}
-		RBNode(T *key, RBNode* nil) : key(key), parent(nil), left(nil), right(nil), color(RED) {}
+		RBNode(T *key, RBNode *nil) : key(key), parent(nil), left(nil), right(nil), color(RED) {}
 		~RBNode() {
 			//explicitly NOT deleting key
 		}
@@ -20,17 +20,17 @@ template <class T, class Ops> class RBTree {
 public:
 
 	RBTree() {
-		root = nil = new RBNode(); 
+		root = nil = new RBNode();
 	}
 
 	~RBTree() {
 		if(root == nil) return;
 
-		std::vector<RBNode*> tree;
+		std::vector<RBNode *> tree;
 
 		tree.push_back(root);
 		while(!tree.empty()) {
-			RBNode* n = tree.back();
+			RBNode *n = tree.back();
 			tree.pop_back();
 			if(n->left != nil) {
 				tree.push_back(n->left);
@@ -46,24 +46,24 @@ public:
 		return root == nil;
 	}
 
-	T* peekLeftmost() const {
+	T *peekLeftmost() const {
 		if(root == nil) return NULL;
 
-		RBNode* min = root;
+		RBNode *min = root;
 		while(min->left != nil) {
 			min = min->left;
 		}
 		return min->key;
 	}
 
-	T* extractLeftmost() {
+	T *extractLeftmost() {
 		if(root == nil) return NULL;
 
-		RBNode* min = root;
+		RBNode *min = root;
 		while(min->left != nil) {
 			min = min->left;
 		}
-		T* key = min->key;
+		T *key = min->key;
 
 		//already have the RBNode, so delete using that
 		remove(min);
@@ -71,13 +71,13 @@ public:
 		return key;
 	}
 
-	std::vector<T*> getContiguousRange(std::function<bool(T*)> includeThis) {
-		std::vector<T*> range;
+	std::vector<T *> getContiguousRange(std::function<bool(T *)> includeThis) {
+		std::vector<T *> range;
 
 		if(root == nil) return range;
 
 		int collecting = 0;
-		
+
 		getContiguousRange(root, includeThis, range, &collecting);
 
 		return range;
@@ -92,7 +92,7 @@ public:
 		while(z != nil) {
 			int comparison = Ops::compare(elem, z->key);
 			if(comparison < 0) {
-					z = z->left;
+				z = z->left;
 			} else if(comparison > 0) {
 				z = z->right;
 			} else {
@@ -104,7 +104,7 @@ public:
 
 	void checkInvariants() const {
 		assert(root->color == BLACK);
-		
+
 		int first_black_height = -1;
 
 		checkInvariants(root, 1, &first_black_height);
@@ -112,8 +112,8 @@ public:
 
 private:
 
-	void getContiguousRange(RBNode* node, std::function<bool(T*)> includeThis, std::vector<T*>& range, int* collecting) {
-		
+	void getContiguousRange(RBNode *node, std::function<bool(T *)> includeThis, std::vector<T *> &range, int *collecting) {
+
 		if(node->left != nil) {
 			getContiguousRange(node->left, includeThis, range, collecting);
 			if(*collecting == 2) {
@@ -136,7 +136,7 @@ private:
 		}
 	}
 
-	void checkInvariants(RBNode* node, unsigned int black_nodes, int* first_black_height) const {
+	void checkInvariants(RBNode *node, unsigned int black_nodes, int *first_black_height) const {
 		if(node->left == nil && node->right == nil) {
 			if(*first_black_height < 0) {
 				*first_black_height = black_nodes;
@@ -148,15 +148,15 @@ private:
 		if(node->left != nil) {
 			assert(Ops::compare(node->key, node->left->key) >= 0);
 			assert(node->color == BLACK || node->left->color == BLACK);
-			
+
 			int new_black = black_nodes + (node->left->color == BLACK ? 1 : 0);
-			
+
 			checkInvariants(node->left, new_black, first_black_height);
 		}
 		if(node->right != nil) {
 			assert(Ops::compare(node->key, node->right->key) <= 0);
 			assert(node->color == BLACK || node->right->color == BLACK);
-			
+
 			int new_black = black_nodes + (node->right->color == BLACK ? 1 : 0);
 
 			checkInvariants(node->right, new_black, first_black_height);
@@ -231,12 +231,12 @@ private:
 
 	void rotateLeft(RBNode *x) {
 		RBNode *y = x->right;
-		
+
 		x->right = y->left;
 		if(y->left != nil) {
 			y->left->parent = x;
 		}
-		
+
 		y->parent = x->parent;
 
 		if(x->parent == nil) {
@@ -253,12 +253,12 @@ private:
 
 	void rotateRight(RBNode *x) {
 		RBNode *y = x->left;
-		
+
 		x->left = y->right;
 		if(y->right != nil) {
 			y->right->parent = x;
 		}
-		
+
 		y->parent = x->parent;
 
 		if(x->parent == nil) {
@@ -271,7 +271,7 @@ private:
 
 		y->right = x;
 		x->parent = y;
-	}	
+	}
 
 	void remove(RBNode *z) {
 		RBNode *x = nil;
@@ -305,8 +305,8 @@ private:
 		}
 	}
 
-	void removeFixup(RBNode* x) {
-		RBNode* w = nil;
+	void removeFixup(RBNode *x) {
+		RBNode *w = nil;
 
 		while(x != root && x->color == BLACK) {
 			if(x == x->parent->left) {
@@ -373,15 +373,15 @@ private:
 		v->parent = u->parent;
 	}
 
-	RBNode* successor(const RBNode* x) const {
+	RBNode *successor(const RBNode *x) const {
 		if(x->right == nil) return NULL;
-		RBNode* min = x->right;
+		RBNode *min = x->right;
 		while(min->left != nil) {
 			min = min->left;
 		}
 		return min;
 	}
 
-	RBNode* root;
-	RBNode* nil;
+	RBNode *root;
+	RBNode *nil;
 };

@@ -15,7 +15,7 @@ struct GlobalParameters {
 	ompl::app::AppBase<ompl::app::GEOMETRIC> *globalAbstractAppBaseGeometric = NULL;
 };
 
-std::function<void(const ompl::base::State*, double, double, double, double)> streamPoint;
+std::function<void(const ompl::base::State *, double, double, double, double)> streamPoint;
 
 void stream3DPoint(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
 	auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
@@ -35,6 +35,7 @@ void stream2DPoint2(const ompl::base::State *state, double red=1, double green=0
 GlobalParameters globalParameters;
 
 #include <ompl/control/planners/rrt/RRT.h>
+#include <ompl/control/planners/est/EST.h>
 #include <ompl/control/planners/kpiece/KPIECE1.h>
 #include <ompl/control/planners/kpiece/KPIECE1.h>
 #include <ompl/control/planners/syclop/SyclopRRT.h>
@@ -53,7 +54,6 @@ GlobalParameters globalParameters;
 #include "planners/plakurrt.hpp"
 #include "planners/RRT.hpp"
 #include "planners/KPIECE.hpp"
-#include "planners/newplanner.hpp"
 #include "planners/bestfirstplanner.hpp"
 #include "planners/anytimebestfirstplanner.hpp"
 
@@ -65,51 +65,43 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 
 	ompl::base::PlannerPtr plannerPointer;
 	if(planner.compare("RRT") == 0) {
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
-	}
-	else if(planner.compare("KPIECE") == 0) {
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
-	}
-	else if(planner.compare("SST") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+	} else if(planner.compare("KPIECE") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
+	} else if(planner.compare("EST") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::EST(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+	} else if(planner.compare("SST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SST(benchmarkData.simplesetup->getSpaceInformation()));;
-	}
-	else if(planner.compare("SyclopRRT") == 0) {
+	} else if(planner.compare("SyclopRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopRRT(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
-	}
-	else if(planner.compare("SyclopEST") == 0) {
+	} else if(planner.compare("SyclopEST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SyclopEST(benchmarkData.simplesetup->getSpaceInformation(), benchmarkData.decomposition));
-	}
-	else if(planner.compare("PDST") == 0) {
+	} else if(planner.compare("PDST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PDST(benchmarkData.simplesetup->getSpaceInformation()));
-	}
-	else if(planner.compare("BestFirst") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::BestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));	
-	}
-	else if(planner.compare("AnytimeBestFirst") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::AnytimeBestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));	
-	}
-	else if(planner.compare("FBiasedRRT") == 0) {
+	} else if(planner.compare("BestFirst") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::BestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
+	} else if(planner.compare("AnytimeBestFirst") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::AnytimeBestFirstPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
+	} else if(planner.compare("FBiasedRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
-	}
-	else if(planner.compare("FBiasedShellRRT") == 0) {
+	} else if(planner.compare("FBiasedShellRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
-	}
-	else if(planner.compare("PlakuRRT") == 0) {
+	} else if(planner.compare("PlakuRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
-	}
-	else if(planner.compare("NewPlanner") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
-	}
-	else {
+	} else {
 		fprintf(stderr, "unrecognized planner\n");
 		return;
 	}
 
 	// cheat and allow the planner to initialize datastructures before the actual timing begins
 	bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-	if(cheat) { plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition()); plannerPointer->solve(0); }
+	if(cheat) {
+		plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition());
+		plannerPointer->solve(0);
+	}
 
 	if(plannerPointer->params().hasParam("intermediate_states")) {
 		plannerPointer->params().setParam("intermediate_states", "true");
@@ -137,26 +129,22 @@ int main(int argc, char *argv[]) {
 		auto benchmarkData = blimpBenchmark();
 		streamPoint = stream3DPoint;
 		doBenchmarkRun(benchmarkData, params);
-	}
-	else if(domain.compare("Quadrotor") == 0) {
+	} else if(domain.compare("Quadrotor") == 0) {
 		auto benchmarkData = quadrotorBenchmark();
 		streamPoint = stream3DPoint;
 		doBenchmarkRun(benchmarkData, params);
-	}
-	else if(domain.compare("KinematicCar") == 0) {
+	} else if(domain.compare("KinematicCar") == 0) {
 
 		auto benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>(params.stringVal("CarMap"));
 		streamPoint = stream2DPoint2;
 		doBenchmarkRun(benchmarkData, params);
-	}
-	else if(domain.compare("DynamicCar") == 0) {
+	} else if(domain.compare("DynamicCar") == 0) {
 		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>(params.stringVal("CarMap"));
 		streamPoint = stream2DPoint;
 		doBenchmarkRun(benchmarkData, params);
-	}
-	else {
+	} else {
 		fprintf(stderr, "unrecognized domain\n");
 	}
-	
+
 	return 0;
 }

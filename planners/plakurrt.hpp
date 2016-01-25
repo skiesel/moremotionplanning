@@ -16,7 +16,7 @@ public:
 
 	/** \brief Constructor */
 	PlakuRRT(const SpaceInformationPtr &si, const FileMap &params) :
-	ompl::control::RRT(si), plakusampler_(NULL), params(params) {
+		ompl::control::RRT(si), plakusampler_(NULL), params(params) {
 
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
@@ -25,9 +25,34 @@ public:
 		} else {
 			setName("Plaku RRT");
 		}
+
+		Planner::declareParam<double>("state_radius", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getStateRadius);
+		Planner::declareParam<double>("alpha", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getAlpha);
+		Planner::declareParam<double>("b", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getB);
+		Planner::declareParam<double>("prm_size", this, &PlakuRRT::ignoreSetterUnsigedInt, &PlakuRRT::getPRMSize);
+		Planner::declareParam<double>("num_prm_edges", this, &PlakuRRT::ignoreSetterUnsigedInt, &PlakuRRT::getNumPRMEdges);
 	}
 
 	virtual ~PlakuRRT() {}
+
+	void ignoreSetterDouble(double) const {}
+	void ignoreSetterUnsigedInt(unsigned int) const {}
+
+	double getStateRadius() const {
+		return params.doubleVal("StateRadius");
+	}
+	double getAlpha() const {
+		return params.doubleVal("Alpha");
+	}
+	double getB() const {
+		return params.doubleVal("B");
+	}
+	unsigned int getPRMSize() const {
+		return params.integerVal("PRMSize");
+	}
+	unsigned int getNumPRMEdges() const {
+		return params.integerVal("NumEdges");
+	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -49,7 +74,7 @@ public:
 
 		if(!plakusampler_) {
 			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				params);
+			        params);
 			plakusampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -75,7 +100,7 @@ public:
 			}
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(rmotion->state, 0, 1, 0, 1);
+			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
 
 			/* find closest state in the tree */
@@ -97,7 +122,7 @@ public:
 						plakusampler_->reached(pstates[p]);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(pstates[p], 1, 0, 0, 1);
+						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						/* create a motion */
@@ -144,8 +169,8 @@ public:
 					plakusampler_->reached(motion->state);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(nmotion->state, 1, 0, 0, 1);
-	streamPoint(motion->state, 1, 0, 0, 1);
+					streamPoint(nmotion->state, 1, 0, 0, 1);
+					streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);

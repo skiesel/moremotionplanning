@@ -19,7 +19,7 @@ public:
 
 	/** \brief Constructor */
 	FBiasedShellRRT(const SpaceInformationPtr &si, const FileMap &params) :
-	ompl::control::RRT(si), shellsampler_(NULL), params(params) {
+		ompl::control::RRT(si), shellsampler_(NULL), params(params) {
 
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
@@ -28,9 +28,38 @@ public:
 		} else {
 			setName("FBiased RRT Shell");
 		}
+
+		Planner::declareParam<double>("omega", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getOmega);
+		Planner::declareParam<double>("state_radius", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getStateRadius);
+		Planner::declareParam<double>("shell_depth", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getShellDepth);
+		Planner::declareParam<double>("shell_preference", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getShellPreference);
+		Planner::declareParam<double>("prm_size", this, &FBiasedShellRRT::ignoreSetterUnsigedInt, &FBiasedShellRRT::getPRMSize);
+		Planner::declareParam<double>("num_prm_edges", this, &FBiasedShellRRT::ignoreSetterUnsigedInt, &FBiasedShellRRT::getNumPRMEdges);
 	}
 
 	virtual ~FBiasedShellRRT() {}
+
+	void ignoreSetterDouble(double) const {}
+	void ignoreSetterUnsigedInt(unsigned int) const {}
+
+	double getOmega() const {
+		return params.doubleVal("Omega");
+	}
+	double getStateRadius() const {
+		return params.doubleVal("StateRadius");
+	}
+	double getShellDepth() const {
+		return params.doubleVal("ShellDepth");
+	}
+	double getShellPreference() const {
+		return params.doubleVal("ShellPreference");
+	}
+	unsigned int getPRMSize() const {
+		return params.integerVal("PRMSize");
+	}
+	unsigned int getNumPRMEdges() const {
+		return params.integerVal("NumEdges");
+	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -52,7 +81,7 @@ public:
 
 		if(!shellsampler_) {
 			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-				params);
+			        params);
 			shellsampler_->initialize();
 		}
 		if(!controlSampler_)
@@ -78,7 +107,7 @@ public:
 			}
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(rmotion->state, 0, 1, 0, 1);
+			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
 
 			/* find closest state in the tree */
@@ -104,7 +133,7 @@ public:
 						shellsampler_->reached(pstates[p]);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(pstates[p], 1, 0, 0, 1);
+						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						//we need multiple copies of rctrl
@@ -148,8 +177,8 @@ public:
 					shellsampler_->reached(motion->state);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(nmotion->state, 1, 0, 0, 1);
-	streamPoint(motion->state, 1, 0, 0, 1);
+					streamPoint(nmotion->state, 1, 0, 0, 1);
+					streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);

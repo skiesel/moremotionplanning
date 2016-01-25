@@ -19,7 +19,7 @@ public:
 
 	~InPlaceBinaryHeap() {}
 
-	void createFromVector(std::vector<T*>& vec) {
+	void createFromVector(std::vector<T *> &vec) {
 		if(heap.size() < vec.size()) {
 			unsigned int size = heap.size() * 2;
 			while(size < vec.size()) {
@@ -97,11 +97,14 @@ public:
 		if(index > 0 && index <= fill) {
 			int parent_index = parent(index);
 			if(index > 1 && Ops::pred(heap[index], heap[parent_index])) {
-				if(debug) { fprintf(stderr, "up\n"); }
+				if(debug) {
+					fprintf(stderr, "up\n");
+				}
 				siftUp(index);
-			}
-			else {
-				if(debug) { fprintf(stderr, "down\n"); }
+			} else {
+				if(debug) {
+					fprintf(stderr, "down\n");
+				}
 				siftDown(index, debug);
 			}
 		}
@@ -112,7 +115,7 @@ public:
 		// }
 	}
 
-	void remove(const T* data) {
+	void remove(const T *data) {
 		unsigned int index = Ops::getHeapIndex(data);
 		swap(index,fill);
 		fill--;
@@ -120,8 +123,7 @@ public:
 			int parent_index = parent(index);
 			if(index > 1 && Ops::pred(heap[index], heap[parent_index])) {
 				siftUp(index);
-			}
-			else {
+			} else {
 				siftDown(index);
 			}
 		}
@@ -137,7 +139,7 @@ public:
 		return true;
 	}
 
-	const std::vector<T *>& cheat() const {
+	const std::vector<T *> &cheat() const {
 		return heap;
 	}
 
@@ -180,17 +182,14 @@ private:
 		if(left_index <= fill && right_index <= fill) {
 			if(Ops::pred(heap[left_index], heap[right_index])) {
 				return left_index;
-			}
-			else {
+			} else {
 				return right_index;
 			}
 		} else if(left_index <= fill) {
 			return left_index;
-		}
-		else if(right_index <= fill) {
+		} else if(right_index <= fill) {
 			return right_index;
-		}
-		else {
+		} else {
 			return index;
 		}
 	}

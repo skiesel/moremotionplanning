@@ -3,6 +3,7 @@
 #include "ompl/control/planners/PlannerIncludes.h"
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
+#include <ompl/base/GenericParam.h>
 #include "ompl/tools/config/SelfConfig.h"
 
 #include "../structs/filemap.hpp"
@@ -18,7 +19,7 @@ public:
 
 	/** \brief Constructor */
 	FBiasedRRT(const SpaceInformationPtr &si, const FileMap &params) :
-	ompl::control::RRT(si), fbiasedSampler_(NULL), params(params) {
+		ompl::control::RRT(si), fbiasedSampler_(NULL), params(params) {
 
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
@@ -27,10 +28,30 @@ public:
 		} else {
 			setName("FBiased RRT");
 		}
-		
+
+		Planner::declareParam<double>("omega", this, &FBiasedRRT::ignoreSetterDouble, &FBiasedRRT::getOmega);
+		Planner::declareParam<double>("state_radius", this, &FBiasedRRT::ignoreSetterDouble, &FBiasedRRT::getStateRadius);
+		Planner::declareParam<double>("prm_size", this, &FBiasedRRT::ignoreSetterUnsigedInt, &FBiasedRRT::getPRMSize);
+		Planner::declareParam<double>("num_prm_edges", this, &FBiasedRRT::ignoreSetterUnsigedInt, &FBiasedRRT::getNumPRMEdges);
 	}
 
 	virtual ~FBiasedRRT() {}
+
+	void ignoreSetterDouble(double) const {}
+	void ignoreSetterUnsigedInt(unsigned int) const {}
+
+	double getOmega() const {
+		return params.doubleVal("Omega");
+	}
+	double getStateRadius() const {
+		return params.doubleVal("StateRadius");
+	}
+	unsigned int getPRMSize() const {
+		return params.integerVal("PRMSize");
+	}
+	unsigned int getNumPRMEdges() const {
+		return params.integerVal("NumEdges");
+	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -77,7 +98,7 @@ public:
 			}
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(rmotion->state, 0, 1, 0, 1);
+			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
 
 			/* find closest state in the tree */
@@ -101,7 +122,7 @@ public:
 						motion->state = pstates[p];
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(pstates[p], 1, 0, 0, 1);
+						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						//we need multiple copies of rctrl
@@ -142,8 +163,8 @@ public:
 					motion->parent = nmotion;
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(nmotion->state, 1, 0, 0, 1);
-	streamPoint(motion->state, 1, 0, 0, 1);
+					streamPoint(nmotion->state, 1, 0, 0, 1);
+					streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);

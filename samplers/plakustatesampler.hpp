@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include <ompl/base/samplers/UniformValidStateSampler.h>
+#include <ompl/base/GenericParam.h>
 
 #include <ompl/datastructures/NearestNeighborsSqrtApprox.h>
 #include <ompl/datastructures/NearestNeighborsGNAT.h>
@@ -78,7 +79,7 @@ protected:
 		};
 
 		bool addParent(unsigned int parent, double cost, const std::vector<unsigned int> &path) {
-			Parent* newParent = new Parent(parent, cost, path);
+			Parent *newParent = new Parent(parent, cost, path);
 			newParent->path.emplace_back(id);
 
 			if(currentParent == NULL) {
@@ -129,7 +130,7 @@ protected:
 			}
 		}
 
-		std::vector<Parent*> parents;
+		std::vector<Parent *> parents;
 		Parent *currentParent;
 	};
 
@@ -182,8 +183,9 @@ public:
 	};
 
 	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal, const FileMap &params)
-		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(params.doubleVal("Alpha")), b(params.doubleVal("B")), stateRadius(params.doubleVal("StateRadius")), activeRegion(NULL),
-		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()), start(base->getStateSpace()->allocState()) {
+		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(params.doubleVal("Alpha")), b(params.doubleVal("B")),
+		  stateRadius(params.doubleVal("StateRadius")), prmSize(params.integerVal("PRMSize")), numEdges(params.integerVal("NumEdges")), activeRegion(NULL),
+		  motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()), start(base->getStateSpace()->allocState()) {
 
 		base->getStateSpace()->copyState(start, start_);
 	}
@@ -218,8 +220,8 @@ public:
 			generateEdges(numEdges);
 
 
-		    startRegionId = 0;
-	    	goalRegionId = 1;
+			startRegionId = 0;
+			goalRegionId = 1;
 			dijkstra(vertices[goalRegionId]);
 
 			connected = !std::isinf(vertices[startRegionId]->heuristic);
@@ -466,7 +468,7 @@ protected:
 		Timer timer("Edge Generation");
 		auto distanceFunc = nn->getDistanceFunction();
 
-		for(Vertex* vertex : vertices) {
+		for(Vertex *vertex : vertices) {
 			edges[vertex->id];
 
 			std::vector<Vertex *> neighbors;
@@ -474,7 +476,7 @@ protected:
 
 			assert(howManyConnections+1 >= neighbors.size());
 
-			for(Vertex* neighbor : neighbors) {
+			for(Vertex *neighbor : neighbors) {
 				if(edgeExists(vertex->id, neighbor->id)) continue;
 
 				double distance = distanceFunc(vertex, neighbor);
@@ -541,7 +543,7 @@ protected:
 			closed.insert(current->id);
 
 			if(closed.size() == vertices.size()) break;
-	
+
 			std::vector<unsigned int> kids = getNeighboringCells(current->id);
 			for(unsigned int kidIndex : kids) {
 				if(closed.find(kidIndex) != closed.end()) continue;
@@ -559,7 +561,7 @@ protected:
 					}
 				} else {
 					open.push(kid);
-				}	
+				}
 			}
 		}
 	}

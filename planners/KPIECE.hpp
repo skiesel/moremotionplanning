@@ -177,7 +177,7 @@ public:
 				std::size_t avgCov_two_thirds = (2 * tree_.size) / (3 * tree_.grid.size());
 				bool interestingMotion = false;
 #ifdef STREAM_GRAPHICS
-	streamPoint(existing->state, 1, 0, 0, 1);
+				streamPoint(existing->state, 1, 0, 0, 1);
 #endif
 
 				// split the motion into smaller ones, so we do not cross cell boundaries
@@ -203,7 +203,7 @@ public:
 						motion->parent = existing;
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(motion->state, 1, 0, 0, 1);
+						streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 						double dist = 0.0;

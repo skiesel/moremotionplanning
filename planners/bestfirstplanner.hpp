@@ -24,7 +24,7 @@ public:
 
 	/** \brief Constructor */
 	BestFirstPlanner(const SpaceInformationPtr &si, const FileMap &params) :
-	ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
+		ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
 
 		whichBestFirst = params.stringVal("WhichBestFirst");
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
@@ -36,11 +36,56 @@ public:
 		} else {
 			setName(plannerName);
 		}
+
+		Planner::declareParam<double>("state_radius", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getStateRadius);
+		Planner::declareParam<double>("random_state_probability", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getRandomStateProbability);
+		Planner::declareParam<double>("peek_penalty", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getPeekPenalty);
+		Planner::declareParam<double>("prm_size", this, &BestFirstPlanner::ignoreSetterUnsigedInt, &BestFirstPlanner::getPRMSize);
+		Planner::declareParam<double>("num_prm_edges", this, &BestFirstPlanner::ignoreSetterUnsigedInt, &BestFirstPlanner::getNumPRMEdges);
+
+		if(whichBestFirst.compare("A*") == 0 || whichBestFirst.compare("EES") == 0) {
+			Planner::declareParam<double>("weight", this, &BestFirstPlanner::ignoreSetterUnsigedInt, &BestFirstPlanner::getWeight);
+		} else if(whichBestFirst.compare("Speedy") == 0) {
+			Planner::declareParam<std::string>("use_d_or_e", this, &BestFirstPlanner::ignoreSetterString, &BestFirstPlanner::getDOrE);
+		}
 	}
 
 	virtual ~BestFirstPlanner() {}
 
-		/** \brief Continue solving for some amount of time. Return true if solution was found. */
+
+	void ignoreSetterDouble(double) const {}
+	void ignoreSetterUnsigedInt(unsigned int) const {}
+	void ignoreSetterString(std::string) const {}
+
+	double getStateRadius() const {
+		return params.doubleVal("StateRadius");
+	}
+	double getRandomStateProbability() const {
+		return params.doubleVal("RandomStateProbability");
+	}
+	double getPeekPenalty() const {
+		return params.doubleVal("PeekPenalty");
+	}
+	unsigned int getPRMSize() const {
+		return params.integerVal("PRMSize");
+	}
+	unsigned int getNumPRMEdges() const {
+		return params.integerVal("NumEdges");
+	}
+
+	double getWeight() const {
+		return params.doubleVal("Weight");
+	}
+	std::string getDOrE() const {
+		//This is checked more tightly in the actual sampler
+		if(params.exists("UseD") && (params.stringVal("UseD").compare("true") == 0)) {
+			return "D";
+		} else {
+			return "E";
+		}
+	}
+
+	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
 		checkValidity();
 		base::Goal                   *goal = pdef_->getGoal().get();
@@ -97,7 +142,7 @@ public:
 			}
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(rmotion->state, 0, 1, 0, 1);
+			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
 
 			/* find closest state in the tree */
@@ -123,7 +168,7 @@ public:
 						bestFirstSampler_->reached(nmotion->state, pstates[p]);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(pstates[p], 1, 0, 0, 1);
+						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						//we need multiple copies of rctrl
@@ -167,8 +212,8 @@ public:
 					bestFirstSampler_->reached(nmotion->state, motion->state);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(nmotion->state, 1, 0, 0, 1);
-	streamPoint(motion->state, 1, 0, 0, 1);
+					streamPoint(nmotion->state, 1, 0, 0, 1);
+					streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);

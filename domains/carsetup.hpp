@@ -112,7 +112,7 @@ BenchmarkData carBenchmark(std::string which) {
 	EnvironmentDetails details(abstract->getStateSpace());
 
 	if(which.compare("Polygon") == 0)
-	 	getRandomPolygonEnvironmentDetails(details);
+		getRandomPolygonEnvironmentDetails(details);
 	else if(which.compare("Maze") == 0)
 		getMazeEnvironmentDetails(details);
 	else if(which.compare("UniqueMaze") == 0)

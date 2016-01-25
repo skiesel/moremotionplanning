@@ -80,7 +80,7 @@ public:
 		Planner::declareParam<bool>("intermediate_states", this, &RRTLocal::setIntermediateStates, &RRTLocal::getIntermediateStates);
 	}
 
-    virtual  ~RRTLocal() {
+	virtual  ~RRTLocal() {
 		freeMemory();
 	}
 
@@ -126,7 +126,7 @@ public:
 				sampler_->sampleUniform(rstate);
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(rmotion->state, 0, 1, 0, 1);
+			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
 
 			/* find closest state in the tree */
@@ -150,7 +150,7 @@ public:
 						motion->state = pstates[p];
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(pstates[p], 1, 0, 0, 1);
+						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						//we need multiple copies of rctrl
@@ -191,8 +191,8 @@ public:
 					motion->parent = nmotion;
 
 #ifdef STREAM_GRAPHICS
-	streamPoint(nmotion->state, 1, 0, 0, 1);
-	streamPoint(motion->state, 1, 0, 0, 1);
+					streamPoint(nmotion->state, 1, 0, 0, 1);
+					streamPoint(motion->state, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);
