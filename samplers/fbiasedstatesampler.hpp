@@ -209,10 +209,12 @@ public:
 	};
 
 	FBiasedStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	                    const FileMap &params, bool addAllRegionsToPDF = true) : UniformValidStateSampler(base), 
-		fullStateSampler(base->allocStateSampler()), addAllRegionsToPDF(addAllRegionsToPDF), prmSize(params.integerVal("PRMSize")),
-		numEdges(params.integerVal("NumEdges")), omega(params.doubleVal("Omega")), stateRadius(params.doubleVal("StateRadius")),
-		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {}
+	                    const FileMap &params, bool addAllRegionsToPDF = true, bool generateAllRegionScores = true) : UniformValidStateSampler(base), 
+		fullStateSampler(base->allocStateSampler()), addAllRegionsToPDF(addAllRegionsToPDF), generateAllRegionScores(generateAllRegionScores),
+		prmSize(params.integerVal("PRMSize")), numEdges(params.integerVal("NumEdges")), stateRadius(params.doubleVal("StateRadius")),
+		motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()) {
+			omega = params.exists("Omega") ? params.doubleVal("Omega") : 1.0;
+		}
 
 	virtual ~FBiasedStateSampler() {
 		for(auto vert : vertices) {
@@ -278,7 +280,9 @@ public:
 			}
 		} while(!connected);
 
-		generateRegionScores();
+		if(generateAllRegionScores) {
+			generateRegionScores();
+		}
 
 		if(addAllRegionsToPDF) {
 			for(unsigned int i = 0; i < vertices.size(); ++i) {
@@ -655,7 +659,7 @@ protected:
 	std::vector<Vertex *> vertices;
 	std::unordered_map<unsigned int, std::unordered_map<unsigned int, Edge>> edges;
 	ProbabilityDensityFunction<Vertex> pdf;
-	bool addAllRegionsToPDF;
+	bool addAllRegionsToPDF, generateAllRegionScores;
 	unsigned int prmSize, numEdges;
 	double omega, stateRadius;
 	ompl::base::MotionValidatorPtr motionValidator;

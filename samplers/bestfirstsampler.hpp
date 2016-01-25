@@ -10,7 +10,7 @@ public:
 
   BestFirstSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
     const FileMap &params) :
-    FBiasedStateSampler(base, start, goal, params), params(params), randomProbability(params.doubleVal("RandomProbability")),
+    FBiasedStateSampler(base, start, goal, params, false, false), params(params), randomProbability(params.doubleVal("RandomProbability")),
     peekPenalty(params.doubleVal("PeekPenalty")) {}
 
   virtual ~BestFirstSampler() {}
