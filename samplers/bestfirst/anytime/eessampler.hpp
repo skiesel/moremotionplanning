@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../anytimebestfirstsampler.hpp"
-#include "../structs/rbtree.hpp"
+#include "../../../structs/rbtree.hpp"
 
 namespace ompl {
 
@@ -74,7 +74,7 @@ public:
 
   virtual ~AnytimeEESSampler() {}
 
-  virtual void initialize() {    
+  virtual void initialize() {
     Timer timer("Abstraction Computation");
 
     auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
@@ -130,7 +130,7 @@ public:
         edges.clear();
         prmSize *= 1.5;
       } else {
-        
+
       }
     } while(!connected);
 
@@ -146,7 +146,7 @@ public:
       vertices[n]->g = vertices[0]->g + getEdgeCostBetweenCells(0, n);
       vertices[n]->f = vertices[n]->g + vertices[n]->h * weight;
       extraData(vertices[n])->fhat = vertices[n]->g + vertices[n]->h * weight * heuristicCorrection;
-      extraData(vertices[n])->ehat = extraData(vertices[n])->e;      
+      extraData(vertices[n])->ehat = extraData(vertices[n])->e;
 
       addToQueues(vertices[n]);
     }
@@ -158,7 +158,7 @@ public:
       return true;
     }
 
-    Vertex *vertex = NULL; 
+    Vertex *vertex = NULL;
     while(vertex == NULL) {
       vertex = selectVertex();
       //vertex = selectVertex_con();
@@ -219,7 +219,7 @@ public:
     } else {
       newG += FBiasedStateSampler::abstractDistanceFunction(fromVertex, reachedVertex);
     }
- 
+
     if(newG < reachedVertex->g) {
       reachedVertex->g = newG;
       reachedVertex->f = reachedVertex->g + reachedVertex->h * weight;
