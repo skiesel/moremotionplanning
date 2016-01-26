@@ -125,12 +125,19 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 	p.Title.Text = title
 	p.Y.Label.Text = yLabel
 
+	keys := sort.StringSlice{}
+	for algName := range *experiment {
+		keys = append(keys, algName)
+	}
+	sort.Sort(keys)
+
 	w := vg.Points(20)
 
 	plotters := []plot.Plotter{}	
 	labels := []string{}
 	i := 0.
-	for _, algorithm := range *experiment {
+	for _, key := range keys {
+		algorithm := (*experiment)[key]
 		data := plotter.Values{}
 		skip := false
 		for _, point := range algorithm.DataPoints {
