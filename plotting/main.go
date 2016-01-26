@@ -3,15 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/gonum/plot"
-    "github.com/gonum/plot/plotter"
-    "github.com/gonum/plot/vg"
+	"github.com/skiesel/plot"
+    "github.com/skiesel/plot/plotter"
+    "github.com/skiesel/plot/vg"
 )
 
 const (
@@ -116,7 +117,7 @@ func mungeParams(planner string, params map[string]string) string {
 	return munged
 }
 
-func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment) {
+func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment, log10 bool) {
 	p, err := plot.New()
 	if err != nil {
 		panic(err)
@@ -139,17 +140,40 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 	for _, key := range keys {
 		algorithm := (*experiment)[key]
 		data := plotter.Values{}
+		data2 := plotter.Values{}
+
+		var precomputationTime float64
+		useStackedBoxPlot := false
+
+		if precomputationTimeString, ok := algorithm.Params["sampler_initialization_time"]; !ok {
+			precomputationTime, _ = strconv.ParseFloat(precomputationTimeString, 64)
+			useStackedBoxPlot = true
+		} else {
+			precomputationTime = 0.
+		}
+
 		skip := false
 		for _, point := range algorithm.DataPoints {
 			if !point.Solved {
 				skip = true
 				break
 			}
-
-			if key == "Length" {
-				data = append(data, point.Length)
+			if log10 == true {
+				if key == "Length" {
+					data = append(data, math.Log10(point.Length))
+					data2 = append(data, math.Log10(point.Length - precomputationTime))
+				} else {
+					data = append(data, math.Log10(point.Time))
+					data2 = append(data, math.Log10(point.Time - precomputationTime))
+				}
 			} else {
-				data = append(data, point.Time)
+				if key == "Length" {
+					data = append(data, point.Length)
+					data2 = append(data, point.Length - precomputationTime)
+				} else {
+					data = append(data, point.Time)
+					data2 = append(data, point.Time - precomputationTime)
+				}
 			}
 		}
 
@@ -157,7 +181,12 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 			continue
 		}
 
-		box, err := plotter.NewBoxPlot(w, i, data)
+		var box plot.Plotter
+		if useStackedBoxPlot {
+			box, err = plotter.NewBoxPlotWithConfidenceIntervalsStacked(w, i, data, data2)
+		} else {
+			box, err = plotter.NewBoxPlotWithConfidenceIntervals(w, i, data)
+		}
 		if err != nil {
 			panic(err)
 		}
@@ -260,8 +289,8 @@ func main() {
 
 //func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment) {
 	for domain, experiment := range mappedData {
-		makeBoxPlot(domain, "Time (sec)", "Time", ".pdf", 4, 4, experiment)
-		makeBoxPlot(domain, "Solution Length", "Length", ".pdf", 4, 4, experiment)
+		makeBoxPlot(domain, "Time (log10 sec)", "Time", ".pdf", 4, 4, experiment, true)
+		// makeBoxPlot(domain, "Solution Length", "Length", ".pdf", 4, 4, experiment)
 		// makeBoxPlot(domain, "\% Solved", "Length", ".pdf", 4, 14, experiment)
 
 	}
