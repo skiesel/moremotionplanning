@@ -178,8 +178,6 @@ func main() {
 			continue
 		}
 
-		defer openFile.Close()
-
 		scanner := bufio.NewScanner(openFile)
 		data := []string{}
 		experiment := ""
@@ -236,6 +234,8 @@ func main() {
 				DataPoints : []DataPoint{dataPoint},
 			}
 		}
+
+		openFile.Close()
 	}
 
 
