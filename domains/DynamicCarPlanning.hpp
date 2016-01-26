@@ -47,7 +47,12 @@ public:
 
 		si_->setStatePropagator(control::ODESolver::getStatePropagator(odeSolver, boost::bind(&DynamicCarPlanning::postPropagate, this, _1, _2, _3, _4)));
 	}
+
 	~DynamicCarPlanning() {
+	}
+
+	void appendToName(const std::string &suffix) {
+		name_ += suffix;
 	}
 
 	bool isSelfCollisionEnabled(void) const {

@@ -25,7 +25,7 @@ public:
 		whichBestFirst = params.stringVal("WhichBestFirst");
 		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
-		std::string plannerName = "BestFirst_" + whichBestFirst;
+		std::string plannerName = whichBestFirst;
 		if(cheat) {
 			plannerName += "_cheat";
 			setName(plannerName);

@@ -99,6 +99,8 @@ template <class Car>
 BenchmarkData carBenchmark(std::string which) {
 	Car *car = new Car();
 
+	car->appendToName(which);
+
 	globalParameters.globalAppBaseControl = car;
 
 	ompl::app::SE2RigidBodyPlanning *abstract = new ompl::app::SE2RigidBodyPlanning();
@@ -111,7 +113,7 @@ BenchmarkData carBenchmark(std::string which) {
 
 	EnvironmentDetails details(abstract->getStateSpace());
 
-	if(which.compare("Polygon") == 0)
+	if(which.compare("Polygon") == 0) 
 		getRandomPolygonEnvironmentDetails(details);
 	else if(which.compare("Maze") == 0)
 		getMazeEnvironmentDetails(details);
