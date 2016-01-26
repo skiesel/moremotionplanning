@@ -165,7 +165,7 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 
     filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
 
-    if err := p.Save(vg.Length(width) * vg.Points(15 * float64(len(*experiment))), vg.Length(height) * vg.Inch, filename); err != nil {
+    if err := p.Save(vg.Length(width) * vg.Points(15 * float64(len(plotters))), vg.Length(height) * vg.Inch, filename); err != nil {
         panic(err)
     }
 }
