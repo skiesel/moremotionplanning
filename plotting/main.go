@@ -215,7 +215,8 @@ func main() {
 		} else if plannerName == "A*" {
 			params = parseAstarParams(data)
 			if params["weight"] != "1" {
-				plannerName = fmt.Sprintf("WA* (w=%s)", params["weight"])
+				weight, _ := strconv.ParseFloat(params["weight"], 64)
+				plannerName = fmt.Sprintf("WA* (w=%.2f)", weight)
 			}
 		} else if plannerName == "Speedy" {
 			params = parseSpeedyParams(data)
