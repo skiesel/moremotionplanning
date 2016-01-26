@@ -136,11 +136,16 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 			if !point.Solved {
 				continue
 			}
+
 			if key == "Length" {
 				data = append(data, point.Length)
 			} else {
 				data = append(data, point.Time)
 			}
+		}
+
+		if len(data) <= 0 {
+			continue
 		}
 
 		box, err := plotter.NewBoxPlot(w, i, data)
