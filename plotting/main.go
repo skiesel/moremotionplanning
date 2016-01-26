@@ -132,9 +132,11 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 	i := 0.
 	for _, algorithm := range *experiment {
 		data := plotter.Values{}
+		skip := false
 		for _, point := range algorithm.DataPoints {
 			if !point.Solved {
-				continue
+				skip = true
+				break
 			}
 
 			if key == "Length" {
@@ -144,7 +146,7 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 			}
 		}
 
-		if len(data) <= 0 {
+		if skip {
 			continue
 		}
 
