@@ -161,18 +161,16 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 			if log10 == true {
 				if key == "Length" {
 					data = append(data, math.Log10(point.Length))
-					data2 = append(data, math.Log10(point.Length - precomputationTime))
 				} else {
-					data = append(data, math.Log10(point.Time))
-					data2 = append(data, math.Log10(point.Time - precomputationTime))
+					data = append(data, math.Log10(point.Time + precomputationTime))
+					data2 = append(data, math.Log10(point.Time))
 				}
 			} else {
 				if key == "Length" {
 					data = append(data, point.Length)
-					data2 = append(data, point.Length - precomputationTime)
 				} else {
-					data = append(data, point.Time)
-					data2 = append(data, point.Time - precomputationTime)
+					data = append(data, point.Time + precomputationTime)
+					data2 = append(data, point.Time)
 				}
 			}
 		}
@@ -182,7 +180,7 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 		}
 
 		var box plot.Plotter
-		if useStackedBoxPlot {
+		if key == "Time" && useStackedBoxPlot {
 			box, err = plotter.NewBoxPlotWithConfidenceIntervalsStacked(w, i, data, data2)
 		} else {
 			box, err = plotter.NewBoxPlotWithConfidenceIntervals(w, i, data)
