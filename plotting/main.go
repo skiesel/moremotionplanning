@@ -214,8 +214,12 @@ func main() {
 			params = parseDijkstraParams(data)
 		} else if plannerName == "A*" {
 			params = parseAstarParams(data)
+			if params["weight"] != "1" {
+				plannerName = fmt.Sprintf("WA* (w=%s)", params["weight"])
+			}
 		} else if plannerName == "Speedy" {
 			params = parseSpeedyParams(data)
+			plannerName = fmt.Sprintf("Speedy (%s)", params["use_d_or_e"])
 		} else if plannerName == "Greedy" {
 			params = parseGreedyParams(data)
 		}
