@@ -23,15 +23,9 @@ public:
 		ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
 
 		whichBestFirst = params.stringVal("WhichBestFirst");
-		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
 		std::string plannerName = whichBestFirst;
-		if(cheat) {
-			plannerName += "_cheat";
-			setName(plannerName);
-		} else {
-			setName(plannerName);
-		}
+		setName(plannerName);
 
 		Planner::declareParam<double>("state_radius", this, &AnytimeBestFirstPlanner::ignoreSetterDouble, &AnytimeBestFirstPlanner::getStateRadius);
 		Planner::declareParam<double>("random_state_probability", this, &AnytimeBestFirstPlanner::ignoreSetterDouble, &AnytimeBestFirstPlanner::getRandomStateProbability);
@@ -42,6 +36,9 @@ public:
 		if(whichBestFirst.compare("AEES") == 0) {
 			Planner::declareParam<double>("weight", this, &AnytimeBestFirstPlanner::ignoreSetterUnsigedInt, &AnytimeBestFirstPlanner::getWeight);
 		}
+
+		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
+		Planner::declareParam<double>("sampler_initialization_time", this, &AnytimeBestFirstPlanner::ignoreSetterDouble, &AnytimeBestFirstPlanner::getSamplerInitializationTime);
 	}
 
 	virtual ~AnytimeBestFirstPlanner() {}
@@ -64,9 +61,11 @@ public:
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
 	}
-
 	double getWeight() const {
 		return params.doubleVal("Weight");
+	}
+	double getSamplerInitializationTime() const {
+		return samplerInitializationTime;
 	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
@@ -88,6 +87,8 @@ public:
 		}
 
 		if(!bestFirstSampler_) {
+			auto start = clock();
+
 			if(whichBestFirst.compare("AEES") == 0) {
 				bestFirstSampler_ = new ompl::base::AnytimeEESSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
 			} else {
@@ -95,6 +96,10 @@ public:
 				return base::PlannerStatus(false, false);
 			}
 			bestFirstSampler_->initialize();
+
+			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -209,10 +214,8 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat) {
-			delete bestFirstSampler_;
-			bestFirstSampler_ = NULL;
-		}
+		// delete bestFirstSampler_;
+		// bestFirstSampler_ = NULL;
 	}
 
 	double addSolutionPath(Motion *solution, double dist) {
@@ -246,8 +249,8 @@ public:
 protected:
 	ompl::base::AnytimeBestFirstSampler *bestFirstSampler_;
 	std::string whichBestFirst;
-	bool cheat;
 	const FileMap &params;
+	double samplerInitializationTime = 0;
 };
 
 }

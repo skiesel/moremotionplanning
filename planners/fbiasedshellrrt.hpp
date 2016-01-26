@@ -21,13 +21,7 @@ public:
 	FBiasedShellRRT(const SpaceInformationPtr &si, const FileMap &params) :
 		ompl::control::RRT(si), shellsampler_(NULL), params(params) {
 
-		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-
-		if(cheat) {
-			setName("FBiased RRT Shell [cheat]");
-		} else {
-			setName("FBiased RRT Shell");
-		}
+		setName("FBiased RRT Shell");
 
 		Planner::declareParam<double>("omega", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getOmega);
 		Planner::declareParam<double>("state_radius", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getStateRadius);
@@ -35,6 +29,9 @@ public:
 		Planner::declareParam<double>("shell_preference", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getShellPreference);
 		Planner::declareParam<double>("prm_size", this, &FBiasedShellRRT::ignoreSetterUnsigedInt, &FBiasedShellRRT::getPRMSize);
 		Planner::declareParam<double>("num_prm_edges", this, &FBiasedShellRRT::ignoreSetterUnsigedInt, &FBiasedShellRRT::getNumPRMEdges);
+
+		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
+		Planner::declareParam<double>("sampler_initialization_time", this, &FBiasedShellRRT::ignoreSetterDouble, &FBiasedShellRRT::getSamplerInitializationTime);
 	}
 
 	virtual ~FBiasedShellRRT() {}
@@ -60,6 +57,9 @@ public:
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
 	}
+	double getSamplerInitializationTime() const {
+		return samplerInitializationTime;
+	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -80,9 +80,15 @@ public:
 		}
 
 		if(!shellsampler_) {
+			auto start = clock();
+
 			shellsampler_ = new ompl::base::FBiasedShellStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
 			        params);
 			shellsampler_->initialize();
+
+			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -239,17 +245,15 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat && shellsampler_ != NULL) {
-			delete shellsampler_;
-			shellsampler_ = NULL;
-		}
+		// delete shellsampler_;
+		// shellsampler_ = NULL;
 	}
 
 protected:
 
 	ompl::base::FBiasedShellStateSampler *shellsampler_;
-	bool cheat;
 	const FileMap &params;
+	double samplerInitializationTime = 0;
 };
 
 }

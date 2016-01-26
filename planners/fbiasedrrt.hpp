@@ -21,18 +21,15 @@ public:
 	FBiasedRRT(const SpaceInformationPtr &si, const FileMap &params) :
 		ompl::control::RRT(si), fbiasedSampler_(NULL), params(params) {
 
-		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-
-		if(cheat) {
-			setName("FBiased RRT [cheat]");
-		} else {
-			setName("FBiased RRT");
-		}
+		setName("FBiased RRT");
 
 		Planner::declareParam<double>("omega", this, &FBiasedRRT::ignoreSetterDouble, &FBiasedRRT::getOmega);
 		Planner::declareParam<double>("state_radius", this, &FBiasedRRT::ignoreSetterDouble, &FBiasedRRT::getStateRadius);
 		Planner::declareParam<double>("prm_size", this, &FBiasedRRT::ignoreSetterUnsigedInt, &FBiasedRRT::getPRMSize);
 		Planner::declareParam<double>("num_prm_edges", this, &FBiasedRRT::ignoreSetterUnsigedInt, &FBiasedRRT::getNumPRMEdges);
+
+		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
+		Planner::declareParam<double>("sampler_initialization_time", this, &FBiasedRRT::ignoreSetterDouble, &FBiasedRRT::getSamplerInitializationTime);
 	}
 
 	virtual ~FBiasedRRT() {}
@@ -51,6 +48,9 @@ public:
 	}
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
+	}
+	double getSamplerInitializationTime() const {
+		return samplerInitializationTime;
 	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
@@ -72,8 +72,14 @@ public:
 		}
 
 		if(!fbiasedSampler_) {
+			auto start = clock();
+
 			fbiasedSampler_ = new ompl::base::FBiasedStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
 			fbiasedSampler_->initialize();
+
+			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -225,16 +231,14 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat && fbiasedSampler_ != NULL) {
-			delete fbiasedSampler_;
-			fbiasedSampler_ = NULL;
-		}
+		// delete fbiasedSampler_;
+		// fbiasedSampler_ = NULL;
 	}
 
 protected:
 	base::FBiasedStateSampler *fbiasedSampler_;
-	bool cheat;
 	const FileMap &params;
+	double samplerInitializationTime = 0;
 };
 
 }

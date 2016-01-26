@@ -27,15 +27,9 @@ public:
 		ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
 
 		whichBestFirst = params.stringVal("WhichBestFirst");
-		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
 
 		std::string plannerName = whichBestFirst;
-		if(cheat) {
-			plannerName += "_cheat";
-			setName(plannerName);
-		} else {
-			setName(plannerName);
-		}
+		setName(plannerName);
 
 		Planner::declareParam<double>("state_radius", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getStateRadius);
 		Planner::declareParam<double>("random_state_probability", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getRandomStateProbability);
@@ -48,6 +42,9 @@ public:
 		} else if(whichBestFirst.compare("Speedy") == 0) {
 			Planner::declareParam<std::string>("use_d_or_e", this, &BestFirstPlanner::ignoreSetterString, &BestFirstPlanner::getDOrE);
 		}
+
+		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
+		Planner::declareParam<double>("sampler_initialization_time", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getSamplerInitializationTime);
 	}
 
 	virtual ~BestFirstPlanner() {}
@@ -72,7 +69,6 @@ public:
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
 	}
-
 	double getWeight() const {
 		return params.doubleVal("Weight");
 	}
@@ -83,6 +79,9 @@ public:
 		} else {
 			return "E";
 		}
+	}
+	double getSamplerInitializationTime() const {
+		return samplerInitializationTime;
 	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
@@ -104,6 +103,8 @@ public:
 		}
 
 		if(!bestFirstSampler_) {
+			auto start = clock();
+
 			if(whichBestFirst.compare("A*") == 0) {
 				bestFirstSampler_ = new ompl::base::AstarSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
 			} else if(whichBestFirst.compare("Dijkstra") == 0) {
@@ -118,6 +119,10 @@ public:
 				throw ompl::Exception("Unrecognized best first search type", whichBestFirst.c_str());
 			}
 			bestFirstSampler_->initialize();
+
+			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -274,17 +279,15 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat) {
-			delete bestFirstSampler_;
-			bestFirstSampler_ = NULL;
-		}
+		// delete bestFirstSampler_;
+		// bestFirstSampler_ = NULL;
 	}
 
 protected:
 	ompl::base::BestFirstSampler *bestFirstSampler_;
 	std::string whichBestFirst;
-	bool cheat;
 	const FileMap &params;
+	double samplerInitializationTime = 0;
 };
 
 }

@@ -96,12 +96,9 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		return;
 	}
 
-	// cheat and allow the planner to initialize datastructures before the actual timing begins
-	bool cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-	if(cheat) {
-		plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition());
-		plannerPointer->solve(0);
-	}
+	//allow unpenalized time for precomputation -- which is logged to the output file
+	plannerPointer->setProblemDefinition(benchmarkData.simplesetup->getProblemDefinition());
+	plannerPointer->solve(0);
 
 	if(plannerPointer->params().hasParam("intermediate_states")) {
 		plannerPointer->params().setParam("intermediate_states", "true");

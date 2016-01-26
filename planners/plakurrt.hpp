@@ -18,19 +18,16 @@ public:
 	PlakuRRT(const SpaceInformationPtr &si, const FileMap &params) :
 		ompl::control::RRT(si), plakusampler_(NULL), params(params) {
 
-		cheat = params.exists("Cheat") && params.stringVal("Cheat").compare("true") == 0;
-
-		if(cheat) {
-			setName("Plaku RRT [cheat]");
-		} else {
-			setName("Plaku RRT");
-		}
+		setName("Plaku RRT");
 
 		Planner::declareParam<double>("state_radius", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getStateRadius);
 		Planner::declareParam<double>("alpha", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getAlpha);
 		Planner::declareParam<double>("b", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getB);
 		Planner::declareParam<double>("prm_size", this, &PlakuRRT::ignoreSetterUnsigedInt, &PlakuRRT::getPRMSize);
 		Planner::declareParam<double>("num_prm_edges", this, &PlakuRRT::ignoreSetterUnsigedInt, &PlakuRRT::getNumPRMEdges);
+
+		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
+		Planner::declareParam<double>("sampler_initialization_time", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getSamplerInitializationTime);
 	}
 
 	virtual ~PlakuRRT() {}
@@ -53,6 +50,9 @@ public:
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
 	}
+	double getSamplerInitializationTime() const {
+		return samplerInitializationTime;
+	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -73,9 +73,15 @@ public:
 		}
 
 		if(!plakusampler_) {
+			auto start = clock();
+
 			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
 			        params);
 			plakusampler_->initialize();
+
+			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
+
+			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();
@@ -231,17 +237,15 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		if(!cheat && plakusampler_ != NULL) {
-			delete plakusampler_;
-			plakusampler_ = NULL;
-		}
+		// delete plakusampler_;
+		// plakusampler_ = NULL;
 	}
 
 protected:
 
 	ompl::base::PlakuStateSampler *plakusampler_;
-	bool cheat;
 	const FileMap &params;
+	double samplerInitializationTime = 0;
 };
 
 }
