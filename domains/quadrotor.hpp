@@ -64,6 +64,9 @@ BenchmarkData quadrotorBenchmark() {
 	//Don't use the default propagation step size for this environment!!
 	quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.25);
 
+	if(!quadrotorPtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
+		quadrotorPtr->getSpaceInformation()->setDirectedControlSamplerAllocator(directedControlSamplerAllocator);
+
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/quadrotor.dae");
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 

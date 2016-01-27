@@ -91,6 +91,9 @@ BenchmarkData blimpBenchmark() {
 	blimpPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
 	// blimpPtr->getSpaceInformation()->setPropagationStepSize(0.5);
 
+	if(!blimpPtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
+		blimpPtr->getSpaceInformation()->setDirectedControlSamplerAllocator(directedControlSamplerAllocator);
+
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 

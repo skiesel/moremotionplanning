@@ -2,6 +2,8 @@
 #include <fstream>
 
 #include <ompl/tools/benchmark/Benchmark.h>
+#include <ompl/control/SimpleDirectedControlSampler.h>
+#include <ompl/control/DirectedControlSampler.h>
 #include "domains/AppBase.hpp"
 
 struct BenchmarkData {
@@ -14,6 +16,11 @@ struct GlobalParameters {
 	ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
 	ompl::app::AppBase<ompl::app::GEOMETRIC> *globalAbstractAppBaseGeometric = NULL;
 };
+
+unsigned int howManyControls = 1;
+ompl::control::DirectedControlSamplerPtr directedControlSamplerAllocator(const ompl::control::SpaceInformation *si) {
+	return ompl::control::DirectedControlSamplerPtr(new ompl::control::SimpleDirectedControlSampler(si, howManyControls));
+}
 
 std::function<void(const ompl::base::State *, double, double, double, double)> streamPoint;
 
@@ -120,6 +127,9 @@ int main(int argc, char *argv[]) {
 	FileMap params(std::cin);
 
 	ompl::RNG::setSeed(params.integerVal("Seed"));
+
+	if(params.exists("NumControls"))
+		howManyControls = params.integerVal("NumControls");
 
 	auto domain = params.stringVal("Domain");
 	if(domain.compare("Blimp") == 0) {

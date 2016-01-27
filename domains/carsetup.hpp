@@ -146,6 +146,10 @@ BenchmarkData carBenchmark(std::string which) {
 	carPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
 	// carPtr->getSpaceInformation()->setPropagationStepSize(0.1);
 
+
+	if(!carPtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
+		carPtr->getSpaceInformation()->setDirectedControlSamplerAllocator(directedControlSamplerAllocator);
+
 	carPtr->setup();
 	abstract->setup();
 
