@@ -49,7 +49,7 @@ public:
 	virtual unsigned int getStartIndex() const = 0;
 	virtual unsigned int getGoalIndex() const = 0;
 	virtual bool supportsSampling() const = 0;
-	virtual ompl::base::State* sampleAbstractState(unsigned int index) const = 0;
+	virtual ompl::base::State* sampleAbstractState(unsigned int index) = 0;
 	virtual unsigned int mapToAbstractRegion(const ompl::base::ScopedState<> &s) const = 0;
 	virtual void grow() = 0;
 

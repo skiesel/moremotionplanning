@@ -3,6 +3,15 @@
 #include "abstraction.hpp"
 
 class Grid : public Abstraction {
+	struct Vertex : public Abstraction::Vertex {
+		Vertex(unsigned int id) : Abstraction::Vertex(id) {}
+
+		bool hasGridCenter = false;
+		std::vector<double> gridCenter;
+		bool hasGridCoordinate = false;
+		std::vector<unsigned int> gridCoordinate;
+	};
+
 public:
 	Grid(const ompl::base::State *start, const ompl::base::State *goal, const FileMap &params) : Abstraction(start, goal) {
 		hintSize = params.doubleVal("GridHintSize");
@@ -43,15 +52,27 @@ public:
 		return goalIndex;
 	}
 
-	/*this doesn't have to be false, we could do this if we wanted to*/
 	virtual bool supportsSampling() const {
-		return false;
+		return true;
 	}
 
-	/*this could be implemented if we wanted to*/
-	virtual ompl::base::State* sampleAbstractState(unsigned int index) const {
-		throw ompl::Exception("Grid::sampleAbstractState", "not supported");
-		return NULL;
+	virtual ompl::base::State* sampleAbstractState(unsigned int index) {
+		static bool warned = false;
+		if(!warned) {
+			OMPL_WARN("Grid::sampleAbstractState... this is not actually a truly uniform sampling strategy!");
+			warned = true;
+		}
+
+		auto point = getGridCenter(index);
+
+		std::vector<double> sample(discretizationSizes.size());
+		for(unsigned int i = 0; i < discretizationSizes.size(); ++i) {
+			sample[i] = point[i] - (discretizationSizes[i] / 2) + (discretizationSizes[i] * randomNumbers.uniform01());
+		}
+
+		ompl::base::State *state = globalParameters.globalAbstractAppBaseGeometric->getStateSpace()->allocState();
+		globalParameters.copyVectorToAbstractState(state, point);
+		return state;
 	}
 
 	virtual unsigned int mapToAbstractRegion(const ompl::base::ScopedState<> &s) const {
@@ -79,20 +100,24 @@ protected:
 		vertices.reserve(cellCount);
 
 		for(unsigned int i = 0; i < oldCount; ++i) {
+			vertices[i]->populatedNeighors = false;
+			vertices[i]->neighbors.clear();
+			((Grid::Vertex*)vertices[i])->hasGridCenter = false;
+			((Grid::Vertex*)vertices[i])->hasGridCoordinate = false;
+
 			auto gridPoint = getGridCoordinates(i);
 			auto point = getGridCenter(i);
 
 			globalParameters.copyVectorToAbstractState(vertices[i]->state, point);
-			vertices[i]->populatedNeighors = false;
-			vertices[i]->neighbors.clear();
 		}
 
 		for(unsigned int i = oldCount; i < cellCount; ++i) {
+			vertices.emplace_back(new Vertex(i));
+			vertices.back()->state = abstractSpace->allocState();
+
 			auto gridPoint = getGridCoordinates(i);
 			auto point = getGridCenter(i);
 
-			vertices.emplace_back(new Vertex(i));
-			vertices.back()->state = abstractSpace->allocState();
 			globalParameters.copyVectorToAbstractState(vertices.back()->state, point);
 		}
 	}
@@ -101,7 +126,7 @@ protected:
 		edges.clear();
 
 		for(unsigned int i = 0; i < vertices.size(); ++i) {
-			Vertex *vertex = vertices[i];
+			Vertex *vertex = (Grid::Vertex*)vertices[i];
 			edges[vertex->id];
 
 			auto discreteCoordinate = getGridCoordinates(i);
@@ -109,7 +134,7 @@ protected:
 			std::vector<unsigned int> neighbors = getNeighbors(discreteCoordinate);
 
 			for(auto n : neighbors) {
-				Vertex *neighbor = vertices[n];
+				Vertex *neighbor = (Grid::Vertex*)vertices[n];
 				if(vertex->id == neighbor->id) continue;
 				
 				edges[vertex->id][neighbor->id] = Edge(neighbor->id);
@@ -205,6 +230,10 @@ protected:
 	}
 
 	std::vector<double> getGridCenter(unsigned int n) const {
+		if(((Grid::Vertex*)vertices[n])->hasGridCenter) {
+			return ((Grid::Vertex*)vertices[n])->gridCenter;
+		}
+
 		std::vector<double> point;
 
 		point.push_back(globalParameters.abstractBounds.low[0] + (double)(n % discreteDimensionSizes[0]) * discretizationSizes[0] + discretizationSizes[0]  * 0.5);
@@ -216,10 +245,17 @@ protected:
 			}
 		}
 
+		((Grid::Vertex*)vertices[n])->hasGridCenter = true;
+		((Grid::Vertex*)vertices[n])->gridCenter = point;
+
 		return point;
 	}
 
 	std::vector<unsigned int> getGridCoordinates(unsigned int n) const {
+		if(((Grid::Vertex*)vertices[n])->hasGridCoordinate) {
+			return ((Grid::Vertex*)vertices[n])->gridCoordinate;
+		}
+
 		std::vector<unsigned int> coordinate;
 
 		coordinate.push_back(n % discreteDimensionSizes[0]);
@@ -230,6 +266,9 @@ protected:
 				coordinate.push_back(n / previousDimSizes % discreteDimensionSizes[i]);
 			}
 		}
+
+		((Grid::Vertex*)vertices[n])->hasGridCoordinate = true;
+		((Grid::Vertex*)vertices[n])->gridCoordinate = coordinate;
 
 		return coordinate;
 	}
@@ -276,4 +315,5 @@ protected:
 	std::vector<double> discretizationSizes, dimensionRanges;
 
 	bool useDiagonalNeighbors;
+	ompl::RNG randomNumbers;
 };

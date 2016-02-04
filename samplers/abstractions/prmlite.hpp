@@ -72,7 +72,7 @@ public:
 		return false;
 	}
 
-	virtual ompl::base::State* sampleAbstractState(unsigned int index) const {
+	virtual ompl::base::State* sampleAbstractState(unsigned int index) {
 		throw ompl::Exception("PRMLite::sampleAbstractState", "not supported");
 		return NULL;
 	}
