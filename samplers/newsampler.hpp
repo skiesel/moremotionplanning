@@ -91,10 +91,15 @@ protected:
 		}
 
 		double getHypotheticalRequiredSamplesAfterPositivePropagation(unsigned int numberOfStates) const {
-			double additive = 1;
+			double additive = (1. / (double)numberOfStates);
 			double probability = (alpha + additive) / (alpha + additive + beta);
-			double estimate = (1 - probability) / probability + numberOfStates - 1;
+			double estimate = (1 - probability) / probability;
 			return estimate > 1 ? estimate : 1;
+		}
+
+		void rewardHypotheticalSamplesAfterPositivePropagation(unsigned int numberOfStates) {
+			double additive = (1. / (double)numberOfStates - 1);
+			alpha += additive;
 		}
 
 		void succesfulPropagation() {
@@ -125,7 +130,7 @@ protected:
 			}
 		}
 
-		unsigned int startID, endID;
+		unsigned int startID, endID, interiorToNextEdgeID;
 
 		double alpha = validEdgeDistributionAlpha;
 		double beta = validEdgeDistributionBeta;
@@ -154,6 +159,7 @@ public:
 	virtual void initialize() {
 		abstraction->initialize();
 
+		//crazy, but on purpose
 		startID = abstraction->getGoalIndex();
 		goalID = abstraction->getStartIndex();
 
@@ -166,6 +172,8 @@ public:
 
 		vertices[startID].rhs = 0;
 		vertices[startID].key = calculateKey(startID);
+		vertices[startID].parentID = startID;
+
 		U.push(&vertices[startID]);
 
 		{
@@ -185,7 +193,12 @@ public:
 		if(targetEdge != NULL) { //only will fail the first time through
 
 			if(targetSuccess) {
-				fprintf(stderr, "success : %s\n", targetEdge->interior ? "interior" : "exterior");
+				// fprintf(stderr, "success : %s\n", targetEdge->interior ? "interior" : "exterior");
+
+				if(targetEdge->interior) {
+					updateSuccesfulInteriorEdgePropagation(targetEdge);
+				}
+
 				//edge has become interior
 				targetEdge->interior = true;
 				targetEdge->succesfulPropagation();
@@ -261,18 +274,6 @@ public:
 
 		vertices[newCellId].addState(state);
 
-		// double multiplier = vertices[newCellId].states.size();
-		// multiplier = (multiplier - 1) / multiplier;
-
-		// for(auto e : edges[newCellId]) {
-		// 	e.second->alpha *= multiplier;
-		// 	e.second->beta *= multiplier;
-
-		// 	updateVertex(e.second->endID);
-		// }
-
-		// computeShortestPath();
-
 		if(newCellId == targetEdge->endID) {
 			//this region will be added to open when sample is called again
 			targetSuccess = true;
@@ -345,7 +346,6 @@ protected:
 		Key goalKey = calculateKey(goalID);
 		while(!U.isEmpty() && (U.peek()->key < goalKey || vertices[goalID].g != vertices[goalID].rhs)) {
 			Vertex &u = *U.pop();
-
 			if(u.id != startID) {
 				Edge *e = getEdge(u.parentID, u.id);
 				if(e->status == Abstraction::Edge::UNKNOWN) {
@@ -359,8 +359,8 @@ protected:
 
 			if(u.g > u.rhs) {
 				u.g = u.rhs;
-
 				Edge *e = getEdge(u.id, u.parentID);
+
 				if(e->interior) {
 					e->effort = getInteriorEdgeEffort(e);
 				} else {
@@ -370,7 +370,6 @@ protected:
 				if(open.inHeap(e)) {
 					open.siftFromItem(e);
 				}
-
 
 				auto neighbors = abstraction->getNeighboringCells(u.id);
 				for(auto n : neighbors) {
@@ -418,12 +417,20 @@ protected:
 
 			if(value < bestValue) {
 				bestValue = value;
+				edge->interiorToNextEdgeID = n;
 			}
 		}
 
 		// fprintf(stderr, "\t%g\n", bestValue);
 
 		return bestValue;
+	}
+
+	void updateSuccesfulInteriorEdgePropagation(Edge *edge) {
+		double numberOfStates = vertices[edge->endID].states.size();
+		Edge *e = getEdge(edge->endID, edge->interiorToNextEdgeID);
+		e->rewardHypotheticalSamplesAfterPositivePropagation(numberOfStates);
+		updateVertex(targetEdge->interiorToNextEdgeID);
 	}
 
 	std::vector<Vertex> vertices;
