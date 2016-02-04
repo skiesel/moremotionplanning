@@ -7,23 +7,33 @@ namespace ompl {
 namespace base {
 
 class AstarSampler : public ompl::base::BestFirstSampler {
+	enum LABELS {
+		G,
+		H,
+		F,
+		SCORE,
+		TOTAL,
+	};
 
-	struct ExtraData {
-		ExtraData() : heapIndex(std::numeric_limits<unsigned int>::max()) {}
-		unsigned int heapIndex;
+protected:
+	struct Vertex : public FBiasedStateSampler::Vertex {
+		Vertex(unsigned int id, unsigned int numVals = 0) : FBiasedStateSampler::Vertex(id, numVals),
+			heapIndex(std::numeric_limits<unsigned int>::max()) {}
 
 		static bool pred(const Vertex *a, const Vertex *b) {
-			if(a->f == b->f) {
-				return a->g > b->g;
+			if(a->vals[F] == b->vals[F]) {
+				return a->vals[G] > b->vals[G];
 			}
-			return a->f < b->f;
+			return a->vals[F] < b->vals[F];
 		}
 		static unsigned int getHeapIndex(const Vertex *r) {
-			return ((ExtraData *)r->extraData)->heapIndex;
+			return r->heapIndex;
 		}
 		static void setHeapIndex(Vertex *r, unsigned int i) {
-			((ExtraData *)r->extraData)->heapIndex = i;
+			r->heapIndex = i;
 		}
+
+		unsigned int heapIndex;
 	};
 
 public:
@@ -37,63 +47,48 @@ public:
 	virtual ~AstarSampler() {}
 
 	virtual void initialize() {
-		auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
-		auto abstractGoal = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getGoal()->as<ompl::base::GoalState>()->getState();
+		abstraction->initialize();
 
-		bool connected = false;
-		do {
-			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-			if(si_->getStateSpace()->isMetricSpace()) {
-				// if (specs.multithreaded)
-				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
-				//else
-				nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
-			} else {
-				nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
-			}
+		unsigned int abstractionSize = abstraction->getAbstractionSize();
+		vertices.reserve(abstractionSize);
+		for(unsigned int i = 0; i < abstractionSize; ++i) {
+			vertices.emplace_back(i, TOTAL);
+		}
 
-			nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
+		std::vector<VertexWrapper *> wrappers;
+		wrappers.reserve(vertices.size());
+		std::vector<VertexGWrapper> gWrappers;
+		gWrappers.reserve(vertices.size());
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			gWrappers.emplace_back(&vertices[i]);
+			wrappers.emplace_back(&gWrappers.back());
+		}
 
-			generateVertices(abstractStart, abstractGoal, prmSize);
-			generateEdges(numEdges);
+		unsigned int startIndex = abstraction->getStartIndex();
+		dijkstra(wrappers[startIndex], wrappers);
 
-			std::vector<VertexWrapper *> wrappers;
-			wrappers.reserve(vertices.size());
-			std::vector<VertexHWrapper> hWrappers;
-			hWrappers.reserve(vertices.size());
-			for(auto v : vertices) {
+		//the connectivity check being done on abstraction initialization should assure this
+		assert(!std::isinf(vertices[abstraction->getGoalIndex()].vals[G]));
 
-				v->extraData = new ExtraData();
+		std::vector<VertexHWrapper> hWrappers;
+		hWrappers.reserve(vertices.size());
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			hWrappers.emplace_back(&vertices[i]);
+			wrappers[i] = &hWrappers.back();
+		}
 
+		dijkstra(wrappers[abstraction->getGoalIndex()], wrappers);
 
-				hWrappers.emplace_back(v);
-				wrappers.emplace_back(&hWrappers.back());
-			}
+#ifdef STREAM_GRAPHICS
+		generatePythonPlotting([&](unsigned int vertex) { return vertices[vertex].vals[G] + weight * vertices[vertex].vals[H]; }, "astar.prm");
+#endif
 
-			dijkstra(wrappers[1], wrappers);
+		vertices[startIndex].vals[F] = vertices[startIndex].vals[G] + weight * vertices[startIndex].vals[H];
 
-
-			connected = !(std::isinf(vertices[0]->h) || std::isinf(vertices[1]->h));
-
-			if(!connected) {
-				OMPL_INFORM("not connected! recomputing...");
-				for(auto vert : vertices) {
-					delete vert;
-				}
-				edges.clear();
-				prmSize *= 1.5;
-			} else {
-
-			}
-		} while(!connected);
-
-		vertices[0]->f = vertices[0]->h * weight;
-		vertices[0]->g = 0;
-		auto neighbors = getNeighboringCells(0);
+		auto neighbors = abstraction->getNeighboringCells(abstraction->getStartIndex());
 		for(auto n : neighbors) {
-			vertices[n]->g = vertices[0]->g + getEdgeCostBetweenCells(0, n);
-			vertices[n]->f = vertices[n]->g + vertices[n]->h * weight;
-			open.push(vertices[n]);
+			vertices[n].vals[F] = vertices[n].vals[G] + weight * vertices[n].vals[H];
+			open.push(&vertices[n]);
 		}
 	}
 
@@ -113,12 +108,12 @@ public:
 			return true;
 		}
 
-		target = open.peek();
-		target->f *= peekPenalty;
+		Vertex *target = open.peek();
+		target->vals[F] *= peekPenalty;
 		open.siftFromItem(target);
 
 		ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-		vertexState = target->state;
+		vertexState = abstraction->getState(target->id);
 
 		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
@@ -135,60 +130,54 @@ public:
 	virtual void reached(ompl::base::State *fromState, ompl::base::State *toState) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = fromState;
-
-		Vertex v(0);
-		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
-		Vertex *fromVertex = nn->nearest(&v);
+		unsigned int fromIndex = abstraction->mapToAbstractRegion(incomingState);
 
 		incomingState = toState;
-		ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
+		unsigned int reachedIndex = abstraction->mapToAbstractRegion(incomingState);
 
-		Vertex *reachedVertex = nn->nearest(&v);
+		double newG = vertices[fromIndex].vals[G] + abstraction->abstractDistanceFunctionByIndex(fromIndex, reachedIndex);
 
-		double newG = fromVertex->g;
+		Vertex &reachedRef = vertices[reachedIndex];
+		Vertex *reachedPtr = &vertices[reachedIndex];
 
-		if(isValidEdge(fromVertex->id, reachedVertex->id)) {
-			newG += getEdgeCostBetweenCells(fromVertex->id, reachedVertex->id);
-		} else {
-			newG += FBiasedStateSampler::abstractDistanceFunction(fromVertex, reachedVertex);
-		}
+		if(newG < reachedRef.vals[G]) {
+			reachedRef.vals[G] = newG;
+			reachedRef.vals[F] = newG + weight * reachedRef.vals[H];
 
-		if(newG < reachedVertex->g) {
-			reachedVertex->g = newG;
-			reachedVertex->f = newG + reachedVertex->h * weight;
-
-			if(open.inHeap(reachedVertex)) {
-				open.siftFromItem(reachedVertex);
+			if(open.inHeap(reachedPtr)) {
+				open.siftFromItem(reachedPtr);
 			} else {
-				open.push(reachedVertex);
+				open.push(reachedPtr);
 			}
 		} else {
-			if(open.inHeap(reachedVertex)) {
-				open.remove(reachedVertex);
+			if(open.inHeap(reachedPtr)) {
+				open.remove(reachedPtr);
 			}
 		}
 
-		auto neighbors = getNeighboringCells(reachedVertex->id);
+		auto neighbors = getNeighboringCells(reachedIndex);
 		for(auto n : neighbors) {
-			double newChildG = newG + getEdgeCostBetweenCells(reachedVertex->id, n);
+			double newChildG = newG + abstraction->abstractDistanceFunctionByIndex(reachedIndex, n);
 
-			if(newChildG < vertices[n]->g) {
-				vertices[n]->g = newChildG;
-				vertices[n]->f = vertices[n]->g + vertices[n]->h * weight;
+			Vertex &childRef = vertices[n];
+			Vertex *childPtr = &vertices[n];
 
-				if(open.inHeap(vertices[n])) {
-					open.siftFromItem(vertices[n]);
+			if(newChildG < childRef.vals[G]) {
+				childRef.vals[G] = newChildG;
+				childRef.vals[F] = childRef.vals[G] + weight * childRef.vals[H];
+
+				if(open.inHeap(childPtr)) {
+					open.siftFromItem(childPtr);
 				} else {
-					open.push(vertices[n]);
+					open.push(childPtr);
 				}
 			}
 		}
 	}
 
 protected:
-	InPlaceBinaryHeap<Vertex, ExtraData> open;
+	std::vector<Vertex> vertices;
+	InPlaceBinaryHeap<Vertex, Vertex> open;
 	double weight;
 	Vertex *target = NULL;
 };

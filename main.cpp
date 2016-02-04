@@ -15,6 +15,22 @@ struct BenchmarkData {
 struct GlobalParameters {
 	ompl::app::AppBase<ompl::app::CONTROL> *globalAppBaseControl = NULL;
 	ompl::app::AppBase<ompl::app::GEOMETRIC> *globalAbstractAppBaseGeometric = NULL;
+	ompl::base::RealVectorBounds abstractBounds = ompl::base::RealVectorBounds(0);
+	std::function<void(ompl::base::State*, const std::vector<double>&)> copyVectorToAbstractState;
+	std::function<void(std::vector<double>&, const ompl::base::State*)> copyAbstractStateToVector;
+};
+
+struct Timer {
+	Timer(const std::string &print) : print(print) {
+		OMPL_INFORM("starting : %s", print.c_str());
+		start = clock();
+
+	}
+	~Timer() {
+		OMPL_INFORM("ending : %s : \t%g", print.c_str(), (double)(clock()-start) / CLOCKS_PER_SEC);
+	}
+	clock_t start;
+	std::string print;
 };
 
 unsigned int howManyControls = 1;
@@ -59,10 +75,11 @@ GlobalParameters globalParameters;
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
 #include "planners/plakurrt.hpp"
-#include "planners/RRT.hpp"
-#include "planners/KPIECE.hpp"
+// #include "planners/RRT.hpp"
+// #include "planners/KPIECE.hpp"
 #include "planners/bestfirstplanner.hpp"
 #include "planners/anytimebestfirstplanner.hpp"
+#include "planners/newplanner.hpp"
 
 #include "structs/filemap.hpp"
 
@@ -79,7 +96,6 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
 	} else if(planner.compare("EST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::EST(benchmarkData.simplesetup->getSpaceInformation()));
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	} else if(planner.compare("SST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::SST(benchmarkData.simplesetup->getSpaceInformation()));;
 	} else if(planner.compare("SyclopRRT") == 0) {
@@ -98,6 +114,8 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::FBiasedShellRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
 	} else if(planner.compare("PlakuRRT") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
+	} else if(planner.compare("NewPlanner") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
 	} else {
 		fprintf(stderr, "unrecognized planner\n");
 		return;

@@ -19,7 +19,7 @@ namespace ompl {
 
 namespace base {
 
-class PlakuStateSampler : public ompl::base::UniformValidStateSampler {
+class PlakuStateSampler : public AbstractionBasedSampler {
 
 protected:
 	struct Vertex {
@@ -134,202 +134,40 @@ protected:
 		Parent *currentParent;
 	};
 
-	struct Edge {
-		enum CollisionCheckingStatus {
-			UNKNOWN = 0,
-			INVALID = 1,
-			VALID = 2,
-		};
-
-		Edge() {}
-
-		Edge(unsigned int endpoint, double weight) : endpoint(endpoint), weight(weight), edgeStatus(UNKNOWN) {}
-
-		std::size_t operator()(const Edge &e) const {
-			return e.endpoint;
-		}
-
-		bool operator==(const Edge &e) const {
-			return e.endpoint == endpoint;
-		}
-
-		unsigned int endpoint;
-		double weight;
-		unsigned int edgeStatus;
-	};
-
-	double abstractDistanceFunction(const Vertex *a, const Vertex *b) const {
-		assert(a->state != NULL);
-		assert(b->state != NULL);
-		return globalParameters.globalAbstractAppBaseGeometric->getStateSpace()->distance(a->state, b->state);
-	}
-
-	const base::State *stateIsAlreadyGeometric(const base::State *state, unsigned int /*index*/) const {
-		return state;
-	}
-
 public:
-	struct Timer {
-		Timer(const std::string &print) : print(print) {
-			OMPL_INFORM("starting : %s", print.c_str());
-			start = clock();
-
-		}
-		~Timer() {
-			OMPL_INFORM("ending : %s : \t%g", print.c_str(), (double)(clock()-start) / CLOCKS_PER_SEC);
-		}
-		clock_t start;
-		std::string print;
-	};
-
 	PlakuStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal, const FileMap &params)
-		: UniformValidStateSampler(base), fullStateSampler(base->allocStateSampler()), alpha(params.doubleVal("Alpha")), b(params.doubleVal("B")),
-		  stateRadius(params.doubleVal("StateRadius")), prmSize(params.integerVal("PRMSize")), numEdges(params.integerVal("NumEdges")), activeRegion(NULL),
-		  motionValidator(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->getMotionValidator()), start(base->getStateSpace()->allocState()) {
+		: AbstractionBasedSampler(base, start_, goal, params), alpha(params.doubleVal("Alpha")), b(params.doubleVal("B")),
+		  activeRegion(NULL), start(base->getStateSpace()->allocState()) {
 
 		base->getStateSpace()->copyState(start, start_);
 	}
 
-	virtual ~PlakuStateSampler() {
-		for(auto vertex : vertices) {
-			delete vertex;
-		}
-	}
+	virtual ~PlakuStateSampler() {}
 
 	virtual void initialize() {
 		Timer timer("Abstraction Computation");
 
-		auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
-		auto abstractGoal = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getGoal()->as<ompl::base::GoalState>()->getState();
-
-		bool connected = false;
-		do {
-			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-			if(si_->getStateSpace()->isMetricSpace()) {
-				// if (specs.multithreaded)
-				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
-				//else
-				nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
-			} else {
-				nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
-			}
-
-			nn->setDistanceFunction(boost::bind(&PlakuStateSampler::abstractDistanceFunction, this, _1, _2));
-
-			generateVertices(abstractStart, abstractGoal, prmSize);
-			generateEdges(numEdges);
-
-
-			startRegionId = 0;
-			goalRegionId = 1;
-			dijkstra(vertices[goalRegionId]);
-
-			connected = !std::isinf(vertices[startRegionId]->heuristic);
-
-			if(!connected) {
-				OMPL_WARN("not connected! recomputing...");
-				for(auto vert : vertices) {
-					delete vert;
-				}
-				edges.clear();
-				prmSize *= 1.5;
-			}
-		} while(!connected);
-
-		//Believe it or not but we can actually generate a vertex
-		//that can not be connected to its nearest neighbors
-		//if that happens, we need to remove it because it we
-		//generate an edge near it, and it's selected, we'll
-		//end up with a segfault because it has no region path
-		for(auto v : vertices) {
-			if(std::isinf(v->heuristic)) {
-				nn->remove(v);
-			}
+		abstraction->initialize();
+		
+		unsigned int abstractionSize = abstraction->getAbstractionSize();
+		vertices.clear();
+		vertices.reserve(abstractionSize);
+		for(unsigned int i = 0; i < abstractionSize; ++i) {
+			vertices.emplace_back(i);
 		}
 
-		// generatePythonPlotting();
+		startRegionId = abstraction->getStartIndex();
+		goalRegionId = abstraction->getGoalIndex();
+		dijkstra(&vertices[goalRegionId]);
+
+		//the connectivity check being done on abstraction initialization should assure this
+		assert(!std::isinf(vertices[startRegionId].heuristic));
+
+#ifdef STREAM_GRAPHICS
+		generatePythonPlotting([&](unsigned int vertex) { return vertices[vertex].heuristic; }, "plaku.prm");
+#endif
 
 		reached(start);
-	}
-
-	std::vector<double> getColor(double min, double max, double value) const {
-		std::vector<double> color(3);
-
-		value = ((value - min) / (max - min)) * 765;
-
-		if(value < 255) {
-			color[0] = 0;
-			color[1] = value / 2;
-			color[2] = 255 - value;
-		} else if(value < 510) {
-			double relVal = value - 255;
-			color[0] = relVal;
-			color[1] = (relVal + 255) / 2;
-			color[2] = 0;
-		} else {
-			double relVal = value - 510;
-			color[0] = 255;
-			color[1] = 255 - relVal;
-			color[2] = 0;
-		}
-
-		for(unsigned int i = 0; i < 3; ++i) {
-			color[i] /= 255;
-		}
-
-		return color;
-	}
-
-	void dumpToStderr() const {
-		double min = std::numeric_limits<double>::infinity();
-		double max = -std::numeric_limits<double>::infinity();
-		for(unsigned int i = 0; i < vertices.size(); ++i) {
-			if(vertices[i]->weight < min) min = vertices[i]->weight;
-			if(vertices[i]->weight > max) max = vertices[i]->weight;
-		}
-
-		for(unsigned int i = 0; i < vertices.size(); ++i) {
-			auto state = vertices[i]->state->as<ompl::base::SE3StateSpace::StateType>();
-			auto color = getColor(min, max, vertices[i]->weight);
-
-			fprintf(stderr, "point %g %g %g %g %g %g 1\n", state->getX(), state->getY(), state->getZ(), color[0], color[1], color[2]);
-		}
-	}
-
-	void generatePythonPlotting() const {
-		FILE *f = fopen("prm.py", "w");
-
-		double min = std::numeric_limits<double>::infinity();
-		double max = -std::numeric_limits<double>::infinity();
-		for(unsigned int i = 0; i < vertices.size(); ++i) {
-			if(vertices[i]->heuristic < min) min = vertices[i]->heuristic;
-			if(vertices[i]->heuristic > max) max = vertices[i]->heuristic;
-		}
-		fprintf(f, "import numpy as np\nfrom mpl_toolkits.mplot3d import Axes3D\nimport matplotlib.pyplot as plt\n");
-		fprintf(f, "fig = plt.figure()\nax = fig.add_subplot(111, projection='3d')\nax.scatter(");
-
-		for(unsigned int coord = 0; coord < 4; ++coord) {
-			if(coord == 3) {
-				fprintf(f, "c=");
-			}
-			fprintf(f, "[");
-			for(unsigned int i = 0; i < vertices.size(); ++i) {
-				auto state = vertices[i]->state->as<ompl::base::SE3StateSpace::StateType>();
-				if(coord == 0) {
-					fprintf(f, (i < vertices.size()-1) ? "%g, ": "%g", state->getX());
-				} else if(coord == 1) {
-					fprintf(f, (i < vertices.size()-1) ? "%g, ": "%g", state->getY());
-				} else if(coord == 2) {
-					fprintf(f, (i < vertices.size()-1) ? "%g, ": "%g", state->getZ());
-				} else if(coord == 3) {
-					auto color = getColor(min, max, vertices[i]->heuristic);
-					fprintf(f, (i < vertices.size()-1) ? "(%g, %g, %g), ": "(%g, %g, %g)", color[0], color[1], color[2]);
-				}
-			}
-			fprintf(f, (coord < 3) ? "]," : "], depthshade=False");
-		}
-		fprintf(f, ")\nplt.show()\n");
-		fclose(f);
 	}
 
 	virtual bool sample(ompl::base::State *state) {
@@ -349,10 +187,17 @@ public:
 			activeRegion->selected(alpha);
 			activeRegion->onOpen = false;
 			unsigned int regionAlongPath = activeRegion->getRandomRegionAlongPathToGoal(randomNumbers);
+
 			ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-			vertexState = vertices[regionAlongPath]->state;
+			if(abstraction->supportsSampling()) {
+				vertexState = abstraction->sampleAbstractState(regionAlongPath);
+			}
+			else {
+				vertexState = abstraction->getState(regionAlongPath);
+			}
 			ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 			fullStateSampler->sampleUniformNear(state, fullState.get(), stateRadius);
+
 			return true;
 		} else {
 			fullStateSampler->sampleUniform(state);
@@ -368,153 +213,16 @@ public:
 	void reached(ompl::base::State *state) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = state;
-		Vertex v(0);
-		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
-		unsigned int newCellId = nn->nearest(&v)->id;
-		if(!vertices[newCellId]->onOpen) {
-			vertices[newCellId]->selected(alpha);
-			regionHeap.push_back(vertices[newCellId]);
+		unsigned int newCellId = abstraction->mapToAbstractRegion(incomingState);
+		if(!vertices[newCellId].onOpen) {
+			vertices[newCellId].selected(alpha);
+			regionHeap.push_back(&vertices[newCellId]);
 			std::push_heap(regionHeap.begin(), regionHeap.end(), Vertex::HeapCompare);
-			vertices[newCellId]->onOpen = true;
+			vertices[newCellId].onOpen = true;
 		}
 	}
 
 protected:
-	virtual void generateVertices(const ompl::base::State *start, const ompl::base::State *goal, unsigned int howMany) {
-		Timer timer("Vertex Generation");
-		ompl::base::StateSpacePtr abstractSpace = globalParameters.globalAbstractAppBaseGeometric->getStateSpace();
-		ompl::base::ValidStateSamplerPtr abstractSampler = globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->allocValidStateSampler();
-
-		vertices.resize(howMany);
-
-		vertices[0] = new Vertex(0);
-		vertices[0]->state = abstractSpace->allocState();
-		abstractSpace->copyState(vertices[0]->state, start);
-		nn->add(vertices[0]);
-
-		vertices[1] = new Vertex(1);
-		vertices[1]->state = abstractSpace->allocState();
-		abstractSpace->copyState(vertices[1]->state, goal);
-		nn->add(vertices[1]);
-
-		for(unsigned int i = 2; i < howMany; ++i) {
-			vertices[i] = new Vertex(i);
-			vertices[i]->state = abstractSpace->allocState();
-			abstractSampler->sample(vertices[i]->state);
-			nn->add(vertices[i]);
-		}
-	}
-
-	void setEdgeStatus(unsigned int a, unsigned int b, unsigned int status) {
-		auto vertexAndEdges = edges.find(a);
-		if(vertexAndEdges == edges.end()) {
-			return;
-		}
-
-		auto &edges = vertexAndEdges->second;
-
-		auto edge = edges.find(b);
-		if(edge == edges.end()) {
-			return;
-		}
-
-		edge->second.edgeStatus = status;
-	}
-
-	bool edgeExists(unsigned int a, unsigned int b) const {
-		auto vertexAndEdges = edges.find(a);
-		if(vertexAndEdges == edges.end()) {
-			return false;
-		}
-
-		auto &edges = vertexAndEdges->second;
-
-		auto edge = edges.find(b);
-		if(edge == edges.end()) {
-			return false;
-		}
-
-		return true;
-	}
-
-	bool isValidEdge(unsigned int a, unsigned int b) {
-		auto vertexAndEdges = edges.find(a);
-		if(vertexAndEdges == edges.end()) {
-			return false;
-		}
-
-		auto &edges = vertexAndEdges->second;
-
-		auto edge = edges.find(b);
-		if(edge == edges.end()) {
-			return false;
-		}
-
-		if(edge->second.edgeStatus == Edge::UNKNOWN) {
-			if(motionValidator->checkMotion(vertices[a]->state, vertices[b]->state)) {
-				edge->second.edgeStatus = Edge::VALID;
-				setEdgeStatus(b, a, Edge::VALID);
-			} else {
-				edge->second.edgeStatus = Edge::INVALID;
-				setEdgeStatus(b, a, Edge::INVALID);
-			}
-		}
-
-		return edge->second.edgeStatus == Edge::VALID;
-	}
-
-	void generateEdges(unsigned int howManyConnections) {
-		Timer timer("Edge Generation");
-		auto distanceFunc = nn->getDistanceFunction();
-
-		for(Vertex *vertex : vertices) {
-			edges[vertex->id];
-
-			std::vector<Vertex *> neighbors;
-			nn->nearestK(vertex, howManyConnections+1, neighbors);
-
-			assert(howManyConnections+1 >= neighbors.size());
-
-			for(Vertex *neighbor : neighbors) {
-				if(edgeExists(vertex->id, neighbor->id)) continue;
-
-				double distance = distanceFunc(vertex, neighbor);
-				if(distance == 0) continue;
-
-				edges[vertex->id][neighbor->id] = Edge(neighbor->id, distance);
-				edges[neighbor->id][vertex->id] = Edge(vertex->id, distance);
-			}
-		}
-	}
-
-	std::vector<unsigned int> getNeighboringCells(unsigned int index) const {
-		auto vertexAndEdges = edges.find(index);
-		assert(vertexAndEdges != edges.end());
-
-		const auto &edges = vertexAndEdges->second;
-
-		std::vector<unsigned int> ids;
-		ids.reserve(edges.size());
-		for(const auto &edge : edges) {
-			ids.push_back(edge.second.endpoint);
-		}
-
-		return ids;
-	}
-
-	double getEdgeCostBetweenCells(unsigned int c1, unsigned int c2) const {
-		auto vertexAndEdges = edges.find(c1);
-		assert(vertexAndEdges != edges.end());
-
-		const auto &edges = vertexAndEdges->second;
-
-		auto edge = edges.find(c2);
-		assert(edge != edges.end());
-
-		return edge->second.weight;
-	}
-
 	void dijkstra(Vertex *start) {
 		Timer t("dijkstra");
 		InPlaceBinaryHeap<Vertex, Vertex> open;
@@ -530,7 +238,7 @@ protected:
 
 			if(current->id != start->id) {
 				unsigned int parentIndex = current->getBestParentIndex();
-				if(!isValidEdge(parentIndex, current->id)) {
+				if(!abstraction->isValidEdge(parentIndex, current->id)) {
 					//this will update the value of the vertex if needed
 					current->popBestParent();
 					if(current->hasMoreParents()) {
@@ -548,9 +256,9 @@ protected:
 			for(unsigned int kidIndex : kids) {
 				if(closed.find(kidIndex) != closed.end()) continue;
 
-				double newValue = current->heuristic + getEdgeCostBetweenCells(current->id, kidIndex);
+				double newValue = current->heuristic + abstraction->abstractDistanceFunctionByIndex(current->id, kidIndex);
 
-				Vertex *kid = vertices[kidIndex];
+				Vertex *kid = &vertices[kidIndex];
 
 				//this will update the value of the vertex if needed
 				bool addedBetterParent = kid->addParent(current->id, newValue, current->regionPath);
@@ -566,18 +274,15 @@ protected:
 		}
 	}
 
-	StateSamplerPtr fullStateSampler;
-	boost::shared_ptr< NearestNeighbors<Vertex *> > nn;
-	std::vector<Vertex *> vertices, regionHeap;
-	std::unordered_map<unsigned int, std::unordered_map<unsigned int, Edge>> edges;
+	std::vector<Vertex> vertices;
+	std::vector<Vertex*> regionHeap;
 	ompl::RNG randomNumbers;
-	ompl::base::MotionValidatorPtr motionValidator;
 
 	ompl::base::State *start;
-	unsigned int startRegionId, goalRegionId, prmSize, numEdges;
+	unsigned int startRegionId, goalRegionId;
 	Vertex *activeRegion;
 
-	double alpha, b, stateRadius;
+	double alpha, b;
 };
 
 }

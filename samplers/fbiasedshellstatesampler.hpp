@@ -19,32 +19,69 @@ namespace ompl {
 namespace base {
 
 class FBiasedShellStateSampler : public ompl::base::FBiasedStateSampler {
+	enum LABELS {
+		G = 0,
+		H = 1,
+		F = 2,
+		SCORE = 3,
+		TOTAL = 4,
+	};
 
-	struct ExtraData {
-		ExtraData() : inExteriorPDF(false), touched(false) {}
+protected:
+	struct Vertex : public FBiasedStateSampler::Vertex {
+		Vertex() {}
+		Vertex(unsigned int id, unsigned int numVals = 0) : FBiasedStateSampler::Vertex(id, numVals),
+			pdfID(std::numeric_limits<unsigned int>::max()), inExteriorPDF(false), touched(false) {}
+		unsigned int pdfID;
 		bool inExteriorPDF, touched;
 	};
 
 public:
 	FBiasedShellStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start_, const ompl::base::GoalPtr &goal,
 	                         const FileMap &params) :
-		FBiasedStateSampler(base, start_, goal, params, false), shellPreference(params.doubleVal("ShellPreference")),
+		FBiasedStateSampler(base, start_, goal, params), shellPreference(params.doubleVal("ShellPreference")),
 		shellDepth(params.doubleVal("ShellDepth")), start(base->getStateSpace()->allocState()) {
 		base->getStateSpace()->copyState(start, start_);
 	}
 
-	virtual ~FBiasedShellStateSampler() {
-		for(auto vertex : vertices) {
-			delete(ExtraData *)vertex->extraData;
-		}
-	}
+	virtual ~FBiasedShellStateSampler() {}
 
-	virtual void initialize() {
-		FBiasedStateSampler::initialize();
+	virtual void initialize() {		
+		abstraction->initialize();
 
-		for(auto vertex : vertices) {
-			vertex->extraData = new ExtraData();
+		unsigned int abstractionSize = abstraction->getAbstractionSize();
+		vertices.clear();
+		vertices.reserve(abstractionSize);
+		for(unsigned int i = 0; i < abstractionSize; ++i) {
+			vertices.emplace_back(i, TOTAL);
 		}
+
+		std::vector<VertexWrapper *> wrappers;
+		wrappers.reserve(vertices.size());
+		std::vector<VertexGWrapper> gWrappers;
+		gWrappers.reserve(vertices.size());
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			gWrappers.emplace_back(&vertices[i]);
+			wrappers.emplace_back(&gWrappers.back());
+		}
+
+		dijkstra(wrappers[abstraction->getStartIndex()], wrappers);
+
+		//the connectivity check being done on abstraction initialization should assure this
+		assert(!std::isinf(vertices[abstraction->getGoalIndex()].vals[G]));
+
+		std::vector<VertexHWrapper> hWrappers;
+		hWrappers.reserve(vertices.size());
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			hWrappers.emplace_back(&vertices[i]);
+			wrappers[i] = &hWrappers.back();
+		}
+
+		dijkstra(wrappers[abstraction->getGoalIndex()], wrappers);
+
+#ifdef STREAM_GRAPHICS
+		generatePythonPlotting([&](unsigned int vertex) { return vertices[vertex].vals[SCORE]; }, "fbiasedshell.prm");
+#endif
 
 		reached(start);
 	}
@@ -62,12 +99,16 @@ public:
 		}
 
 		ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-		vertexState = randomVertex->state;
+		if(abstraction->supportsSampling()) {
+			vertexState = abstraction->sampleAbstractState(randomVertex->id);
+		}
+		else {
+			vertexState = abstraction->getState(randomVertex->id);
+		}
 
 		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
 		fullStateSampler->sampleUniformNear(state, fullState.get(), stateRadius);
-		// fullStateSampler->sampleUniform(state);
 
 		return true;
 	}
@@ -82,23 +123,6 @@ public:
 	}
 
 protected:
-
-	inline bool wasTouched(Vertex *v) const {
-		return ((ExtraData *)v->extraData)->touched;
-	}
-
-	inline void setTouched(Vertex *v) {
-		((ExtraData *)v->extraData)->touched = true;
-	}
-
-	inline bool isInExteriorPDF(Vertex *v) const {
-		return ((ExtraData *)v->extraData)->inExteriorPDF;
-	}
-
-	inline void setInExteriorPDF(Vertex *v, bool inExteriorPDF) {
-		((ExtraData *)v->extraData)->inExteriorPDF = inExteriorPDF;
-	}
-
 	void reached(ompl::base::State *state, double shellDepth) {
 		//we have a local shellDepth passed in, and a object level shellDepth -- maybe we want to alter it during runtime?
 		struct node {
@@ -121,13 +145,9 @@ protected:
 
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = state;
+		unsigned int start = abstraction->mapToAbstractRegion(incomingState);
 
-		Vertex v(0);
-		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
-		unsigned int start = nn->nearest(&v)->id;
-
-		if(wasTouched(vertices[start])) {
+		if(vertices[start].touched) {
 			return;
 		}
 
@@ -138,17 +158,17 @@ protected:
 
 		lookup[start] = new node(start, 0, 0);
 
-		if(isInExteriorPDF(vertices[start])) {
-			auto el = exterior.remove(vertices[start]->pdfID);
+		if(vertices[start].inExteriorPDF) {
+			auto el = exterior.remove(vertices[start].pdfID);
 			if(el != NULL) {
 				el->getData()->pdfID = el->getId();
 			}
 		}
 
-		auto el = interior.add(vertices[start], vertices[start]->score);
-		vertices[start]->pdfID = el->getId();
-		setInExteriorPDF(vertices[start], false);
-		setTouched(vertices[start]);
+		auto el = interior.add(&vertices[start], vertices[start].vals[SCORE]);
+		vertices[start].pdfID = el->getId();
+		vertices[start].inExteriorPDF = false;
+		vertices[start].touched = true;
 
 		open.push(lookup[start]);
 		while(!open.isEmpty()) {
@@ -157,9 +177,9 @@ protected:
 
 			std::vector<unsigned int> kids = getNeighboringCells(current->id);
 			for(unsigned int kid : kids) {
-				if(closed.find(kid) != closed.end() || wasTouched(vertices[kid])) continue;
+				if(closed.find(kid) != closed.end() || vertices[kid].touched) continue;
 
-				double newValue = current->value + getEdgeCostBetweenCells(current->id, kid);
+				double newValue = current->value + abstraction->abstractDistanceFunctionByIndex(current->id, kid);
 
 				if(newValue <= shellDepth /*|| current->depth == 0*/) {
 					if(lookup.find(kid) != lookup.end()) {
@@ -179,14 +199,15 @@ protected:
 		for(auto entry : lookup) {
 			auto n = entry.first;
 			delete entry.second;
-			if(!(isInExteriorPDF(vertices[n]) || wasTouched(vertices[n]))) {
-				auto el = exterior.add(vertices[n], vertices[n]->score);
-				vertices[n]->pdfID = el->getId();
-				setInExteriorPDF(vertices[n], true);
+			if(!(vertices[n].inExteriorPDF || vertices[n].touched)) {
+				auto el = exterior.add(&vertices[n], vertices[n].vals[SCORE]);
+				vertices[n].pdfID = el->getId();
+				vertices[n].inExteriorPDF = true;
 			}
 		}
 	}
 
+	std::vector<Vertex> vertices;
 	ProbabilityDensityFunction<Vertex> interior, exterior;
 	ompl::base::State *start;
 	double shellPreference, shellDepth;

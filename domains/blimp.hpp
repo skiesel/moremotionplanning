@@ -100,6 +100,32 @@ BenchmarkData blimpBenchmark() {
 	blimpPtr->setup();
 	abstract->setup();
 
+	globalParameters.abstractBounds = abstract->getStateSpace()->as<ompl::base::SE3StateSpace>()->getBounds();
+	globalParameters.abstractBounds.resize(4);
+	globalParameters.abstractBounds.setLow(3, -M_PI);
+	globalParameters.abstractBounds.setHigh(3, M_PI);
+
+	globalParameters.copyVectorToAbstractState = [](ompl::base::State *s, const std::vector<double> &values) {
+		ompl::base::SE3StateSpace::StateType *state = s->as<ompl::base::SE3StateSpace::StateType>();
+		state->setXYZ(values[0], values[1], values[2]);
+		state->rotation().setAxisAngle(0, 0, 1, values[4]);
+	};
+
+	globalParameters.copyAbstractStateToVector = [](std::vector<double> &values, const ompl::base::State *s) {
+		const ompl::base::SE3StateSpace::StateType *state = s->as<ompl::base::SE3StateSpace::StateType>();
+		values.resize(4);
+		values[0] = state->getX();
+		values[1] = state->getY();
+		values[2] = state->getZ();
+
+		double x = state->rotation().x;
+		double y = state->rotation().y;
+		double z = state->rotation().z;
+		double w = state->rotation().w;
+		
+		values[3] = asin(-2 * (x * z - w * y));
+	};
+
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*blimpPtr, blimp->getName());
 	data.simplesetup = blimpPtr;

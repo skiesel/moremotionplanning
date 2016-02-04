@@ -93,13 +93,10 @@ public:
 				bestFirstSampler_ = new ompl::base::AnytimeEESSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
 			} else {
 				throw ompl::Exception("Unrecognized anytime best first search type", whichBestFirst.c_str());
-				return base::PlannerStatus(false, false);
 			}
 			bestFirstSampler_->initialize();
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
-
-			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();

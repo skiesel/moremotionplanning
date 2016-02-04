@@ -4,33 +4,39 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/base/goals/GoalSampleableRegion.h"
 #include "ompl/tools/config/SelfConfig.h"
-#include "../samplers/plakustatesampler.hpp"
+
+#include "../structs/filemap.hpp"
+
+#include "../samplers/newsampler.hpp"
 #include <limits>
 
 namespace ompl {
 
 namespace control {
 
-class PlakuRRT : public ompl::control::RRT {
+class NewPlanner : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	PlakuRRT(const SpaceInformationPtr &si, const FileMap &params) :
-		ompl::control::RRT(si), plakusampler_(NULL), params(params) {
+	NewPlanner(const SpaceInformationPtr &si, const FileMap &params) :
+		ompl::control::RRT(si), newsampler_(NULL), params(params) {
 
-		setName("Plaku RRT");
+		setName("New Planner");
 
-		Planner::declareParam<double>("state_radius", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getStateRadius);
-		Planner::declareParam<double>("alpha", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getAlpha);
-		Planner::declareParam<double>("b", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getB);
-		Planner::declareParam<double>("prm_size", this, &PlakuRRT::ignoreSetterUnsigedInt, &PlakuRRT::getPRMSize);
-		Planner::declareParam<double>("num_prm_edges", this, &PlakuRRT::ignoreSetterUnsigedInt, &PlakuRRT::getNumPRMEdges);
+		Planner::declareParam<double>("state_radius", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getStateRadius);
+		Planner::declareParam<unsigned int>("prm_size", this, &NewPlanner::ignoreSetterUnsigedInt, &NewPlanner::getPRMSize);
+		Planner::declareParam<unsigned int>("num_prm_edges", this, &NewPlanner::ignoreSetterUnsigedInt, &NewPlanner::getNumPRMEdges);
+
+		Planner::declareParam<double>("valid_edge_distribution_alpha", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getValidEdgeDistributionAlpha);
+		Planner::declareParam<double>("valid_edge_distribution_beta", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getValidEdgeDistributionBeta);
+		Planner::declareParam<double>("invalid_edge_distribution_alpha", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getInvalidEdgeDistributionAlpha);
+		Planner::declareParam<double>("invalid_edge_distribution_beta", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getInvalidEdgeDistributionBeta);
 
 		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
-		Planner::declareParam<double>("sampler_initialization_time", this, &PlakuRRT::ignoreSetterDouble, &PlakuRRT::getSamplerInitializationTime);
+		Planner::declareParam<double>("sampler_initialization_time", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getSamplerInitializationTime);
 	}
 
-	virtual ~PlakuRRT() {}
+	virtual ~NewPlanner() {}
 
 	void ignoreSetterDouble(double) const {}
 	void ignoreSetterUnsigedInt(unsigned int) const {}
@@ -38,17 +44,23 @@ public:
 	double getStateRadius() const {
 		return params.doubleVal("StateRadius");
 	}
-	double getAlpha() const {
-		return params.doubleVal("Alpha");
-	}
-	double getB() const {
-		return params.doubleVal("B");
-	}
 	unsigned int getPRMSize() const {
 		return params.integerVal("PRMSize");
 	}
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
+	}
+	double getValidEdgeDistributionAlpha() const {
+		return params.doubleVal("ValidEdgeDistributionAlpha");
+	}
+	double getValidEdgeDistributionBeta() const {
+		return params.doubleVal("ValidEdgeDistributionBeta");
+	}
+	double getInvalidEdgeDistributionAlpha() const {
+		return params.doubleVal("InvalidEdgeDistributionAlpha");
+	}
+	double getInvalidEdgeDistributionBeta() const {
+		return params.doubleVal("InvalidEdgeDistributionBeta");
 	}
 	double getSamplerInitializationTime() const {
 		return samplerInitializationTime;
@@ -72,12 +84,12 @@ public:
 			return base::PlannerStatus::INVALID_START;
 		}
 
-		if(!plakusampler_) {
+		if(!newsampler_) {
 			auto start = clock();
 
-			plakusampler_ = new ompl::base::PlakuStateSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+			newsampler_ = new ompl::base::NewSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
 			        params);
-			plakusampler_->initialize();
+			newsampler_->initialize();
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
 		}
@@ -95,20 +107,28 @@ public:
 		Control       *rctrl = rmotion->control;
 		base::State  *xstate = si_->allocState();
 
+		Motion *resusableMotion = new Motion(siC_);
+
 		while(ptc == false) {
+			Motion *nmotion = NULL;
+
 			/* sample random state (with goal biasing) */
-			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
+			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample()) {
 				goal_s->sampleGoal(rstate);
+
+				/* find closest state in the tree */
+				nmotion = nn_->nearest(rmotion);
+			}
 			else {
-				plakusampler_->sample(rstate);
+				newsampler_->sample(resusableMotion->state, rstate);
+
+				/* find closest state in the tree */
+				nmotion = nn_->nearest(resusableMotion);
 			}
 
 #ifdef STREAM_GRAPHICS
 			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
-
-			/* find closest state in the tree */
-			Motion *nmotion = nn_->nearest(rmotion);
 
 			/* sample a random control that attempts to go towards the random state, and also sample a control duration */
 			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control, nmotion->state, rmotion->state);
@@ -123,15 +143,16 @@ public:
 					bool solved = false;
 					size_t p = 0;
 					for(; p < pstates.size(); ++p) {
-						plakusampler_->reached(pstates[p]);
+						/* create a motion */
+						Motion *motion = new Motion();
+						motion->state = pstates[p];
+
+						newsampler_->reached(pstates[p]);
 
 #ifdef STREAM_GRAPHICS
 						streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
-						/* create a motion */
-						Motion *motion = new Motion();
-						motion->state = pstates[p];
 						//we need multiple copies of rctrl
 						motion->control = siC_->allocControl();
 						siC_->copyControl(motion->control, rctrl);
@@ -170,7 +191,7 @@ public:
 					motion->steps = cd;
 					motion->parent = nmotion;
 
-					plakusampler_->reached(motion->state);
+					newsampler_->reached(motion->state);
 
 #ifdef STREAM_GRAPHICS
 					streamPoint(nmotion->state, 1, 0, 0, 1);
@@ -235,13 +256,13 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		// delete plakusampler_;
-		// plakusampler_ = NULL;
+		// delete newsampler_;
+		// newsampler_ = NULL;
 	}
 
 protected:
 
-	ompl::base::PlakuStateSampler *plakusampler_;
+	ompl::base::NewSampler *newsampler_;
 	const FileMap &params;
 	double samplerInitializationTime = 0;
 };

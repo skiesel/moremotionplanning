@@ -7,24 +7,31 @@ namespace ompl {
 namespace base {
 
 class DijkstraSampler : public ompl::base::BestFirstSampler {
+	enum LABELS {
+		G,
+		F,
+		TOTAL,
+	};
 
-	struct ExtraData {
-		ExtraData() : heapIndex(std::numeric_limits<unsigned int>::max()) {}
-		unsigned int heapIndex;
+protected:
+	struct Vertex : public FBiasedStateSampler::Vertex {
+		Vertex(unsigned int id, unsigned int numVals = 0) : FBiasedStateSampler::Vertex(id, numVals),
+			heapIndex(std::numeric_limits<unsigned int>::max()) {}
 
 		static bool pred(const Vertex *a, const Vertex *b) {
-			return a->f < b->f;
+			return a->vals[F] < b->vals[F];
 		}
 		static unsigned int getHeapIndex(const Vertex *r) {
-			return ((ExtraData *)r->extraData)->heapIndex;
+			return r->heapIndex;
 		}
 		static void setHeapIndex(Vertex *r, unsigned int i) {
-			((ExtraData *)r->extraData)->heapIndex = i;
+			r->heapIndex = i;
 		}
+
+		unsigned int heapIndex;
 	};
 
 public:
-
 	DijkstraSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	                const FileMap &params) :
 		BestFirstSampler(base, start, goal, params) {
@@ -33,32 +40,20 @@ public:
 	virtual ~DijkstraSampler() {}
 
 	virtual void initialize() {
-		auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
-		auto abstractGoal = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getGoal()->as<ompl::base::GoalState>()->getState();
-
-		if(si_->getStateSpace()->isMetricSpace()) {
-			// if (specs.multithreaded)
-			//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
-			//else
-			nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
-		} else {
-			nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
+		abstraction->initialize();
+		unsigned int abstractionSize = abstraction->getAbstractionSize();
+		vertices.reserve(abstractionSize);
+		for(unsigned int i = 0; i < abstractionSize; ++i) {
+			vertices.emplace_back(i, TOTAL);
 		}
 
-		nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
+		unsigned int startIndex = abstraction->getStartIndex();
 
-		generateVertices(abstractStart, abstractGoal, prmSize);
-		generateEdges(numEdges);
-
-		for(auto v : vertices) {
-			v->extraData = new ExtraData();
-		}
-
-		vertices[0]->f = vertices[0]->g = 0;
-		auto neighbors = getNeighboringCells(0);
+		vertices[startIndex].vals[F] = vertices[startIndex].vals[G] = 0;
+		auto neighbors = abstraction->getNeighboringCells(startIndex);
 		for(auto n : neighbors) {
-			vertices[n]->f = vertices[n]->g = vertices[0]->g + FBiasedStateSampler::abstractDistanceFunction(vertices[0], vertices[n]);
-			open.push(vertices[n]);
+			vertices[n].vals[F] = vertices[n].vals[G] = vertices[startIndex].vals[G] + abstraction->abstractDistanceFunctionByIndex(startIndex, n);
+			open.push(&vertices[n]);
 		}
 	}
 
@@ -78,14 +73,18 @@ public:
 		}
 
 		Vertex *target = open.peek();
-		target->f *= peekPenalty;
+		target->vals[F] *= peekPenalty;
 		open.siftFromItem(target);
 
 		ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-		vertexState = target->state;
+		if(abstraction->supportsSampling()) {
+			vertexState = abstraction->sampleAbstractState(target->id);
+		}
+		else {
+			vertexState = abstraction->getState(target->id);
+		}
 
 		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
-
 		fullStateSampler->sampleUniformNear(state, fullState.get(), stateRadius);
 
 		return true;
@@ -99,52 +98,52 @@ public:
 	virtual void reached(ompl::base::State *fromState, ompl::base::State *toState) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = fromState;
-
-		Vertex v(0);
-		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
-		Vertex *fromVertex = nn->nearest(&v);
+		unsigned int fromIndex = abstraction->mapToAbstractRegion(incomingState);
 
 		incomingState = toState;
-		ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
+		unsigned int reachedIndex = abstraction->mapToAbstractRegion(incomingState);
 
-		Vertex *reachedVertex = nn->nearest(&v);
+		double newG = vertices[fromIndex].vals[G] + abstraction->abstractDistanceFunctionByIndex(fromIndex, reachedIndex);
 
-		double newG = fromVertex->g + FBiasedStateSampler::abstractDistanceFunction(fromVertex, reachedVertex);
+		Vertex &reachedVertexRef = vertices[reachedIndex];
+		Vertex *reachedVertexPtr = &vertices[reachedIndex];
 
-		if(newG < reachedVertex->g) {
-			reachedVertex->g = reachedVertex->f = newG;
+		if(newG < reachedVertexRef.vals[G]) {
+			reachedVertexRef.vals[G] = reachedVertexRef.vals[F] = newG;
 
-			if(open.inHeap(reachedVertex)) {
-				open.siftFromItem(reachedVertex);
+			if(open.inHeap(reachedVertexPtr)) {
+				open.siftFromItem(reachedVertexPtr);
 			} else {
-				open.push(reachedVertex);
+				open.push(reachedVertexPtr);
 			}
 		} else {
-			if(open.inHeap(reachedVertex)) {
-				open.remove(reachedVertex);
+			if(open.inHeap(reachedVertexPtr)) {
+				open.remove(reachedVertexPtr);
 			}
 		}
 
-		auto neighbors = getNeighboringCells(reachedVertex->id);
+		auto neighbors = abstraction->getNeighboringCells(reachedIndex);
 		for(auto n : neighbors) {
-			double newChildG = newG + getEdgeCostBetweenCells(reachedVertex->id, n);
+			double newChildG = newG + abstraction->abstractDistanceFunctionByIndex(reachedIndex, n);
+			Vertex &childVertexRef = vertices[n];
+			Vertex *childVertexPtr = &vertices[n];
 
-			if(newChildG < vertices[n]->g) {
-				vertices[n]->g = vertices[n]->f = newChildG;
 
-				if(open.inHeap(vertices[n])) {
-					open.siftFromItem(vertices[n]);
+			if(newChildG < childVertexRef.vals[G]) {
+				childVertexRef.vals[G] = childVertexRef.vals[F] = newChildG;
+
+				if(open.inHeap(childVertexPtr)) {
+					open.siftFromItem(childVertexPtr);
 				} else {
-					open.push(vertices[n]);
+					open.push(childVertexPtr);
 				}
 			}
 		}
 	}
 
 protected:
-	InPlaceBinaryHeap<Vertex, ExtraData> open;
+	std::vector<Vertex> vertices;
+	InPlaceBinaryHeap<Vertex, Vertex> open;
 };
 
 }

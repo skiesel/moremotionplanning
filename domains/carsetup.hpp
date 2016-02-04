@@ -129,9 +129,9 @@ BenchmarkData carBenchmark(std::string which) {
 	// set the start & goal states
 	carPtr->setStartAndGoalStates(
 	    car->getFullStateFromGeometricComponent(details.start),
-	    car->getFullStateFromGeometricComponent(details.goal), 0.5);
+	    car->getFullStateFromGeometricComponent(details.goal), 1);
 
-	abstract->setStartAndGoalStates(details.start, details.goal, 0.5);
+	abstract->setStartAndGoalStates(details.start, details.goal, 1);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;
@@ -152,6 +152,25 @@ BenchmarkData carBenchmark(std::string which) {
 
 	carPtr->setup();
 	abstract->setup();
+
+	globalParameters.abstractBounds = abstract->getStateSpace()->as<ompl::base::SE2StateSpace>()->getBounds();
+	globalParameters.abstractBounds.resize(3);
+	globalParameters.abstractBounds.setLow(2, -M_PI);
+	globalParameters.abstractBounds.setHigh(2, M_PI);
+
+	globalParameters.copyVectorToAbstractState = [](ompl::base::State *s, const std::vector<double> &values) {
+		ompl::base::SE2StateSpace::StateType *state = s->as<ompl::base::SE2StateSpace::StateType>();
+		state->setXY(values[0], values[1]);
+		state->setYaw(values[2]);
+	};
+
+	globalParameters.copyAbstractStateToVector = [](std::vector<double> &values, const ompl::base::State *s) {
+		const ompl::base::SE2StateSpace::StateType *state = s->as<ompl::base::SE2StateSpace::StateType>();
+		values.resize(3);
+		values[0] = state->getX();
+		values[1] = state->getY();
+		values[2] = state->getYaw();
+	};
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*carPtr, car->getName());

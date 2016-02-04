@@ -78,8 +78,6 @@ public:
 			fbiasedSampler_->initialize();
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
-
-			fprintf(stderr, "\n\n\t\t%g\n\n", samplerInitializationTime);
 		}
 		if(!controlSampler_)
 			controlSampler_ = siC_->allocDirectedControlSampler();

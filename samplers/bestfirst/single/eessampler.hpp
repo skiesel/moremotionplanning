@@ -10,71 +10,75 @@ namespace ompl {
 namespace base {
 
 class EESSampler : public ompl::base::BestFirstSampler {
-
-	struct ExtraData {
-		ExtraData(double clearance) : clearance(clearance), fhat(std::numeric_limits<double>::infinity()),
-			e(std::numeric_limits<double>::infinity()), ehat(std::numeric_limits<double>::infinity()),
-			fIndex(std::numeric_limits<unsigned int>::max()), eHatIndex(std::numeric_limits<unsigned int>::max()) {}
-
-		double clearance, fhat, e, ehat;
-		unsigned int fIndex, eHatIndex;
+protected:
+	enum LABELS {
+		G,
+		H,
+		F,
+		E,
+		FHAT,
+		EHAT,
+		CLEARANCE,
+		TOTAL,
 	};
 
-	static inline ExtraData *extraData(Vertex *v) {
-		return ((ExtraData *)v->extraData);
-	}
-	static inline const ExtraData *extraData(const Vertex *v) {
-		return ((ExtraData *)v->extraData);
-	}
+	struct Vertex : public FBiasedStateSampler::Vertex {
+		Vertex(unsigned int id, double clearance, unsigned int numVals = 0) : FBiasedStateSampler::Vertex(id, numVals) {
+			vals[CLEARANCE] = clearance;
+		}
+
+		unsigned int fIndex = std::numeric_limits<unsigned int>::max();
+		unsigned int eHatIndex = std::numeric_limits<unsigned int>::max();
+	};
 
 	struct VertexEWrapper : public VertexWrapper {
 		VertexEWrapper(Vertex *vertex) : VertexWrapper(vertex) {}
 		double getVal() const {
-			return extraData(vertex)->e;
+			return vertex->vals[E];
 		}
 		void setVal(double c) {
-			extraData(vertex)->e = c;
+			vertex->vals[E] = c;
 		}
 		bool sort(const VertexWrapper *n2) const {
-			return extraData(this->vertex)->e < extraData(n2->vertex)->e;
+			return vertex->vals[E] < n2->vertex->vals[E];
 		}
 		bool operator<(const VertexWrapper *n2) const {
-			return extraData(this->vertex)->e < extraData(n2->vertex)->e;
+			return vertex->vals[E] < n2->vertex->vals[E];
 		}
 	};
 
 	struct SortOnF {
 		static unsigned int getHeapIndex(const Vertex *n) {
-			return extraData(n)->fIndex;
+			return ((EESSampler::Vertex*)n)->fIndex;
 		}
 		static void setHeapIndex(Vertex *n, unsigned int index) {
-			extraData(n)->fIndex = index;
+			((EESSampler::Vertex*)n)->fIndex = index;
 		}
 		static bool pred(const Vertex *a, const Vertex *b) {
-			if(a->f == b->f)
-				return a->g > b->g;
-			return a->f < b->f;
+			if(a->vals[F] == b->vals[F])
+				return a->vals[G] > b->vals[G];
+			return a->vals[F] < b->vals[F];
 		}
 	};
 
 	struct SortOnEHat {
 		static unsigned int getHeapIndex(const Vertex *n) {
-			return extraData(n)->eHatIndex;
+			return ((EESSampler::Vertex*)n)->eHatIndex;
 		}
 		static void setHeapIndex(Vertex *n, unsigned int index) {
-			extraData(n)->eHatIndex = index;
+			((EESSampler::Vertex*)n)->eHatIndex = index;
 		}
 		static bool pred(const Vertex *a, const Vertex *b) {
-			if(extraData(a)->ehat == extraData(b)->ehat)
-				return extraData(a)->fhat < extraData(b)->fhat;
-			return extraData(a)->ehat < extraData(b)->ehat;
+			if(a->vals[EHAT] == b->vals[EHAT])
+				return a->vals[FHAT] < b->vals[FHAT];
+			return a->vals[EHAT] < b->vals[EHAT];
 		}
 	};
 
 	struct SortOnFHat {
 		static int compare(const Vertex *a, const Vertex *b) {
-			if(extraData(a)->fhat == extraData(b)->fhat) return a->f - b->f;
-			return extraData(a)->fhat - extraData(b)->fhat;
+			if(a->vals[FHAT] == b->vals[FHAT]) return a->vals[F] - b->vals[F];
+			return a->vals[FHAT] - b->vals[FHAT];
 		}
 	};
 
@@ -101,78 +105,56 @@ public:
 	virtual void initialize() {
 		Timer timer("Abstraction Computation");
 
-		auto abstractStart = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getStartState(0);
-		auto abstractGoal = globalParameters.globalAbstractAppBaseGeometric->getProblemDefinition()->getGoal()->as<ompl::base::GoalState>()->getState();
+		abstraction->initialize();
 
-		bool connected = false;
-		do {
-			//Stolen from tools::SelfConfig::getDefaultNearestNeighbors
-			if(si_->getStateSpace()->isMetricSpace()) {
-				// if (specs.multithreaded)
-				//  nn.reset(new NearestNeighborsGNAT<Vertex*>());
-				//else
-				nn.reset(new NearestNeighborsGNATNoThreadSafety<Vertex *>());
-			} else {
-				nn.reset(new NearestNeighborsSqrtApprox<Vertex *>());
-			}
+		unsigned int abstractionSize = abstraction->getAbstractionSize();
+		vertices.reserve(abstractionSize);
+		for(unsigned int i = 0; i < abstractionSize; ++i) {
+			double clearance = effortEstimator.stateCost(abstraction->getState(i)).value();
+			vertices.emplace_back(i, clearance, TOTAL);
+		}
 
-			nn->setDistanceFunction(boost::bind(&FBiasedStateSampler::abstractDistanceFunction, this, _1, _2));
+		std::vector<VertexWrapper *> wrappers;
+		wrappers.reserve(vertices.size());
+		std::vector<VertexHWrapper> hWrappers;
+		hWrappers.reserve(vertices.size());
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			hWrappers.emplace_back(&vertices[i]);
+			wrappers.emplace_back(&hWrappers.back());
+		}
 
-			generateVertices(abstractStart, abstractGoal, prmSize);
-			generateEdges(numEdges);
+		useEdgeEffort = false;
+		dijkstra(wrappers[1], wrappers);
 
-			std::vector<VertexWrapper *> wrappers;
-			wrappers.reserve(vertices.size());
-			std::vector<VertexHWrapper> hWrappers;
-			hWrappers.reserve(vertices.size());
-			for(auto v : vertices) {
-				hWrappers.emplace_back(v);
-				wrappers.emplace_back(&hWrappers.back());
-			}
+		assert(!std::isinf(vertices[0].vals[H]));
 
-			useEdgeEffort = false;
-			dijkstra(wrappers[1], wrappers);
+		std::vector<VertexEWrapper> eWrappers;
+		eWrappers.reserve(vertices.size());
+		for(unsigned int i = 0; i < vertices.size(); ++i) {
+			eWrappers.emplace_back(&vertices[i]);
+			wrappers[i++] = &eWrappers.back();
+		}
 
-			std::vector<VertexEWrapper> eWrappers;
-			eWrappers.reserve(vertices.size());
-			unsigned int i = 0;
-			for(auto v : vertices) {
-				eWrappers.emplace_back(v);
-				wrappers[i++] = &eWrappers.back();
-			}
+		useEdgeEffort = true;
+		dijkstra(wrappers[1], wrappers);
 
-			useEdgeEffort = true;
-			dijkstra(wrappers[1], wrappers);
+		assert(!std::isinf(vertices[0].vals[E]));
 
-			connected = !(std::isinf(extraData(vertices[0])->e) || std::isinf(vertices[0]->h));
+		vertices[1].vals[E] = std::numeric_limits<double>::epsilon();
 
-			if(!connected) {
-				OMPL_INFORM("not connected! recomputing...");
-				for(auto vert : vertices) {
-					delete vert;
-				}
-				edges.clear();
-				prmSize *= 1.5;
-			} else {
+		vertices[0].vals[F] = 0;
+		vertices[0].vals[F] = vertices[0].vals[H] * weight;
+		vertices[0].vals[FHAT] = vertices[0].vals[H] * weight * heuristicCorrection;
+		vertices[0].vals[EHAT] = vertices[0].vals[E];
 
-			}
-		} while(!connected);
-
-		extraData(vertices[1])->e = std::numeric_limits<double>::epsilon();
-
-		vertices[0]->g = 0;
-		vertices[0]->f = vertices[0]->h * weight;
-		extraData(vertices[0])->fhat = vertices[0]->h * weight * heuristicCorrection;
-		extraData(vertices[0])->ehat = extraData(vertices[0])->e;
-
-		auto neighbors = getNeighboringCells(0);
+		auto neighbors = abstraction->getNeighboringCells(0);
 		for(auto n : neighbors) {
-			vertices[n]->g = vertices[0]->g + getEdgeCostBetweenCells(0, n);
-			vertices[n]->f = vertices[n]->g + vertices[n]->h * weight;
-			extraData(vertices[n])->fhat = vertices[n]->g + vertices[n]->h * weight * heuristicCorrection;
-			extraData(vertices[n])->ehat = extraData(vertices[n])->e;
+			vertices[n].vals[G] = vertices[0].vals[G] + abstraction->abstractDistanceFunctionByIndex(0, n);
+			vertices[n].vals[F] = vertices[n].vals[G] + vertices[n].vals[H] * weight;
+			vertices[n].vals[FHAT] = vertices[n].vals[G] + vertices[n].vals[H] * weight * heuristicCorrection;
+			vertices[n].vals[EHAT] = vertices[n].vals[E];
 
-			addToQueues(vertices[n]);
+			addToQueues(&vertices[n]);
 		}
 	}
 
@@ -190,7 +172,7 @@ public:
 
 			if(vertex == NULL) {
 				break;
-			} else if(vertex->f > incumbentCost) {
+			} else if(vertex->vals[F] > incumbentCost) {
 				vertex = NULL;
 			}
 		}
@@ -205,7 +187,7 @@ public:
 		}
 
 		ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-		vertexState = vertex->state;
+		vertexState = abstraction->getState(vertex->id);
 
 		ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
 
@@ -222,55 +204,46 @@ public:
 	virtual void reached(ompl::base::State *fromState, ompl::base::State *toState) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = fromState;
-
-		Vertex v(0);
-		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
-		Vertex *fromVertex = nn->nearest(&v);
+		unsigned int fromIndex = abstraction->mapToAbstractRegion(incomingState);
+		Vertex &fromVertex = vertices[fromIndex];
 
 		incomingState = toState;
-		ss = globalParameters.globalAppBaseControl->getGeometricComponentState(incomingState, 0);
-		v.state = ss.get();
+		unsigned int reachedIndex = abstraction->mapToAbstractRegion(incomingState);
+		Vertex &reachedVertex = vertices[reachedIndex];
 
-		Vertex *reachedVertex = nn->nearest(&v);
+		double oldBestFHatVal = open.isEmpty() ? std::numeric_limits<double>::infinity() : open.peekLeftmost()->vals[FHAT] * weight;
 
-		double oldBestFHatVal = open.isEmpty() ? std::numeric_limits<double>::infinity() : extraData(open.peekLeftmost())->fhat * weight;
+		double newG = fromVertex.vals[G];
 
-		double newG = fromVertex->g;
+		newG += abstraction->abstractDistanceFunctionByIndex(fromIndex, reachedIndex);
 
-		if(isValidEdge(fromVertex->id, reachedVertex->id)) {
-			newG += getEdgeCostBetweenCells(fromVertex->id, reachedVertex->id);
+		if(newG < reachedVertex.vals[G]) {
+			reachedVertex.vals[G] = newG;
+			reachedVertex.vals[F] = reachedVertex.vals[G] + reachedVertex.vals[H] * weight;
+			reachedVertex.vals[FHAT] = reachedVertex.vals[G] + reachedVertex.vals[H]  * weight * heuristicCorrection;
+			reachedVertex.vals[EHAT] = reachedVertex.vals[E];
+
+
+			addToQueues(&vertices[reachedIndex]);
 		} else {
-			newG += FBiasedStateSampler::abstractDistanceFunction(fromVertex, reachedVertex);
+			removeFromQueues(&vertices[reachedIndex]);
 		}
 
-		if(newG < reachedVertex->g) {
-			reachedVertex->g = newG;
-			reachedVertex->f = reachedVertex->g + reachedVertex->h * weight;
-			extraData(reachedVertex)->fhat = reachedVertex->g + reachedVertex->h  * weight * heuristicCorrection;
-			extraData(reachedVertex)->ehat = extraData(reachedVertex)->e;
-
-
-			addToQueues(reachedVertex);
-		} else {
-			removeFromQueues(reachedVertex);
-		}
-
-		auto neighbors = getNeighboringCells(reachedVertex->id);
+		auto neighbors = abstraction->getNeighboringCells(reachedIndex);
 		for(auto n : neighbors) {
-			double newChildG = newG + getEdgeCostBetweenCells(reachedVertex->id, n);
+			double newChildG = newG + abstraction->abstractDistanceFunctionByIndex(reachedIndex, n);
 
-			if(newChildG < vertices[n]->g && newChildG < incumbentCost) {
-				vertices[n]->g = newChildG;
-				vertices[n]->f = vertices[n]->g + vertices[n]->h * weight;
-				extraData(vertices[n])->fhat = vertices[n]->g + vertices[n]->h * weight * heuristicCorrection;
-				extraData(vertices[n])->ehat = extraData(vertices[n])->e;
+			if(newChildG < vertices[n].vals[G] && newChildG < incumbentCost) {
+				vertices[n].vals[G] = newChildG;
+				vertices[n].vals[F] = vertices[n].vals[G] + vertices[n].vals[H] * weight;
+				vertices[n].vals[FHAT] = vertices[n].vals[G] + vertices[n].vals[H] * weight * heuristicCorrection;
+				vertices[n].vals[EHAT] = vertices[n].vals[E];
 
-				addToQueues(vertices[n]);
+				addToQueues(&vertices[n]);
 			}
 		}
 
-		double newBestFHatVal = open.isEmpty() ? std::numeric_limits<double>::infinity() : extraData(open.peekLeftmost())->fhat * weight;
+		double newBestFHatVal = open.isEmpty() ? std::numeric_limits<double>::infinity() : open.peekLeftmost()->vals[FHAT] * weight;
 
 		if(oldBestFHatVal != newBestFHatVal) {
 			rebuildFocal();
@@ -278,14 +251,6 @@ public:
 	}
 
 protected:
-	virtual void generateVertices(const ompl::base::State *start, const ompl::base::State *goal, unsigned int howMany) {
-		FBiasedStateSampler::generateVertices(start, goal, howMany);
-
-		for(auto v : vertices) {
-			v->extraData = new ExtraData(effortEstimator.stateCost(v->state).value());
-		}
-	}
-
 	void removeFromQueues(Vertex *v) {
 		if(cleanup.inHeap(v)) {
 			cleanup.remove(v);
@@ -305,11 +270,11 @@ protected:
 			return NULL;
 		}
 
-		if(extraData(bestEhat)->fhat <= weight * bestF->f) {
-			extraData(bestEhat)->e *= peekPenalty;
+		if(bestEhat->vals[FHAT] <= weight * bestF->vals[F]) {
+			bestEhat->vals[E] *= peekPenalty;
 			focal.siftFromItem(bestEhat);
 			return bestEhat;
-		} else if(extraData(bestFhat)->fhat <= weight * bestF->f) {
+		} else if(bestFhat->vals[FHAT] <= weight * bestF->vals[F]) {
 			return bestFhat;
 		} else {
 			return bestF;
@@ -317,17 +282,17 @@ protected:
 	}
 
 	void rebuildFocal() {
-		double bound = open.isEmpty() ? std::numeric_limits<double>::infinity() : extraData(open.peekLeftmost())->fhat * weight;
+		double bound = open.isEmpty() ? std::numeric_limits<double>::infinity() : open.peekLeftmost()->vals[FHAT] * weight;
 		focal.clear();
 		auto includeThis = [bound](Vertex* n) {
-			return n != NULL && extraData(n)->fhat <= bound;
+			return n != NULL && n->vals[FHAT] <= bound;
 		};
 		std::vector<Vertex *> range = open.getContiguousRange(includeThis);
 		focal.createFromVector(range);
 	}
 
 	void addToQueues(Vertex *n) {
-		double bound = open.isEmpty() ? std::numeric_limits<double>::infinity() : extraData(open.peekLeftmost())->fhat * weight;
+		double bound = open.isEmpty() ? std::numeric_limits<double>::infinity() : open.peekLeftmost()->vals[FHAT] * weight;
 
 		open.remove(n);
 		open.insert(n);
@@ -337,7 +302,7 @@ protected:
 		} else {
 			cleanup.push(n);
 		}
-		if(extraData(n)->fhat <= bound) {
+		if(n->vals[FHAT] <= bound) {
 			if(focal.inHeap(n)) {
 				focal.siftFromItem(n);
 			} else {
@@ -347,17 +312,7 @@ protected:
 	}
 
 	double getEdgeEffortBetweenCells(unsigned int c1, unsigned int c2) const {
-		auto vertexAndEdges = edges.find(c1);
-		assert(vertexAndEdges != edges.end());
-
-		const auto &edges = vertexAndEdges->second;
-
-		auto edge = edges.find(c2);
-		assert(edge != edges.end());
-
-		double effort = (extraData(vertices[c1])->clearance + extraData(vertices[c2])->clearance) * edge->second.weight * 0.5;
-
-		return effort;
+		return (vertices[c1].vals[CLEARANCE] + vertices[c2].vals[CLEARANCE]) * abstraction->abstractDistanceFunctionByIndex(c1, c2) * 0.5;
 	}
 
 	bool useEdgeEffort = false;
@@ -376,7 +331,7 @@ protected:
 
 			if(current->getId() != start->getId()) {
 				unsigned int parentIndex = current->getBestParentIndex();
-				if(!isValidEdge(parentIndex, current->getId())) {
+				if(!abstraction->isValidEdge(parentIndex, current->getId())) {
 					//this will update the value of the vertex if needed
 					current->popBestParent();
 					if(current->hasMoreParents()) {
@@ -390,11 +345,11 @@ protected:
 
 			if(closed.size() == wrappers.size()) break;
 
-			std::vector<unsigned int> kids = getNeighboringCells(current->getId());
+			std::vector<unsigned int> kids = abstraction->getNeighboringCells(current->getId());
 			for(unsigned int kidIndex : kids) {
 				if(closed.find(kidIndex) != closed.end()) continue;
 
-				double newValue = current->getVal() + (useEdgeEffort ? getEdgeEffortBetweenCells(current->getId(), kidIndex) : getEdgeCostBetweenCells(current->getId(), kidIndex));
+				double newValue = current->getVal() + (useEdgeEffort ? getEdgeEffortBetweenCells(current->getId(), kidIndex) : abstraction->abstractDistanceFunctionByIndex(current->getId(), kidIndex));
 				VertexWrapper *kid = wrappers[kidIndex];
 
 				//this will update the value of the vertex if needed
@@ -411,6 +366,7 @@ protected:
 		}
 	}
 
+	std::vector<Vertex> vertices;
 	AbstractEffortEstimator effortEstimator;
 	RBTree<Vertex, SortOnFHat> open;
 	InPlaceBinaryHeap<Vertex, SortOnEHat> focal;
