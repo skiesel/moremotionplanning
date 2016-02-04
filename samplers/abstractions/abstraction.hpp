@@ -1,8 +1,9 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 
-#include "../domains/geometry/detail/FCLContinuousMotionValidator.hpp"
+#include "../../domains/geometry/detail/FCLContinuousMotionValidator.hpp"
 
 class Abstraction {
 public:
