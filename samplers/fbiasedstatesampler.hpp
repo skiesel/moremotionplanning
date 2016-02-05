@@ -150,7 +150,7 @@ protected:
 
 public:
 	FBiasedStateSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	                    const FileMap &params) : AbstractionBasedSampler(base, start, goal, params), omega(params.doubleVal("Omega")) {}
+	                    const FileMap &params, bool needOmega = true) : AbstractionBasedSampler(base, start, goal, params), omega(needOmega ? params.doubleVal("Omega") : 1) {}
 
 	virtual ~FBiasedStateSampler() {}
 
