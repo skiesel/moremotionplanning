@@ -130,6 +130,54 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	}
 	benchmarkData.benchmark->addPlanner(plannerPointer);
 
+	benchmarkData.benchmark->setPostRunEvent([](const ompl::base::PlannerPtr &planner, ompl::tools::Benchmark::RunProperties &){
+		const ompl::base::ProblemDefinitionPtr &pdef = planner->getProblemDefinition();
+		if(pdef->hasExactSolution()) {
+			const ompl::base::PathPtr &pp = pdef->getSolutionPath();
+			if(!pp->check()) {
+				OMPL_ERROR("Solution path not valid");
+				exit(1);
+			}
+
+			double distanceToGoal = pdef->getSolutionDifference();
+			ompl::base::GoalRegion *goalRegion = pdef->getGoal()->as<ompl::base::GoalRegion>();
+
+			if(distanceToGoal > goalRegion->getThreshold()) {
+				OMPL_ERROR("Solution does not reach the goal");
+				exit(1);
+			}
+
+			ompl::geometric::PathGeometric gpp = pp->as<ompl::control::PathControl>()->asGeometric();
+			ompl::base::SpaceInformationPtr si = pdef->getSpaceInformation();
+			gpp.interpolate();
+			std::vector< ompl::base::State*> states = gpp.getStates();
+			double maxDist = 0;
+			for(unsigned int i = 0; i < states.size()-1; ++i) {
+				double d = si->distance(states[i], states[i+1]);
+				if(d > maxDist) {
+					maxDist = d;
+				}
+			}
+
+			while(maxDist > 0.01) {
+				maxDist *= 0.5;
+				gpp.subdivide();
+			}
+
+			const ompl::base::StateValidityCheckerPtr &stateChecker = si->getStateValidityChecker();
+			states = gpp.getStates();
+			for(auto *s : states) {
+				if(!stateChecker->isValid(s)) {
+					OMPL_ERROR("Solution path not valid");
+					exit(1);
+				}
+			}
+
+			// gpp.printAsMatrix(std::cout);
+		}
+	});
+
+
 	ompl::tools::Benchmark::Request req;
 	req.maxTime = params.doubleVal("Timeout");
 	req.maxMem = params.doubleVal("Memory");
