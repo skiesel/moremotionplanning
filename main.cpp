@@ -135,7 +135,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		if(pdef->hasExactSolution()) {
 			const ompl::base::PathPtr &pp = pdef->getSolutionPath();
 			if(!pp->check()) {
-				OMPL_ERROR("Solution path not valid");
+				fprintf(stderr, "(1) SOLUTION PATH NOT VALID\n");
 				exit(1);
 			}
 
@@ -143,20 +143,30 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 			ompl::base::GoalRegion *goalRegion = pdef->getGoal()->as<ompl::base::GoalRegion>();
 
 			if(distanceToGoal > goalRegion->getThreshold()) {
-				OMPL_ERROR("Solution does not reach the goal");
+				fprintf(stderr, "(2) SOLUTION PATH DOES NOT REACH GOAL\n");
 				exit(1);
 			}
 
 			ompl::geometric::PathGeometric gpp = pp->as<ompl::control::PathControl>()->asGeometric();
 			ompl::base::SpaceInformationPtr si = pdef->getSpaceInformation();
+			const ompl::base::StateValidityCheckerPtr &stateChecker = si->getStateValidityChecker();
 			gpp.interpolate();
 			std::vector< ompl::base::State*> states = gpp.getStates();
+
 			double maxDist = 0;
+			bool valid = states.size() > 0 ? stateChecker->isValid(states[0]) : true;
 			for(unsigned int i = 0; i < states.size()-1; ++i) {
 				double d = si->distance(states[i], states[i+1]);
 				if(d > maxDist) {
 					maxDist = d;
 				}
+				valid = stateChecker->isValid(states[i+1]);
+				if(!valid) break;
+			}
+
+			if(!valid) {
+				fprintf(stderr, "(3) SOLUTION PATH IS NOT VALID\n");
+				exit(1);
 			}
 
 			while(maxDist > 0.01) {
@@ -164,16 +174,17 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 				gpp.subdivide();
 			}
 
-			const ompl::base::StateValidityCheckerPtr &stateChecker = si->getStateValidityChecker();
 			states = gpp.getStates();
 			for(auto *s : states) {
 				if(!stateChecker->isValid(s)) {
-					OMPL_ERROR("Solution path not valid");
+					fprintf(stderr, "(4) SOLUTION PATH IS NOT VALID\n");
 					exit(1);
 				}
 			}
 
 			// gpp.printAsMatrix(std::cout);
+		} else {
+			fprintf(stderr, "no solution\n");
 		}
 	});
 
