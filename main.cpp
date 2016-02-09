@@ -66,6 +66,8 @@ GlobalParameters globalParameters;
 #include <ompl/control/planners/sst/SST.h>
 #include <ompl/control/planners/pdst/PDST.h>
 
+#include "structs/filemap.hpp"
+
 #include "domains/DynamicCarPlanning.hpp"
 #include "domains/KinematicCarPlanning.hpp"
 #include "domains/blimp.hpp"
@@ -80,8 +82,6 @@ GlobalParameters globalParameters;
 #include "planners/bestfirstplanner.hpp"
 #include "planners/anytimebestfirstplanner.hpp"
 #include "planners/newplanner.hpp"
-
-#include "structs/filemap.hpp"
 
 
 void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
@@ -135,22 +135,22 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		if(pdef->hasExactSolution()) {
 			const ompl::base::PathPtr &pp = pdef->getSolutionPath();
 			if(!pp->check()) {
-				fprintf(stderr, "(1) SOLUTION PATH NOT VALID\n");
-				exit(1);
+				fprintf(stdout, "(1) SOLUTION PATH NOT VALID\n");
+				// exit(1);
 			}
 
 			double distanceToGoal = pdef->getSolutionDifference();
 			ompl::base::GoalRegion *goalRegion = pdef->getGoal()->as<ompl::base::GoalRegion>();
 
 			if(distanceToGoal > goalRegion->getThreshold()) {
-				fprintf(stderr, "(2) SOLUTION PATH DOES NOT REACH GOAL\n");
-				exit(1);
+				fprintf(stdout, "(2) SOLUTION PATH DOES NOT REACH GOAL\n");
+				// exit(1);
 			}
 
 			ompl::geometric::PathGeometric gpp = pp->as<ompl::control::PathControl>()->asGeometric();
 			ompl::base::SpaceInformationPtr si = pdef->getSpaceInformation();
 			const ompl::base::StateValidityCheckerPtr &stateChecker = si->getStateValidityChecker();
-			gpp.interpolate();
+			// gpp.interpolate();
 			std::vector< ompl::base::State*> states = gpp.getStates();
 
 			double maxDist = 0;
@@ -165,26 +165,27 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 			}
 
 			if(!valid) {
-				fprintf(stderr, "(3) SOLUTION PATH IS NOT VALID\n");
-				exit(1);
+				fprintf(stdout, "(3) SOLUTION PATH IS NOT VALID\n");
+				// exit(1);
 			}
 
-			while(maxDist > 0.01) {
-				maxDist *= 0.5;
-				gpp.subdivide();
-			}
+			// while(maxDist > 0.01) {
+			// 	maxDist *= 0.5;
+			// 	gpp.subdivide();
+			// }
 
-			states = gpp.getStates();
-			for(auto *s : states) {
-				if(!stateChecker->isValid(s)) {
-					fprintf(stderr, "(4) SOLUTION PATH IS NOT VALID\n");
-					exit(1);
-				}
-			}
+			// states = gpp.getStates();
+			// for(auto *s : states) {
+			// 	if(!stateChecker->isValid(s)) {
+			// 		fprintf(stderr, "(4) SOLUTION PATH IS NOT VALID\n");
+			// 		exit(1);
+			// 	}
+			// }
 
 			// gpp.printAsMatrix(std::cout);
 		} else {
 			fprintf(stderr, "no solution\n");
+			// exit(2);
 		}
 	});
 
@@ -210,20 +211,19 @@ int main(int argc, char *argv[]) {
 
 	auto domain = params.stringVal("Domain");
 	if(domain.compare("Blimp") == 0) {
-		auto benchmarkData = blimpBenchmark();
+		auto benchmarkData = blimpBenchmark(params);
 		streamPoint = stream3DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	} else if(domain.compare("Quadrotor") == 0) {
-		auto benchmarkData = quadrotorBenchmark();
+		auto benchmarkData = quadrotorBenchmark(params);
 		streamPoint = stream3DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	} else if(domain.compare("KinematicCar") == 0) {
-
-		auto benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>(params.stringVal("CarMap"));
+		auto benchmarkData = carBenchmark<ompl::app::KinematicCarPlanning>(params);
 		streamPoint = stream2DPoint2;
 		doBenchmarkRun(benchmarkData, params);
 	} else if(domain.compare("DynamicCar") == 0) {
-		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>(params.stringVal("CarMap"));
+		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>(params);
 		streamPoint = stream2DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	} else {

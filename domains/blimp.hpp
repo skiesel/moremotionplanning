@@ -34,7 +34,7 @@ ompl::base::ValidStateSamplerPtr SE3ZOnlyValidStateSamplerAllocator(const ompl::
 }
 
 
-BenchmarkData blimpBenchmark() {
+BenchmarkData blimpBenchmark(const FileMap &params) {
 	ompl::app::BlimpPlanning *blimp = new ompl::app::BlimpPlanning();
 
 	globalParameters.globalAppBaseControl = blimp;
@@ -88,8 +88,13 @@ BenchmarkData blimpBenchmark() {
 	blimp->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp.dae");
 	blimp->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
-	blimpPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
-	// blimpPtr->getSpaceInformation()->setPropagationStepSize(0.5);
+	if(params.exists("MinControlDuration")) {
+		blimpPtr->getSpaceInformation()->setMinMaxControlDuration(params.integerVal("MinControlDuration"),
+																params.integerVal("MaxControlDuration"));
+	}
+	if(params.exists("PropagationStepSize")) {
+		blimpPtr->getSpaceInformation()->setPropagationStepSize(params.doubleVal("PropagationStepSize"));
+	}
 
 	if(!blimpPtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
 		blimpPtr->getSpaceInformation()->setDirectedControlSamplerAllocator(directedControlSamplerAllocator);

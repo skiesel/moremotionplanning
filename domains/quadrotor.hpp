@@ -7,7 +7,7 @@
 #include "SE3RigidBodyPlanning.hpp"
 #include "config.hpp"
 
-BenchmarkData quadrotorBenchmark() {
+BenchmarkData quadrotorBenchmark(const FileMap &params) {
 	ompl::app::QuadrotorPlanning *quadrotor = new ompl::app::QuadrotorPlanning();
 
 	globalParameters.globalAppBaseControl = quadrotor;
@@ -60,9 +60,13 @@ BenchmarkData quadrotorBenchmark() {
 	quadrotor->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/quadrotor.dae");
 	quadrotor->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/blimp_world.dae");
 
-	quadrotorPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
-	//Don't use the default propagation step size for this environment!!
-	quadrotorPtr->getSpaceInformation()->setPropagationStepSize(0.25);
+	if(params.exists("MinControlDuration")) {
+		quadrotorPtr->getSpaceInformation()->setMinMaxControlDuration(params.integerVal("MinControlDuration"),
+																params.integerVal("MaxControlDuration"));
+	}
+	if(params.exists("PropagationStepSize")) {
+		quadrotorPtr->getSpaceInformation()->setPropagationStepSize(params.doubleVal("PropagationStepSize"));
+	}
 
 	if(!quadrotorPtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
 		quadrotorPtr->getSpaceInformation()->setDirectedControlSamplerAllocator(directedControlSamplerAllocator);

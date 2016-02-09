@@ -96,7 +96,8 @@ void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
 }
 
 template <class Car>
-BenchmarkData carBenchmark(std::string which) {
+BenchmarkData carBenchmark(const FileMap &params) {
+	std::string which = params.stringVal("CarMap");
 	Car *car = new Car();
 
 	car->appendToName(which);
@@ -143,8 +144,13 @@ BenchmarkData carBenchmark(std::string which) {
 	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + details.agentMesh);
 	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/"  + details.environmentMesh);
 
-	carPtr->getSpaceInformation()->setMinMaxControlDuration(1, 100);
-	// carPtr->getSpaceInformation()->setPropagationStepSize(0.1);
+	if(params.exists("MinControlDuration")) {
+		carPtr->getSpaceInformation()->setMinMaxControlDuration(params.integerVal("MinControlDuration"),
+																params.integerVal("MaxControlDuration"));
+	}
+	if(params.exists("PropagationStepSize")) {
+		carPtr->getSpaceInformation()->setPropagationStepSize(params.doubleVal("PropagationStepSize"));
+	}
 
 
 	if(!carPtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
