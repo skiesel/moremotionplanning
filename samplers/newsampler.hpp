@@ -241,8 +241,6 @@ public:
 			}
 		}
 
-		// fprintf(stderr, "%u -> %u (%g)\n", targetEdge->startID, targetEdge->endID, targetEdge->effort);
-
 		si_->copyState(from, vertices[targetEdge->startID].sampleState());
 
 		targetSuccess = false;
@@ -274,7 +272,8 @@ public:
 
 		vertices[newCellId].addState(state);
 
-		if(newCellId == targetEdge->endID) {
+		//if the planner chose the goal region first be careful not to dereference a null pointer
+		if(targetEdge != NULL && newCellId == targetEdge->endID) {
 			//this region will be added to open when sample is called again
 			targetSuccess = true;
 		} else  {
