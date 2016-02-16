@@ -91,7 +91,7 @@ protected:
 			double val = getVal(i);
 			if(std::isinf(val)) continue;
 
-			auto state = abstraction->getState(i)->as<ompl::base::SE3StateSpace::StateType>();
+			auto state = abstraction->getState(i);
 			auto color = getColor(min, max, val);
 
 			streamPoint(state, color[0], color[1], color[2], 1);

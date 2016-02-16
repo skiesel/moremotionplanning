@@ -15,6 +15,7 @@ struct EnvironmentDetails {
 	std::string environmentMesh;
 	ompl::base::ScopedState<ompl::base::SE2StateSpace> start;
 	ompl::base::ScopedState<ompl::base::SE2StateSpace> goal;
+	double goalRadius;
 };
 
 void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
@@ -28,6 +29,7 @@ void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "RandomPolygons_planar_env.dae";
+	details.goalRadius = 0.05;
 }
 
 void getMazeEnvironmentDetails(EnvironmentDetails &details) {
@@ -41,6 +43,7 @@ void getMazeEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "Maze_planar_env.dae";
+	details.goalRadius = 0.05;
 }
 
 void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
@@ -54,6 +57,7 @@ void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "UniqueSolutionMaze_env.dae";
+	details.goalRadius = 0.05;
 }
 
 void getBarriersEasyEnvironmentDetails(EnvironmentDetails &details) {
@@ -67,11 +71,12 @@ void getBarriersEasyEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "Barriers_easy_env.dae";
+	details.goalRadius = 0.05;
 }
 
 void getEffortExampleEnvironmentDetails(EnvironmentDetails &details) {
 	details.start->setX(-3.0);
-	details.start->setY(0.0);
+	details.start->setY(-2.0);
 	details.start->setYaw(0.0);
 
 	details.goal->setX(5.0);
@@ -80,6 +85,7 @@ void getEffortExampleEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "EffortEnvironment.dae";
+	details.goalRadius = 0.05;
 }
 
 void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
@@ -93,6 +99,7 @@ void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "EffortEnvironment2.dae";
+	details.goalRadius = 0.05;
 }
 
 template <class Car>
@@ -130,9 +137,9 @@ BenchmarkData carBenchmark(const FileMap &params) {
 	// set the start & goal states
 	carPtr->setStartAndGoalStates(
 	    car->getFullStateFromGeometricComponent(details.start),
-	    car->getFullStateFromGeometricComponent(details.goal), 1);
+	    car->getFullStateFromGeometricComponent(details.goal), details.goalRadius);
 
-	abstract->setStartAndGoalStates(details.start, details.goal, 1);
+	abstract->setStartAndGoalStates(details.start, details.goal, details.goalRadius);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;

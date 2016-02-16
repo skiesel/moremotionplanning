@@ -7,7 +7,9 @@
 
 #include "../structs/filemap.hpp"
 
-#include "../samplers/newsampler.hpp"
+// #include "../samplers/newsampler.hpp"
+#include "../samplers/newsampler_dstar.hpp"
+#include "../samplers/newsampler_dijkstra.hpp"
 #include <limits>
 
 namespace ompl {
@@ -21,7 +23,10 @@ public:
 	NewPlanner(const SpaceInformationPtr &si, const FileMap &params) :
 		ompl::control::RRT(si), newsampler_(NULL), params(params) {
 
-		setName("New Planner");
+		whichSearch = params.stringVal("WhichSearch");
+
+		std::string plannerName = "NewPlanner_" + whichSearch;
+		setName(plannerName);
 
 		Planner::declareParam<double>("state_radius", this, &NewPlanner::ignoreSetterDouble, &NewPlanner::getStateRadius);
 		Planner::declareParam<unsigned int>("prm_size", this, &NewPlanner::ignoreSetterUnsigedInt, &NewPlanner::getPRMSize);
@@ -87,8 +92,17 @@ public:
 		if(!newsampler_) {
 			auto start = clock();
 
-			newsampler_ = new ompl::base::NewSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
-			        params);
+			if(whichSearch.compare("D*") == 0) {
+				newsampler_ = new ompl::base::NewSampler_dstar((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+			        goal_s, params);
+			} else if(whichSearch.compare("Dijkstra") == 0) {
+				newsampler_ = new ompl::base::NewSampler_dijkstra((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+				        goal_s, params);
+			} else {
+				throw ompl::Exception("Unrecognized best first search type", whichSearch.c_str());
+			}
+		
+
 			newsampler_->initialize();
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
@@ -113,18 +127,17 @@ public:
 			Motion *nmotion = NULL;
 
 			/* sample random state (with goal biasing) */
-			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample()) {
-				goal_s->sampleGoal(rstate);
+			// if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample()) {
+			// 	goal_s->sampleGoal(rstate);
 
+			// 	/* find closest state in the tree */
+			// 	nmotion = nn_->nearest(rmotion);
+			// }
+			// else {
+				newsampler_->sample(resusableMotion->state, rstate);
 				/* find closest state in the tree */
 				nmotion = nn_->nearest(rmotion);
-			}
-			else {
-				newsampler_->sample(resusableMotion->state, rstate);
-
-				/* find closest state in the tree */
-				nmotion = nn_->nearest(resusableMotion);
-			}
+			// }
 
 #ifdef STREAM_GRAPHICS
 			streamPoint(rmotion->state, 0, 1, 0, 1);
@@ -262,10 +275,12 @@ public:
 
 protected:
 
-	ompl::base::NewSampler *newsampler_;
+	ompl::base::NewSamplerBase *newsampler_;
 	const FileMap &params;
+	std::string whichSearch;
 	double samplerInitializationTime = 0;
 };
 
 }
+
 }
