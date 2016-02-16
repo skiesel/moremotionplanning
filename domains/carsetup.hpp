@@ -5,8 +5,43 @@
 #include <pwd.h>
 
 #include <ompl/tools/benchmark/Benchmark.h>
+#include <ompl/base/goals/GoalState.h>
 #include "SE2RigidBodyPlanning.hpp"
 #include "config.hpp"
+
+class KinematicSpatialGoal : public ompl::base::GoalState {
+public:
+	KinematicSpatialGoal(const ompl::base::SpaceInformationPtr &si, const ompl::base::State *state) : ompl::base::GoalState(si) {
+		setState(state);
+		se2State = state_->as<ompl::base::SE2StateSpace::StateType>();
+	}
+
+	virtual double distanceGoal(const ompl::base::State *state) const {
+		auto s = state->as<ompl::base::SE2StateSpace::StateType>();
+		double dx = s->getX() - se2State->getX();
+		double dy = s->getY() - se2State->getY();
+		return sqrt(dx*dx + dy*dy);
+	}
+protected:
+	const ompl::base::SE2StateSpace::StateType *se2State = NULL;
+};
+
+class DynamicSpatialGoal : public ompl::base::GoalState {
+public:
+	DynamicSpatialGoal(const ompl::base::SpaceInformationPtr &si, const ompl::base::State *state) : ompl::base::GoalState(si) {
+		setState(state);
+		se2State = state_->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+	}
+
+	virtual double distanceGoal(const ompl::base::State *state) const {
+		auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+		double dx = s->getX() - se2State->getX();
+		double dy = s->getY() - se2State->getY();
+		return sqrt(dx*dx + dy*dy);
+	}
+protected:
+	const ompl::base::SE2StateSpace::StateType *se2State = NULL;
+};
 
 struct EnvironmentDetails {
 	EnvironmentDetails(const ompl::base::StateSpacePtr &stateSpacePtr) : start(stateSpacePtr), goal(stateSpacePtr) {}
@@ -15,7 +50,6 @@ struct EnvironmentDetails {
 	std::string environmentMesh;
 	ompl::base::ScopedState<ompl::base::SE2StateSpace> start;
 	ompl::base::ScopedState<ompl::base::SE2StateSpace> goal;
-	double goalRadius;
 };
 
 void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
@@ -29,7 +63,6 @@ void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "RandomPolygons_planar_env.dae";
-	details.goalRadius = 0.05;
 }
 
 void getMazeEnvironmentDetails(EnvironmentDetails &details) {
@@ -37,13 +70,12 @@ void getMazeEnvironmentDetails(EnvironmentDetails &details) {
 	details.start->setY(1.15);
 	details.start->setYaw(0);
 
-	details.goal->setX(0.5);
-	details.goal->setY(1.15);
+	details.goal->setX(1.);
+	details.goal->setY(1.2);
 	details.goal->setYaw(0);
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "Maze_planar_env.dae";
-	details.goalRadius = 0.05;
 }
 
 void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
@@ -57,7 +89,6 @@ void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "UniqueSolutionMaze_env.dae";
-	details.goalRadius = 0.05;
 }
 
 void getBarriersEasyEnvironmentDetails(EnvironmentDetails &details) {
@@ -71,7 +102,6 @@ void getBarriersEasyEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "Barriers_easy_env.dae";
-	details.goalRadius = 0.05;
 }
 
 void getEffortExampleEnvironmentDetails(EnvironmentDetails &details) {
@@ -85,7 +115,6 @@ void getEffortExampleEnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "EffortEnvironment.dae";
-	details.goalRadius = 0.05;
 }
 
 void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
@@ -99,7 +128,6 @@ void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
 
 	details.agentMesh = "car2_planar_robot.dae";
 	details.environmentMesh = "EffortEnvironment2.dae";
-	details.goalRadius = 0.05;
 }
 
 template <class Car>
@@ -134,12 +162,27 @@ BenchmarkData carBenchmark(const FileMap &params) {
 	else if(which.compare("Effort2") == 0)
 		getEffortExample2EnvironmentDetails(details);
 
-	// set the start & goal states
-	carPtr->setStartAndGoalStates(
-	    car->getFullStateFromGeometricComponent(details.start),
-	    car->getFullStateFromGeometricComponent(details.goal), details.goalRadius);
+	double goalRadius = params.doubleVal("GoalRadius");
 
-	abstract->setStartAndGoalStates(details.start, details.goal, details.goalRadius);
+	// set the start & goal states
+	carPtr->addStartState(car->getFullStateFromGeometricComponent(details.start));
+	if(params.stringVal("Domain").compare("DynamicCar") == 0) {
+		auto myGoal = new DynamicSpatialGoal(
+			car->getSpaceInformation(),
+			car->getFullStateFromGeometricComponent(details.goal).get());
+		myGoal->setThreshold(goalRadius);
+		auto goalPtr = ompl::base::GoalPtr(myGoal);
+		carPtr->setGoal(goalPtr);
+	} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
+		auto myGoal = new KinematicSpatialGoal(
+			car->getSpaceInformation(),
+			car->getFullStateFromGeometricComponent(details.goal).get());
+		myGoal->setThreshold(goalRadius);
+		auto goalPtr = ompl::base::GoalPtr(myGoal);
+		carPtr->setGoal(goalPtr);
+	}
+
+	abstract->setStartAndGoalStates(details.start, details.goal, goalRadius);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;

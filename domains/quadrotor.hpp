@@ -3,9 +3,28 @@
 #include <pwd.h>
 
 #include <ompl/tools/benchmark/Benchmark.h>
+#include <ompl/base/goals/GoalState.h>
 #include "QuadrotorPlanning.hpp"
 #include "SE3RigidBodyPlanning.hpp"
 #include "config.hpp"
+
+class QuadrotorSpatialGoal : public ompl::base::GoalState {
+public:
+	QuadrotorSpatialGoal(const ompl::base::SpaceInformationPtr &si, const ompl::base::State *state) : ompl::base::GoalState(si) {
+		setState(state);
+		se3State = state_->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+	}
+
+	virtual double distanceGoal(const ompl::base::State *state) const {
+		auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+		double dx = s->getX() - se3State->getX();
+		double dy = s->getY() - se3State->getY();
+		double dz = s->getZ() - se3State->getZ();
+		return sqrt(dx*dx + dy*dy + dz*dz);
+	}
+protected:
+	const ompl::base::SE3StateSpace::StateType *se3State = NULL;
+};
 
 BenchmarkData quadrotorBenchmark(const FileMap &params) {
 	ompl::app::QuadrotorPlanning *quadrotor = new ompl::app::QuadrotorPlanning();
@@ -46,12 +65,17 @@ BenchmarkData quadrotorBenchmark(const FileMap &params) {
 	goal->setZ(-4);
 	goal->rotation().setIdentity();
 
-	// set the start & goal states
-	quadrotorPtr->setStartAndGoalStates(
-	    quadrotor->getFullStateFromGeometricComponent(start),
-	    quadrotor->getFullStateFromGeometricComponent(goal), 1);
+	double goalRadius = params.doubleVal("GoalRadius");
 
-	abstract->setStartAndGoalStates(start, goal, 1);
+	// set the start & goal states
+	auto myGoal = new BlimpSpatialGoal(
+		quadrotor->getSpaceInformation(),
+		quadrotor->getFullStateFromGeometricComponent(goal).get());
+	myGoal->setThreshold(goalRadius);
+	auto goalPtr = ompl::base::GoalPtr(myGoal);
+	quadrotorPtr->setGoal(goalPtr);
+
+	abstract->setStartAndGoalStates(start, goal, goalRadius);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;

@@ -4,9 +4,28 @@
 
 #include <ompl/tools/benchmark/Benchmark.h>
 #include <ompl/base/samplers/UniformValidStateSampler.h>
+#include <ompl/base/goals/GoalState.h>
 #include "BlimpPlanning.hpp"
 #include "SE3RigidBodyPlanning.hpp"
 #include "config.hpp"
+
+class BlimpSpatialGoal : public ompl::base::GoalState {
+public:
+	BlimpSpatialGoal(const ompl::base::SpaceInformationPtr &si, const ompl::base::State *state) : ompl::base::GoalState(si) {
+		setState(state);
+		se3State = state_->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+	}
+
+	virtual double distanceGoal(const ompl::base::State *state) const {
+		auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+		double dx = s->getX() - se3State->getX();
+		double dy = s->getY() - se3State->getY();
+		double dz = s->getZ() - se3State->getZ();
+		return sqrt(dx*dx + dy*dy + dz*dz);
+	}
+protected:
+	const ompl::base::SE3StateSpace::StateType *se3State = NULL;
+};
 
 ompl::base::ValidStateSamplerPtr SE3ZOnlyValidStateSamplerAllocator(const ompl::base::SpaceInformation *si) {
 	class SE3ZOnlyValidStateSampler : public ompl::base::UniformValidStateSampler {
@@ -74,12 +93,17 @@ BenchmarkData blimpBenchmark(const FileMap &params) {
 	goal->setZ(-4);
 	goal->rotation().setIdentity();
 
-	// set the start & goal states
-	blimpPtr->setStartAndGoalStates(
-	    blimp->getFullStateFromGeometricComponent(start),
-	    blimp->getFullStateFromGeometricComponent(goal), 1);
+	double goalRadius = params.doubleVal("GoalRadius");
 
-	abstract->setStartAndGoalStates(start, goal, 1);
+	// set the start & goal states
+	auto myGoal = new BlimpSpatialGoal(
+		blimp->getSpaceInformation(),
+		blimp->getFullStateFromGeometricComponent(goal).get());
+	myGoal->setThreshold(goalRadius);
+	auto goalPtr = ompl::base::GoalPtr(myGoal);
+	blimpPtr->setGoal(goalPtr);
+
+	abstract->setStartAndGoalStates(start, goal, goalRadius);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;
