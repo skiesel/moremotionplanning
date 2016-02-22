@@ -7,8 +7,8 @@ ABSTRACTION_PATH=("abstractiontype=prm numprmedges=10 prmsize=100" #
 				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
 				  "abstractiontype=grid gridhint=0.5 gridconnectivity=fourway" #
 				  "abstractiontype=grid gridhint=0.5 gridconnectivity=diagonals")
-ABSTRACTION_PARAM=("AbstractionType ? PRM\nPRMSize ? 100" #
-				  "AbstractionType ? PRM\nPRMSize ? 1000" #
+ABSTRACTION_PARAM=("AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 100" #
+				  "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 1000" #
 				  "AbstractionType ? GRID\nGridHint ? 0.5\nGridConnectivity ? FourWay" #
 				  "AbstractionType ? GRID\nGridHint ? 0.5\nGridConnectivity ? Diagonals")
 ABSTRACTION_C=-1
