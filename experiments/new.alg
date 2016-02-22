@@ -3,14 +3,18 @@
 PLANNER=(NewPlanner)
 PLANNER_C=-1
 
-PRMSIZE=(100 10000)
-PRMSIZE_C=-1
+ABSTRACTION_PATH=("abstractiontype=prm numprmedges=10 prmsize=100" #
+				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
+				  "abstractiontype=grid gridhint=0.5 gridconnectivity=fourway" #
+				  "abstractiontype=grid gridhint=0.5 gridconnectivity=diagonals")
+ABSTRACTION_PARAM=("AbstractionType ? PRM\nPRMSize ? 100" #
+				  "AbstractionType ? PRM\nPRMSize ? 1000" #
+				  "AbstractionType ? GRID\nGridHint ? 0.5\nGridConnectivity ? FourWay" #
+				  "AbstractionType ? GRID\nGridHint ? 0.5\nGridConnectivity ? Diagonals")
+ABSTRACTION_C=-1
 
 STATERADIUS=(2)
 STATERADIUS_C=-1
-
-NUMPRMEDGES=(10)
-NUMPRMEDGES_C=-1
 
 WHICHSEARCH=("D*" Dijkstra)
 WHICHSEARCH_C=-1
@@ -25,10 +29,9 @@ function morePlannerSettings() {
 	local hasMore=false
 
 	incrementAndHasMore PLANNER[@] PLANNER_C hasMore
-	incrementAndHasMore PRMSIZE[@] PRMSIZE_C hasMore
+	incrementAndHasMore ABSTRACTION_PATH[@] ABSTRACTION_C hasMore
 	incrementAndHasMore STATERADIUS[@] STATERADIUS_C hasMore
 	incrementAndHasMore WHICHSEARCH[@] WHICHSEARCH_C hasMore
-	incrementAndHasMore NUMPRMEDGES[@] NUMPRMEDGES_C hasMore
 	incrementAndHasMore EDGEDISTRIBUTION_PATH[@] EDGEDISTRIBUTION_C hasMore
 
 	eval $__resultvar="'$hasMore'"
@@ -39,10 +42,9 @@ function getPlannerPathAttrs() {
 	local path=""
 	
 	path="$path planner=${PLANNER[$PLANNER_C]}"
-	path="$path prmsize=${PRMSIZE[$PRMSIZE_C]}"
+	path="$path ${ABSTRACTION_PATH[$ABSTRACTION_PATH_C]}"
 	path="$path stateradius=${STATERADIUS[$STATERADIUS_C]}"
 	path="$path whichsearch=${WHICHSEARCH[$WHICHSEARCH_C]}"
-	path="$path numprmedges=${NUMPRMEDGES[$NUMPRMEDGES_C]}"
 	path="$path ${EDGEDISTRIBUTION_PATH[$EDGEDISTRIBUTION_PATH_C]}"
 
 	eval $__resultvar="'$path'" 
@@ -53,10 +55,9 @@ function getPlannerParamFile() {
 	local param=""
 	
 	param="${param}Planner ? ${PLANNER[$PLANNER_C]}\n"
-	param="${param}PRMSize ? ${PRMSIZE[$PRMSIZE_C]}\n"
+	param="${param}${ABSTRACTION_PARAM[$ABSTRACTION_PARAM_C]}\n"
 	param="${param}StateRadius ? ${STATERADIUS[$STATERADIUS_C]}\n"
 	param="${param}WhichSearch ? ${WHICHSEARCH[$WHICHSEARCH_C]}\n"
-	param="${param}NumEdges ? ${NUMPRMEDGES[$NUMPRMEDGES_C]}\n"
 	param="${param}${EDGEDISTRIBUTION_PARAM[$EDGEDISTRIBUTION_PATH_C]}\n"
 
 	eval $__resultvar="'$param'" 
