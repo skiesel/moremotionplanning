@@ -1,1 +1,8 @@
 build
+experiments/data
+plotting/plotting
+plotting/*.png
+plotting/*.pdf
+plotting/*.eps
+test.inst
+todo
