@@ -45,10 +45,7 @@ protected:
 
 template <class Car>
 BenchmarkData carBenchmark(const FileMap &params) {
-	std::string which = params.stringVal("CarMap");
 	Car *car = new Car();
-
-	car->appendToName(which);
 
 	globalParameters.globalAppBaseControl = car;
 

@@ -51,10 +51,6 @@ public:
 	~DynamicCarPlanning() {
 	}
 
-	void appendToName(const std::string &suffix) {
-		name_ += suffix;
-	}
-
 	bool isSelfCollisionEnabled(void) const {
 		return false;
 	}

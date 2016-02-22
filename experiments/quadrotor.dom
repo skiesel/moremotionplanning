@@ -53,7 +53,7 @@ function getDomainParamFile() {
 	param="${param}Domain ? ${DOMAIN[$DOMAIN_C]}\n"
 	param="${param}PropagationStepSize ? ${PROPSTEPSIZE[$PROPSTEPSIZE_C]}\n"
 	param="${param}MinControlDuration ? ${MINCTRLDUR[$MINCTRLDUR_C]}\n"
-	param="${param}MaxControlDuration ? ${MAXCTRLDUR_C[$MAXCTRLDUR_C]}\n"
+	param="${param}MaxControlDuration ? ${MAXCTRLDUR[$MAXCTRLDUR_C]}\n"
 	param="${param}GoalRadius ? ${GOALRADIUS[$GOALRADIUS_C]}\n"
 	param="${param}${STARTGOAL[$STARTGOAL_C]}\n"
 
