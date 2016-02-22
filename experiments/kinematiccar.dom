@@ -78,7 +78,6 @@ function getDomainParamFile() {
 	param="${param}${STARTGOAL[$MAP_C, $STARTGOAL_C]}\n"
 	param="${param}EnvironmentMesh ? ${MAP[$MAP_C]}\n"
 
-	param="${param}EnvironmentBounds ? 0 39.65 -4 30 -8.23 0\n"
 	param="${param}AgentMesh ? car2_planar_robot.dae\n"
 
 
