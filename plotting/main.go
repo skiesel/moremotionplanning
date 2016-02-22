@@ -3,16 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"io/ioutil"
+	"math"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/skiesel/plot"
-    "github.com/skiesel/plot/plotter"
-    "github.com/skiesel/plot/vg"
+	"github.com/skiesel/plot/plotter"
+	"github.com/skiesel/plot/vg"
 )
 
 const (
@@ -22,15 +22,17 @@ const (
 type Experiment map[string]*DataCollection
 
 type DataCollection struct {
-	Name string
-	Params map[string]string
-	DataPoints []DataPoint
+	Name            string
+	Params          map[string]string
+	DataPoints      []DataPoint
+	UseStackedBoxes bool
 }
 
 type DataPoint struct {
-	Solved bool
-	Length float64
-	Time float64
+	Solved         bool
+	Length         float64
+	Time           float64
+	Precomputation float64
 }
 
 func parseResultLine(line string) DataPoint {
@@ -44,21 +46,21 @@ func parseResultLine(line string) DataPoint {
 	if err != nil {
 		panic(err)
 	}
-	solved :=  statusInt == 6
+	solved := statusInt == 6
 	time, err := strconv.ParseFloat(strings.TrimSpace(values[11]), 64)
 	if err != nil {
 		panic(err)
 	}
 
-	return DataPoint{ Solved : solved, Length : length, Time : time }
+	return DataPoint{Solved: solved, Length: length, Time: time}
 }
 
 func parseParams(data []string, keys []string) map[string]string {
 	params := map[string]string{}
-	for _, line := range(data) {
-		for _, key := range(keys) {
+	for _, line := range data {
+		for _, key := range keys {
 			if strings.Contains(line, key) {
-				params[key] = strings.Split(line, " = ")[1]
+				params[key] = strings.TrimSpace(strings.Split(line, " = ")[1])
 			}
 		}
 	}
@@ -66,44 +68,49 @@ func parseParams(data []string, keys []string) map[string]string {
 }
 
 func parseFBiasedRRTParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func parseFBiasedRRTShellParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "shell_preference", "shell_depth"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "shell_preference", "shell_depth", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func parsePlakuRRTParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "alpha", "b"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "alpha", "b", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func parseAstarParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "weight"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "weight", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func parseDijkstraParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func parseGreedyParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func parseSpeedyParams(data []string) map[string]string {
-	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "use_d_or_e"}
+	keys := []string{"num_prm_edges", "omega", "prm_size", "state_radius", "use_d_or_e", "sampler_initialization_time"}
+	return parseParams(data, keys)
+}
+
+func parseNewPlannerParams(data []string) map[string]string {
+	keys := []string{"num_prm_edges", "prm_size", "state_radius", "sampler_initialization_time"}
 	return parseParams(data, keys)
 }
 
 func mungeParams(planner string, params map[string]string) string {
 	keys := sort.StringSlice{}
 	for k := range params {
-    	keys = append(keys, k)
+		keys = append(keys, k)
 	}
 
 	sort.Sort(keys)
@@ -111,10 +118,31 @@ func mungeParams(planner string, params map[string]string) string {
 	munged := planner
 
 	for _, k := range keys {
+		if k == "sampler_initialization_time" {
+			continue
+		}
 		munged += "_" + k + ":" + params[k]
 	}
 
 	return munged
+}
+
+type ParallelSlices struct {
+	Values []float64
+	Labels []string
+}
+
+func (a ParallelSlices) Len() int {
+	return len(a.Values)
+}
+
+func (a ParallelSlices) Less(i, j int) bool {
+	return a.Values[i] < a.Values[j]
+}
+
+func (a ParallelSlices) Swap(i, j int) {
+	a.Values[i], a.Values[j] = a.Values[j], a.Values[i]
+	a.Labels[i], a.Labels[j] = a.Labels[j], a.Labels[i]
 }
 
 func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment, log10 bool) {
@@ -126,32 +154,54 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 	p.Title.Text = title
 	p.Y.Label.Text = yLabel
 
-	keys := sort.StringSlice{}
-	for algName := range *experiment {
-		keys = append(keys, algName)
+	slices := ParallelSlices{
+		Values: []float64{},
+		Labels: []string{},
 	}
-	sort.Sort(keys)
+
+	for algorithmName, algorithm := range *experiment {
+		skip := false
+		mean := 0.
+		for _, point := range algorithm.DataPoints {
+			if !point.Solved {
+				skip = true
+				break
+			}
+			if log10 == true {
+				if key == "Length" {
+					mean = mean + math.Log10(point.Length)
+				} else {
+
+					mean = mean + math.Log10(point.Time)
+				}
+			} else {
+				if key == "Length" {
+					mean = mean + point.Length
+				} else {
+					mean = mean + point.Time
+				}
+			}
+		}
+
+		if skip {
+			continue
+		}
+
+		slices.Labels = append(slices.Labels, algorithmName)
+		slices.Values = append(slices.Values, mean/float64(len(algorithm.DataPoints)))
+	}
+
+	sort.Sort(slices)
 
 	w := vg.Points(20)
 
-	plotters := []plot.Plotter{}	
-	labels := []string{}
 	i := 0.
-	for _, key := range keys {
-		algorithm := (*experiment)[key]
+	plotters := []plot.Plotter{}
+	labels := []string{}
+	for _, algorithmName := range slices.Labels {
+		algorithm := (*experiment)[algorithmName]
 		data := plotter.Values{}
 		data2 := plotter.Values{}
-
-		var precomputationTime float64
-		useStackedBoxPlot := false
-
-		if precomputationTimeString, ok := algorithm.Params["sampler_initialization_time"]; !ok {
-			precomputationTime, _ = strconv.ParseFloat(precomputationTimeString, 64)
-			useStackedBoxPlot = true
-		} else {
-			precomputationTime = 0.
-		}
-
 		skip := false
 		for _, point := range algorithm.DataPoints {
 			if !point.Solved {
@@ -162,15 +212,15 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 				if key == "Length" {
 					data = append(data, math.Log10(point.Length))
 				} else {
-					data = append(data, math.Log10(point.Time + precomputationTime))
-					data2 = append(data, math.Log10(point.Time))
+					data = append(data, math.Log10(point.Time+point.Precomputation))
+					data2 = append(data2, math.Log10(point.Time))
 				}
 			} else {
 				if key == "Length" {
 					data = append(data, point.Length)
 				} else {
-					data = append(data, point.Time + precomputationTime)
-					data2 = append(data, point.Time)
+					data = append(data, point.Time+point.Precomputation)
+					data2 = append(data2, point.Time)
 				}
 			}
 		}
@@ -180,7 +230,7 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 		}
 
 		var box plot.Plotter
-		if key == "Time" && useStackedBoxPlot {
+		if key == "Time" && algorithm.UseStackedBoxes {
 			box, err = plotter.NewBoxPlotWithConfidenceIntervalsStacked(w, i, data, data2)
 		} else {
 			box, err = plotter.NewBoxPlotWithConfidenceIntervals(w, i, data)
@@ -195,13 +245,13 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 	}
 
 	p.Add(plotters...)
-    p.NominalX(labels...)
+	p.NominalX(labels...)
 
-    filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
+	filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
 
-    if err := p.Save(vg.Length(width) * vg.Points(15 * float64(len(plotters))), vg.Length(height) * vg.Inch, filename); err != nil {
-        panic(err)
-    }
+	if err := p.Save(vg.Length(width)*vg.Points(15*float64(len(plotters))), vg.Length(height)*vg.Inch, filename); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -259,9 +309,19 @@ func main() {
 			plannerName = fmt.Sprintf("Speedy (%s)", params["use_d_or_e"])
 		} else if plannerName == "Greedy" {
 			params = parseGreedyParams(data)
+		} else if plannerName == "NewPlanner_D*" {
+			params = parseNewPlannerParams(data)
+		} else if plannerName == "NewPlanner_Dijkstra" {
+			params = parseNewPlannerParams(data)
 		}
 
-		dataPoint := parseResultLine(data[len(data) - 2])
+		dataPoint := parseResultLine(data[len(data)-2])
+
+		useStackedBoxes := false
+		if time, ok := params["sampler_initialization_time"]; ok {
+			dataPoint.Precomputation, _ = strconv.ParseFloat(time, 64)
+			useStackedBoxes = true
+		}
 
 		munged := mungeParams(plannerName, params)
 
@@ -275,17 +335,17 @@ func main() {
 			collection.DataPoints = append(collection.DataPoints, dataPoint)
 		} else {
 			experimentData[munged] = &DataCollection{
-				Name : plannerName,
-				Params : params,
-				DataPoints : []DataPoint{dataPoint},
+				Name:            plannerName,
+				Params:          params,
+				DataPoints:      []DataPoint{dataPoint},
+				UseStackedBoxes: useStackedBoxes,
 			}
 		}
 
 		openFile.Close()
 	}
 
-
-//func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment) {
+	//func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment) {
 	for domain, experiment := range mappedData {
 		makeBoxPlot(domain, "Time (log10 sec)", "Time", ".pdf", 4, 4, experiment, true)
 		// makeBoxPlot(domain, "Solution Length", "Length", ".pdf", 4, 4, experiment)
