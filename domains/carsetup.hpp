@@ -43,93 +43,6 @@ protected:
 	const ompl::base::SE2StateSpace::StateType *se2State = NULL;
 };
 
-struct EnvironmentDetails {
-	EnvironmentDetails(const ompl::base::StateSpacePtr &stateSpacePtr) : start(stateSpacePtr), goal(stateSpacePtr) {}
-
-	std::string agentMesh;
-	std::string environmentMesh;
-	ompl::base::ScopedState<ompl::base::SE2StateSpace> start;
-	ompl::base::ScopedState<ompl::base::SE2StateSpace> goal;
-};
-
-void getRandomPolygonEnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(-1.2);
-	details.start->setY(-1.0);
-	details.start->setYaw(0);
-
-	details.goal->setX(1.1);
-	details.goal->setY(1.05);
-	details.goal->setYaw(0);
-
-	details.agentMesh = "car2_planar_robot.dae";
-	details.environmentMesh = "RandomPolygons_planar_env.dae";
-}
-
-void getMazeEnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(0);
-	details.start->setY(1.15);
-	details.start->setYaw(0);
-
-	details.goal->setX(1.);
-	details.goal->setY(1.2);
-	details.goal->setYaw(0);
-
-	details.agentMesh = "car2_planar_robot.dae";
-	details.environmentMesh = "Maze_planar_env.dae";
-}
-
-void getUniqueMazeEnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(-1.1);
-	details.start->setY(-1.1);
-	details.start->setYaw(0);
-
-	details.goal->setX(1.1);
-	details.goal->setY(1.15);
-	details.goal->setYaw(0);
-
-	details.agentMesh = "car2_planar_robot.dae";
-	details.environmentMesh = "UniqueSolutionMaze_env.dae";
-}
-
-void getBarriersEasyEnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(1.0);
-	details.start->setY(-3.0);
-	details.start->setYaw(0);
-
-	details.goal->setX(15.0);
-	details.goal->setY(-6.0);
-	details.goal->setYaw(0);
-
-	details.agentMesh = "car2_planar_robot.dae";
-	details.environmentMesh = "Barriers_easy_env.dae";
-}
-
-void getEffortExampleEnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(-3.0);
-	details.start->setY(-2.0);
-	details.start->setYaw(0.0);
-
-	details.goal->setX(5.0);
-	details.goal->setY(-3.0);
-	details.goal->setYaw(0.0);
-
-	details.agentMesh = "car2_planar_robot.dae";
-	details.environmentMesh = "EffortEnvironment.dae";
-}
-
-void getEffortExample2EnvironmentDetails(EnvironmentDetails &details) {
-	details.start->setX(-5.0);
-	details.start->setY(2.0);
-	details.start->setYaw(0.0);
-
-	details.goal->setX(5.00);
-	details.goal->setY(2.0);
-	details.goal->setYaw(0.0);
-
-	details.agentMesh = "car2_planar_robot.dae";
-	details.environmentMesh = "EffortEnvironment2.dae";
-}
-
 template <class Car>
 BenchmarkData carBenchmark(const FileMap &params) {
 	std::string which = params.stringVal("CarMap");
@@ -147,52 +60,76 @@ BenchmarkData carBenchmark(const FileMap &params) {
 
 	ompl::base::StateSpacePtr stateSpace(carPtr->getStateSpace());
 
-	EnvironmentDetails details(abstract->getStateSpace());
+	if(params.exists("EnvironmentBounds")) {
+		auto boundsVals = params.doubleList("EnvironmentBounds");
+		std::vector<double> low, high;
+		for(unsigned int i = 0; i < boundsVals.size(); i++) {
+			low.emplace_back(boundsVals[i++]);
+			high.emplace_back(boundsVals[i]);
+		}
 
-	if(which.compare("Polygon") == 0) 
-		getRandomPolygonEnvironmentDetails(details);
-	else if(which.compare("Maze") == 0)
-		getMazeEnvironmentDetails(details);
-	else if(which.compare("UniqueMaze") == 0)
-		getUniqueMazeEnvironmentDetails(details);
-	else if(which.compare("Barriers") == 0)
-		getBarriersEasyEnvironmentDetails(details);
-	else if(which.compare("Effort") == 0)
-		getEffortExampleEnvironmentDetails(details);
-	else if(which.compare("Effort2") == 0)
-		getEffortExample2EnvironmentDetails(details);
+		// set the bounds for the R^3 part of SE(3)
+		ompl::base::RealVectorBounds bounds(3);
+		for(unsigned int i = 0; i < 3; i++) {
+			bounds.setLow(i, low[i]);
+			bounds.setHigh(i, high[i]);
+		}
+		
+		stateSpace->as<ompl::base::CompoundStateSpace>()->as<ompl::base::SE3StateSpace>(0)->setBounds(bounds);
+
+		abstract->getStateSpace()->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
+	} else {
+		OMPL_WARN("using default environment bounds");
+	}
+
+	ompl::base::ScopedState<ompl::base::SE2StateSpace> start(car->getGeometricComponentStateSpace());
+	auto startLoc = params.doubleList("Start");
+
+	start->setX(startLoc[0]);
+	start->setY(startLoc[1]);
+	start->setYaw(0);
+
+	ompl::base::ScopedState<ompl::base::SE2StateSpace> goal(car->getGeometricComponentStateSpace());
+	auto goalLoc = params.doubleList("Goal");
+
+	goal->setX(goalLoc[0]);
+	goal->setY(goalLoc[1]);
+	goal->setYaw(0);
 
 	double goalRadius = params.doubleVal("GoalRadius");
 
 	// set the start & goal states
-	carPtr->addStartState(car->getFullStateFromGeometricComponent(details.start));
+	carPtr->addStartState(car->getFullStateFromGeometricComponent(start));
 	if(params.stringVal("Domain").compare("DynamicCar") == 0) {
 		auto myGoal = new DynamicSpatialGoal(
 			car->getSpaceInformation(),
-			car->getFullStateFromGeometricComponent(details.goal).get());
+			car->getFullStateFromGeometricComponent(goal).get());
 		myGoal->setThreshold(goalRadius);
 		auto goalPtr = ompl::base::GoalPtr(myGoal);
 		carPtr->setGoal(goalPtr);
 	} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
 		auto myGoal = new KinematicSpatialGoal(
 			car->getSpaceInformation(),
-			car->getFullStateFromGeometricComponent(details.goal).get());
+			car->getFullStateFromGeometricComponent(goal).get());
 		myGoal->setThreshold(goalRadius);
 		auto goalPtr = ompl::base::GoalPtr(myGoal);
 		carPtr->setGoal(goalPtr);
 	}
 
-	abstract->setStartAndGoalStates(details.start, details.goal, goalRadius);
+	abstract->setStartAndGoalStates(start, goal, goalRadius);
 
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;
 	std::string homeDirString(homedir);
 
-	car->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + details.agentMesh);
-	car->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/"  + details.environmentMesh);
+	auto agentMesh = params.stringVal("AgentMesh");
+	auto environmentMesh = params.stringVal("EnvironmentMesh");
 
-	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + details.agentMesh);
-	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/"  + details.environmentMesh);
+	car->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + agentMesh);
+	car->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + environmentMesh);
+
+	abstract->setRobotMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + agentMesh);
+	abstract->setEnvironmentMesh(homeDirString + "/gopath/src/github.com/skiesel/moremotionplanning/models/" + environmentMesh);
 
 	if(params.exists("MinControlDuration")) {
 		carPtr->getSpaceInformation()->setMinMaxControlDuration(params.integerVal("MinControlDuration"),
