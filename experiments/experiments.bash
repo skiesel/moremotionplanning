@@ -22,7 +22,7 @@ do
 	getGeneralParamFile generalParamFile
 	moreGeneralSettings moreGen
 
-	for DOMAIN_INC in `find -f *.dom`;
+	for DOMAIN_INC in `find . -name '*.dom'`;
 	do
 		source $DOMAIN_INC
 		moreDomainSettings moreDS
@@ -33,7 +33,7 @@ do
 			getDomainParamFile domainParamFile
 			moreDomainSettings moreDS
 
-			for PLANNER_INC in `find -f *.alg`;
+			for PLANNER_INC in `find . -name '*.alg'`;
 			do
 				source $PLANNER_INC
 				morePlannerSettings morePS
@@ -49,7 +49,6 @@ do
 					inputFile="printf \"$generalParamFile $domainParamFile $plannerParamFile Output ? ${outputFile}\n\""
 					echo "if [ ! -s $outputFile ]; then $EXPORT_CMD $inputFile | $EXEC; fi"
 
-					exit
 				done
 			done
 		done
