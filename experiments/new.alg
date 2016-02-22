@@ -20,7 +20,7 @@ WHICHSEARCH=("D*" Dijkstra)
 WHICHSEARCH_C=-1
 
 EDGEDISTRIBUTION_PATH[0]="validalpha=6 validbeta=1 invalidalpha=6 invalidbeta=1"
-EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 6\nValidEdgeDistributionBeta 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta 6"
+EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 6\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 6"
 EDGEDISTRIBUTION_C=-1
 
 
