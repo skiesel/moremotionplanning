@@ -1,0 +1,65 @@
+#!/bin/bash
+
+DOMAIN=("Blimp")
+DOMAIN_C=-1
+
+PROPSTEPSIZE=(0.05)
+PROPSTEPSIZE_C=-1
+
+MINCTRLDUR=(1)
+MINCTRLDUR_C=-1
+
+MAXCTRLDUR=(100)
+MAXCTRLDUR_C=-1
+
+GOALRADIUS=(0.25)
+GOALRADIUS_C=-1
+
+STARTGOAL=("Start ? 5 -2 -4\nGoal ? 5 28 -4")
+STARTGOAL_C=-1
+
+function moreDomainSettings() {
+	local  __resultvar=$1
+	local hasMore=false
+
+	incrementAndHasMore DOMAIN[@] DOMAIN_C hasMore
+	incrementAndHasMore PROPSTEPSIZE[@] PROPSTEPSIZE_C hasMore
+	incrementAndHasMore MINCTRLDUR[@] MINCTRLDUR_C hasMore
+	incrementAndHasMore MAXCTRLDUR[@] MAXCTRLDUR_C hasMore
+	incrementAndHasMore GOALRADIUS[@] GOALRADIUS_C hasMore
+	incrementAndHasMore STARTGOAL[@] STARTGOAL_C hasMore
+
+	eval $__resultvar="'$hasMore'"
+}
+
+function getDomainPathAttrs() {
+	local  __resultvar=$1
+	local path=""
+	
+	path="$path domain=${DOMAIN[$DOMAIN_C]}"
+	path="$path propagation_step_size=${PROPSTEPSIZE[$PROPSTEPSIZE_C]}"
+	path="$path min_control_duration=${MINCTRLDUR[$MINCTRLDUR_C]}"
+	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
+	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
+	path="$path inst=${GOALRADIUS_C}"
+
+	eval $__resultvar="'$path'" 
+}
+
+function getDomainParamFile() {
+	local  __resultvar=$1
+	local param=""
+	
+	param="${param}Domain ? ${DOMAIN[$DOMAIN_C]}\n"
+	param="${param}PropagationStepSize ? ${PROPSTEPSIZE[$PROPSTEPSIZE_C]}\n"
+	param="${param}MinControlDuration ? ${MINCTRLDUR[$MINCTRLDUR_C]}\n"
+	param="${param}MaxControlDuration ? ${MAXCTRLDUR[$MAXCTRLDUR_C]}\n"
+	param="${param}GoalRadius ? ${GOALRADIUS[$GOALRADIUS_C]}\n"
+	param="${param}${STARTGOAL[$STARTGOAL_C]}\n"
+
+	param="${param}EnvironmentBounds ? 0 39.65 -4 30 -8.23 0\n"
+	param="${param}AgentMesh ? blimp.dae\n"
+	param="${param}EnvironmentMesh ? blimp_world.dae\n"
+
+	eval $__resultvar="'$param'" 
+}
