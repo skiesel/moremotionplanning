@@ -18,6 +18,9 @@ GOALRADIUS_C=-1
 MAP_C=-1
 STARTGOAL_C=-1
 
+MAP=()
+STARTGOAL=()
+
 MAP[0]="RandomPolygons_planar_env.dae"
 STARTGOAL[0]="Start ? -1.2 -1\nGoal ? 1.1 1.05\n"
 

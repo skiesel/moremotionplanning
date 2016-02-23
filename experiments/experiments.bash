@@ -22,7 +22,7 @@ do
 	getGeneralParamFile generalParamFile
 	moreGeneralSettings moreGen
 
-	for DOMAIN_INC in `find . -name '*.dom'`;
+	for DOMAIN_INC in `ls *.dom`;
 	do
 		source $DOMAIN_INC
 		moreDomainSettings moreDS
@@ -33,7 +33,7 @@ do
 			getDomainParamFile domainParamFile
 			moreDomainSettings moreDS
 
-			for PLANNER_INC in `find . -name '*.alg'`;
+			for PLANNER_INC in `ls *.alg`;
 			do
 				source $PLANNER_INC
 				morePlannerSettings morePS

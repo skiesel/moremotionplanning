@@ -2,7 +2,7 @@
 
 source helpers.inc
 
-TIMEOUT=(30 60)
+TIMEOUT=(30)
 TIMEOUT_C=-1
 
 MEMORY=(1000)
@@ -11,7 +11,7 @@ MEMORY_C=-1
 declare -a SEED
 SEED_C=-1
 
-for i in {0..24}
+for i in {0..0}
 do
 	SEED[$i]=$((i+1))
 done
