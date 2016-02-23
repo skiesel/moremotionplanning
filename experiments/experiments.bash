@@ -48,7 +48,6 @@ do
 
 					inputFile="printf \"$generalParamFile $domainParamFile $plannerParamFile Output ? ${outputFile}\n\""
 					echo "if [ ! -s $outputFile ]; then $EXPORT_CMD $inputFile | $EXEC; fi"
-
 				done
 			done
 		done

@@ -23,16 +23,23 @@ EDGEDISTRIBUTION_PATH[0]="validalpha=6 validbeta=1 invalidalpha=6 invalidbeta=1"
 EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 6\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 6"
 EDGEDISTRIBUTION_C=-1
 
+ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]}))
+ALG_TOTAL_C=0
 
 function morePlannerSettings() {
 	local  __resultvar=$1
-	local hasMore=false
+	local hasMore=true
+	if [ "$ALG_TOTAL_C" -ge "$ALG_TOTAL" ];
+	then
+		hasMore=false
+	fi
+	((ALG_TOTAL_C++))
 
-	incrementAndHasMore PLANNER[@] PLANNER_C hasMore
-	incrementAndHasMore ABSTRACTION_PATH[@] ABSTRACTION_C hasMore
-	incrementAndHasMore STATERADIUS[@] STATERADIUS_C hasMore
-	incrementAndHasMore WHICHSEARCH[@] WHICHSEARCH_C hasMore
-	incrementAndHasMore EDGEDISTRIBUTION_PATH[@] EDGEDISTRIBUTION_C hasMore
+	increment PLANNER[@] PLANNER_C
+	increment ABSTRACTION_PATH[@] ABSTRACTION_C
+	increment STATERADIUS[@] STATERADIUS_C
+	increment WHICHSEARCH[@] WHICHSEARCH_C
+	increment EDGEDISTRIBUTION_PATH[@] EDGEDISTRIBUTION_C
 
 	eval $__resultvar="'$hasMore'"
 }
@@ -55,7 +62,7 @@ function getPlannerParamFile() {
 	local param=""
 	
 	param="${param}Planner ? ${PLANNER[$PLANNER_C]}\n"
-	param="${param}${ABSTRACTION_PARAM[$ABSTRACTION_PARAM_C]}\n"
+	param="${param}${ABSTRACTION_PARAM[$ABSTRACTION_C]}\n"
 	param="${param}StateRadius ? ${STATERADIUS[$STATERADIUS_C]}\n"
 	param="${param}WhichSearch ? ${WHICHSEARCH[$WHICHSEARCH_C]}\n"
 	param="${param}${EDGEDISTRIBUTION_PARAM[$EDGEDISTRIBUTION_PATH_C]}\n"

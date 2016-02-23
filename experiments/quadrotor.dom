@@ -18,16 +18,24 @@ GOALRADIUS_C=-1
 STARTGOAL=("Start ? 5 -2 -0.1\nGoal ? 5 28 -4\n")
 STARTGOAL_C=-1
 
+DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#STARTGOAL[@]}))
+DOM_TOTAL_C=0
+
 function moreDomainSettings() {
 	local  __resultvar=$1
-	local hasMore=false
+	local hasMore=true
+	if [ "$DOM_TOTAL_C" -ge "$DOM_TOTAL" ];
+	then
+		hasMore=false
+	fi
+	((DOM_TOTAL_C++))
 
-	incrementAndHasMore DOMAIN[@] DOMAIN_C hasMore
-	incrementAndHasMore PROPSTEPSIZE[@] PROPSTEPSIZE_C hasMore
-	incrementAndHasMore MINCTRLDUR[@] MINCTRLDUR_C hasMore
-	incrementAndHasMore MAXCTRLDUR[@] MAXCTRLDUR_C hasMore
-	incrementAndHasMore GOALRADIUS[@] GOALRADIUS_C hasMore
-	incrementAndHasMore STARTGOAL[@] STARTGOAL_C hasMore
+	increment DOMAIN[@] DOMAIN_C
+	increment PROPSTEPSIZE[@] PROPSTEPSIZE_C
+	increment MINCTRLDUR[@] MINCTRLDUR_C
+	increment MAXCTRLDUR[@] MAXCTRLDUR_C
+	increment GOALRADIUS[@] GOALRADIUS_C
+	increment STARTGOAL[@] STARTGOAL_C
 
 	eval $__resultvar="'$hasMore'"
 }

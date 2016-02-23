@@ -2,7 +2,7 @@
 
 source helpers.inc
 
-TIMEOUT=(30)
+TIMEOUT=(30 60)
 TIMEOUT_C=-1
 
 MEMORY=(1000)
@@ -16,13 +16,21 @@ do
 	SEED[$i]=$((i+1))
 done
 
+GEN_TOTAL=$((${#TIMEOUT[@]} * ${#MEMORY[@]} * ${#SEED[@]}))
+GEN_TOTAL_C=0
+
 function moreGeneralSettings() {
 	local  __resultvar=$1
-	local hasMore=false
+	local hasMore=true
+	if [ "$GEN_TOTAL_C" -ge "$GEN_TOTAL" ];
+	then
+		hasMore=false
+	fi
+	((GEN_TOTAL_C++))
 
-	incrementAndHasMore TIMEOUT[@] TIMEOUT_C hasMore
-	incrementAndHasMore MEMORY[@] MEMORY_C hasMore
-	incrementAndHasMore SEED[@] SEED_C hasMore
+	increment TIMEOUT[@] TIMEOUT_C
+	increment MEMORY[@] MEMORY_C
+	increment SEED[@] SEED_C
 
 	eval $__resultvar="'$hasMore'"
 }

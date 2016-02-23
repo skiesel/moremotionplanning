@@ -3,11 +3,19 @@
 PLANNER=(RRT EST SST KPIECE SyclopRRT SyclopEST PDST)
 PLANNER_C=-1
 
+ALG_TOTAL=${#PLANNER[@]}
+ALG_TOTAL_C=0
+
 function morePlannerSettings() {
 	local  __resultvar=$1
-	local hasMore=false
+	local hasMore=true
+	if [ "$ALG_TOTAL_C" -ge "$ALG_TOTAL" ];
+	then
+		hasMore=false
+	fi
+	((ALG_TOTAL_C++))
 
-	incrementAndHasMore PLANNER[@] PLANNER_C hasMore
+	increment PLANNER[@] PLANNER_C
 
 	eval $__resultvar="'$hasMore'"
 }

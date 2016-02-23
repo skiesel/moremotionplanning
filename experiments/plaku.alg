@@ -18,16 +18,24 @@ STATERADIUS_C=-1
 NUMPRMEDGES=(10)
 NUMPRMEDGES_C=-1
 
+ALG_TOTAL=$((${#PLANNER[@]} * ${#PRMSIZE[@]} * ${#ALPHA[@]} * ${#B[@]} * ${#STATERADIUS[@]} * ${#NUMPRMEDGES[@]}))
+ALG_TOTAL_C=0
+
 function morePlannerSettings() {
 	local  __resultvar=$1
-	local hasMore=false
+	local hasMore=true
+	if [ "$ALG_TOTAL_C" -ge "$ALG_TOTAL" ];
+	then
+		hasMore=false
+	fi
+	((ALG_TOTAL_C++))
 
-	incrementAndHasMore PLANNER[@] PLANNER_C hasMore
-	incrementAndHasMore PRMSIZE[@] PRMSIZE_C hasMore
-	incrementAndHasMore ALPHA[@] ALPHA_C hasMore
-	incrementAndHasMore B[@] B_C hasMore
-	incrementAndHasMore STATERADIUS[@] STATERADIUS_C hasMore
-	incrementAndHasMore NUMPRMEDGES[@] NUMPRMEDGES_C hasMore
+	increment PLANNER[@] PLANNER_C
+	increment PRMSIZE[@] PRMSIZE_C
+	increment ALPHA[@] ALPHA_C
+	increment B[@] B_C
+	increment STATERADIUS[@] STATERADIUS_C
+	increment NUMPRMEDGES[@] NUMPRMEDGES_C
 
 	eval $__resultvar="'$hasMore'"
 }
