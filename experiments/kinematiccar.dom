@@ -70,7 +70,7 @@ function getDomainPathAttrs() {
 	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
 	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
 	path="$path map=${MAP[$MAP_C]}"
-	path="$path inst=${STARTGOAL_C}"
+	path="$path inst=0"
 
 	eval $__resultvar="'$path'" 
 }
