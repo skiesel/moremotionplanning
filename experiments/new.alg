@@ -5,12 +5,12 @@ PLANNER_C=-1
 
 ABSTRACTION_PATH=("abstractiontype=prm numprmedges=10 prmsize=100" #
 				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
-				  "abstractiontype=grid gridhint=0.5 gridconnectivity=fourway" #
-				  "abstractiontype=grid gridhint=0.5 gridconnectivity=diagonals")
+				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=fourway" #
+				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=diagonal")
 ABSTRACTION_PARAM=("AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 100" #
 				  "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 1000" #
-				  "AbstractionType ? GRID\nGridHint ? 0.5\nGridConnectivity ? FourWay" #
-				  "AbstractionType ? GRID\nGridHint ? 0.5\nGridConnectivity ? Diagonals")
+				  "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? FourWay" #
+				  "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? Diagonals")
 ABSTRACTION_C=-1
 
 STATERADIUS=(2)
@@ -49,7 +49,7 @@ function getPlannerPathAttrs() {
 	local path=""
 	
 	path="$path planner=${PLANNER[$PLANNER_C]}"
-	path="$path ${ABSTRACTION_PATH[$ABSTRACTION_PATH_C]}"
+	path="$path ${ABSTRACTION_PATH[$ABSTRACTION_C]}"
 	path="$path stateradius=${STATERADIUS[$STATERADIUS_C]}"
 	path="$path whichsearch=${WHICHSEARCH[$WHICHSEARCH_C]}"
 	path="$path ${EDGEDISTRIBUTION_PATH[$EDGEDISTRIBUTION_PATH_C]}"
