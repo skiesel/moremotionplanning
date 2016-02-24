@@ -73,6 +73,7 @@ GlobalParameters globalParameters;
 #include "domains/blimp.hpp"
 #include "domains/quadrotor.hpp"
 #include "domains/carsetup.hpp"
+#include "domains/straightline.hpp"
 
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
@@ -89,8 +90,8 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 
 	ompl::base::PlannerPtr plannerPointer;
 	if(planner.compare("RRT") == 0) {
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	} else if(planner.compare("KPIECE") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
 		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
@@ -225,6 +226,10 @@ int main(int argc, char *argv[]) {
 	} else if(domain.compare("DynamicCar") == 0) {
 		auto benchmarkData = carBenchmark<ompl::app::DynamicCarPlanning>(params);
 		streamPoint = stream2DPoint;
+		doBenchmarkRun(benchmarkData, params);
+	} else if(domain.compare("StraightLine") == 0) {
+		auto benchmarkData = straightLineBenchmark(params);
+		streamPoint = stream2DPoint2;
 		doBenchmarkRun(benchmarkData, params);
 	} else {
 		fprintf(stderr, "unrecognized domain\n");
