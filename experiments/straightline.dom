@@ -73,7 +73,7 @@ function getDomainParamFile() {
 	param="${param}MinControlDuration ? ${MINCTRLDUR[$MINCTRLDUR_C]}\n"
 	param="${param}MaxControlDuration ? ${MAXCTRLDUR[$MAXCTRLDUR_C]}\n"
 	param="${param}GoalRadius ? ${GOALRADIUS[$GOALRADIUS_C]}\n"
-	param="${param}${STARTGOAL[$MAP_C, $STARTGOAL_C]}\n"
+	param="${param}${STARTGOAL[$STARTGOAL_C]}\n"
 	param="${param}EnvironmentMesh ? ${MAP[$STARTGOAL_C]}\n"
 	param="${param}EnvironmentBounds ? ${BOUNDS[$STARTGOAL_C]}\n"
 
