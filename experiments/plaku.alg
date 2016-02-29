@@ -4,19 +4,19 @@ PLANNER=(PlakuRRT)
 PLANNER_C=-1
 
 PRMSIZE=(10000)
-PRMSIZE_C=-1
+PRMSIZE_C=0
 
 ALPHA=(0.85)
-ALPHA_C=-1
+ALPHA_C=0
 
 B=(5)
-B_C=-1
+B_C=0
 
 STATERADIUS=(2 4 6)
-STATERADIUS_C=-1
+STATERADIUS_C=0
 
 NUMPRMEDGES=(10)
-NUMPRMEDGES_C=-1
+NUMPRMEDGES_C=0
 
 ALG_TOTAL=$((${#PLANNER[@]} * ${#PRMSIZE[@]} * ${#ALPHA[@]} * ${#B[@]} * ${#STATERADIUS[@]} * ${#NUMPRMEDGES[@]}))
 ALG_TOTAL_C=0
@@ -30,12 +30,33 @@ function morePlannerSettings() {
 	fi
 	((ALG_TOTAL_C++))
 
+
+	old=$PLANNER_C
 	increment PLANNER[@] PLANNER_C
-	increment PRMSIZE[@] PRMSIZE_C
-	increment ALPHA[@] ALPHA_C
-	increment B[@] B_C
-	increment STATERADIUS[@] STATERADIUS_C
-	increment NUMPRMEDGES[@] NUMPRMEDGES_C
+	if [ "$old" -gt "$PLANNER_C" ] || [ "$old" -eq "$PLANNER_C" ]
+	then
+		old=$PRMSIZE_C
+		increment PRMSIZE[@] PRMSIZE_C
+		if [ "$old" -gt "$PRMSIZE_C" ] || [ "$old" -eq "$PRMSIZE_C" ]
+		then
+			old=$ALPHA_C
+			increment ALPHA[@] ALPHA_C
+			if [ "$old" -gt "$ALPHA_C" ] || [ "$old" -eq "$ALPHA_C" ]
+			then
+				old=$B_C
+				increment B[@] B_C
+				if [ "$old" -gt "$ALPHA_C" ] || [ "$old" -eq "$ALPHA_C" ]
+				then
+					old=$STATERADIUS_C
+					increment STATERADIUS[@] STATERADIUS_C
+					if [ "$old" -gt "$STATERADIUS_C" ] || [ "$old" -eq "$STATERADIUS_C" ]
+					then
+						increment NUMPRMEDGES[@] NUMPRMEDGES_C
+					fi
+				fi
+			fi
+		fi
+	fi
 
 	eval $__resultvar="'$hasMore'"
 }

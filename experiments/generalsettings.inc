@@ -2,16 +2,16 @@
 
 source helpers.inc
 
-TIMEOUT=(30)
+TIMEOUT=(60)
 TIMEOUT_C=-1
 
 MEMORY=(1000)
-MEMORY_C=-1
+MEMORY_C=0
 
 declare -a SEED
-SEED_C=-1
+SEED_C=0
 
-for i in {0..24}
+for i in {0..49}
 do
 	SEED[$i]=$((i+1))
 done
@@ -28,9 +28,17 @@ function moreGeneralSettings() {
 	fi
 	((GEN_TOTAL_C++))
 
+	old=$TIMEOUT_C
 	increment TIMEOUT[@] TIMEOUT_C
-	increment MEMORY[@] MEMORY_C
-	increment SEED[@] SEED_C
+	if [ "$old" -gt "$TIMEOUT_C" ] || [ "$old" -eq "$TIMEOUT_C" ]
+	then
+		old=$MEMORY_C
+		increment MEMORY[@] MEMORY_C
+		if [ "$old" -gt "$MEMORY_C" ] || [ "$old" -eq "$MEMORY_C" ]
+		then
+			increment SEED[@] SEED_C
+		fi
+	fi
 
 	eval $__resultvar="'$hasMore'"
 }
