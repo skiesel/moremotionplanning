@@ -97,11 +97,11 @@ public:
 
 		while(ptc == false) {
 			/* sample random state (with goal biasing) */
-			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
-				goal_s->sampleGoal(rstate);
-			else {
+			// if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
+				// goal_s->sampleGoal(rstate);
+			// else {
 				plakusampler_->sample(rstate);
-			}
+			// }
 
 #ifdef STREAM_GRAPHICS
 			streamPoint(rmotion->state, 0, 1, 0, 1);
