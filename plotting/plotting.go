@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -48,7 +49,7 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 		algorithmName := ds.GetName()
 		mean := 0.
 
-		if ds.TestDataset(func(val string) bool { return val == "true" }, "Solved") {
+		if !ds.TestDataset(func(val string) bool { return val == "true" }, "Solved") {
 			continue
 		}
 
@@ -89,7 +90,8 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 
 		precomputationTime := algorithm.GetDatasetFloatValues("Precomputation Time")
 		for i, val := range algorithm.GetDatasetFloatValues(key) {
-			if algorithm.TestDataset(func(val string) bool { return val == "true" }, "Solved") {
+			if !algorithm.TestDataset(func(val string) bool { return val == "true" }, "Solved") {
+				fmt.Println(algorithm.GetName())
 				continue
 			}
 
@@ -117,6 +119,9 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 			box, err = plotter.NewBoxPlotWithConfidenceIntervals(w, i, data)
 		}
 		if err != nil {
+			fmt.Println(len(data))
+			fmt.Println(len(data2))
+			fmt.Println(algorithm.GetName())
 			panic(err)
 		}
 
@@ -129,6 +134,8 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 	p.NominalX(labels...)
 
 	filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
+
+	fmt.Println(filename)
 
 	if err := p.Save(vg.Length(width)*vg.Points(15*float64(len(plotters))), vg.Length(height)*vg.Inch, filename); err != nil {
 		panic(err)

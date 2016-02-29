@@ -1,15 +1,8 @@
 package main
 
 import (
-	// "bufio"
-	// "fmt"
-	// "io/ioutil"
-	// "math"
-	// "os"
-	// "sort"
-	// "strconv"
-	// "strings"
-
+	"fmt"
+	"strconv"
 	
 	"github.com/skiesel/expsys/rdb"
 )
@@ -20,65 +13,38 @@ const (
 
 
 func main() {
-	dss := map[string]map[string]string{}
-	rdb.GetDatasetsFromNonRDBFormat(dataRoot, dss, true, nonRDBReader)
+	filters := map[string]map[string]string {
+		"RRT" : map[string]string { "planner" : "RRT" },
+		"KPIECE" : map[string]string { "planner" : "KPIECE" },
+//		"PPRM (sr=2)" : map[string]string { "planner" : "PlakuRRT", "stateradius" : "2" },
+//		"PPRM (sr=4)" : map[string]string { "planner" : "PlakuRRT", "stateradius" : "4" },
+		"PPRM (sr=6)" : map[string]string { "planner" : "PlakuRRT", "stateradius" : "6" },
 
-	// 	useStackedBoxes := false
-	// 	if time, ok := params["sampler_initialization_time"]; ok {
-	// 		dataPoint.Precomputation, _ = strconv.ParseFloat(time, 64)
-	// 		useStackedBoxes = true
-	// 	}
+	}
 
-	// 	munged := mungeParams(plannerName, params)
 
-	// 	if _, ok := mappedData[experiment]; !ok {
-	// 		mappedData[experiment] = &Experiment{}
-	// 	}
-
-	// 	experimentData := *mappedData[experiment]
-
-	// 	if collection, ok := experimentData[munged]; ok {
-	// 		collection.DataPoints = append(collection.DataPoints, dataPoint)
-	// 	} else {
-	// 		experimentData[munged] = &DataCollection{
-	// 			Name:            plannerName,
-	// 			Params:          params,
-	// 			DataPoints:      []DataPoint{dataPoint},
-	// 			UseStackedBoxes: useStackedBoxes,
+	sr:=6
+	ed:=5
+	prm:=1000
+	// for sr := 2; sr <= 6; sr += 2 {
+	// 	for ed := 5; ed <= 10; ed += 5 {
+	// 		for prm := 100; prm <= 10000; prm*=10 {
+				label := fmt.Sprintf("New\nsr=%d\ned=%d\nprm=%d", sr, ed, prm)
+				filters[label] = map[string]string {
+					"planner" : "NewPlanner",
+					"stateradius" : strconv.Itoa(sr),
+					"numprmedges" : strconv.Itoa(ed),
+					"prmsize" : strconv.Itoa(prm),
+				}
 	// 		}
 	// 	}
-
-	// //func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment *Experiment) {
-	// for domain, experiment := range mappedData {
-	// 	makeBoxPlot(domain, "Time (log10 sec)", "Time", ".pdf", 4, 4, experiment, true)
-	// 	// makeBoxPlot(domain, "Solution Length", "Length", ".pdf", 4, 4, experiment)
-	// 	// makeBoxPlot(domain, "\% Solved", "Length", ".pdf", 4, 14, experiment)
-
 	// }
+
+	for key := range filters {
+		filters[key]["timeout"] = "60"
+	}
+
+	dss := rdb.GetDatasetsFromNonRDBFormat(dataRoot, filters, true, nonRDBReader)
+
+	makeBoxPlot("Quadrotor", "CPU Time", "Solving Time", ".pdf", 5, 5, dss, false)
 }
-
-/*
-0 approximate solution BOOLEAN
-1 correct solution BOOLEAN
-2 graph motions INTEGER
-3 graph states INTEGER
-4 memory REAL
-5 solution clearance REAL
-6 solution difference REAL
-7 solution length REAL
-8 solution segments INTEGER
-9 solved BOOLEAN
-10 status ENUM
-11 time REAL
-12 valid segment fraction REAL
-
-0 Unknown status
-1 Invalid start
-2 Invalid goal
-3 Unrecognized goal type
-4 Timeout
-5 Approximate solution
-6 Exact solution
-7 Crash
-8 Unknown status
-*/

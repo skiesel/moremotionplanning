@@ -19,8 +19,9 @@ func parseParams(data []string, keys []string) map[string]string {
 	params := map[string]string{}
 	for _, line := range data {
 		for _, key := range keys {
-			if strings.Contains(line, key) {
-				params[key] = strings.TrimSpace(strings.Split(line, " = ")[1])
+			vals := strings.Split(line, " = ")
+			if vals[0] == key {
+				params[key] = strings.TrimSpace(vals[1])
 			}
 		}
 	}
@@ -86,9 +87,12 @@ func nonRDBReader(filename string) (map[string]string, map[string][][]string, bo
 		}
 
 		capture = capture || (str == "1 planners")
+		if str == "." {
+			break
+		}
 	}
 
-	var params map[string]string
+	params := map[string]string{}
 
 	plannerName := strings.Replace(data[0], "control_", "", -1)
 
@@ -122,6 +126,11 @@ func nonRDBReader(filename string) (map[string]string, map[string][][]string, bo
 	dataPoint := data[len(data)-2]
 	dataPointValues := strings.Split(dataPoint, ";")
 
+if len(dataPointValues) < 12 {
+	fmt.Println(filename)
+	fmt.Println(dataPoint)
+}
+
 	length := strings.TrimSpace(dataPointValues[7])
 	time := strings.TrimSpace(dataPointValues[11])
 
@@ -129,9 +138,10 @@ func nonRDBReader(filename string) (map[string]string, map[string][][]string, bo
 	if err != nil {
 		panic(err)
 	}
-	if statusInt == 6 {
+	if statusInt == 6 || statusInt == 5 {
 		params["Solved"]="true"
 	} else {
+		fmt.Println(filename)
 		params["Solved"]="false"
 	}
 
