@@ -86,15 +86,15 @@ protected:
 
 		double getEstimatedRequiredSamples() const {
 			double probability = alpha / (alpha + beta);
-			double estimate = (1 - probability) / probability;
-			return estimate > 1 ? estimate : 1;
+			double estimate = 1. / probability;
+			return estimate;// > 1 ? estimate : 1;
 		}
 
 		double getHypotheticalRequiredSamplesAfterPositivePropagation(unsigned int numberOfStates) const {
 			double additive = (1. / (double)numberOfStates);
 			double probability = (alpha + additive) / (alpha + additive + beta);
-			double estimate = (1 - probability) / probability;
-			return estimate > 1 ? estimate : 1;
+			double estimate = 1. / probability;
+			return estimate;//> 1 ? estimate : 1;
 		}
 
 		void rewardHypotheticalSamplesAfterPositivePropagation(unsigned int numberOfStates) {
