@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PLANNER=(NewPlanner)
-PLANNER_C=0
+PLANNER_C=-1
 
 ABSTRACTION_PATH=("abstractiontype=prm numprmedges=10 prmsize=100" #
 				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
@@ -37,17 +37,6 @@ EDGEDISTRIBUTION_C=0
 ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]}))
 ALG_TOTAL_C=0
 
-ALG_PATHS=()
-ALG_PARAMS=()
-for i in "${!ABSTRACTION_PATH[@]}"
-do
-	for j in "${!STATERADIUS[@]}"
-	do 
-		ALG_PATHS+=("${ABSTRACTION_PATH[$i]} stateradius=${STATERADIUS[$j]} validalpha=10 validbeta=1 invalidalpha=10 invalidbeta=1 whichsearch=D*")
-		ALG_PARAMS+=("${ABSTRACTION_PATH[$i]}\nStateRadius ? ${STATERADIUS[$j]}\nValidEdgeDistributionAlpha ? 10\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 10\nWhichSearch ? D*")
-	done
-done
-
 function morePlannerSettings() {
 	local  __resultvar=$1
 	local hasMore=true
@@ -57,11 +46,27 @@ function morePlannerSettings() {
 	fi
 	((ALG_TOTAL_C++))
 
-	# increment PLANNER[@] PLANNER_C
-	# increment ABSTRACTION_PATH[@] ABSTRACTION_C
-	# increment STATERADIUS[@] STATERADIUS_C
-	# increment WHICHSEARCH[@] WHICHSEARCH_C
-	# increment EDGEDISTRIBUTION_PATH[@] EDGEDISTRIBUTION_C
+	old=$PLANNER_C
+	increment PLANNER[@] PLANNER_C
+	if [ "$old" -gt "$PLANNER_C" ] || [ "$old" -eq "$PLANNER_C" ]
+	then
+		old=$ABSTRACTION_C
+		increment ABSTRACTION_PATH[@] ABSTRACTION_C
+		if [ "$old" -gt "$ABSTRACTION_C" ] || [ "$old" -eq "$ABSTRACTION_C" ]
+		then
+			old=$STATERADIUS_C
+			increment STATERADIUS[@] STATERADIUS_C
+			if [ "$old" -gt "$STATERADIUS_C" ] || [ "$old" -eq "$STATERADIUS_C" ]
+			then
+				old=$WHICHSEARCH_C
+				increment WHICHSEARCH[@] WHICHSEARCH_C
+				if [ "$old" -gt "$STATERADIUS_C" ] || [ "$old" -eq "$STATERADIUS_C" ]
+				then
+					increment EDGEDISTRIBUTION_PATH[@] EDGEDISTRIBUTION_C
+				fi
+			fi
+		fi
+	fi
 
 	eval $__resultvar="'$hasMore'"
 }
@@ -70,14 +75,11 @@ function getPlannerPathAttrs() {
 	local  __resultvar=$1
 	local path=""
 	
-	index=$((ALG_TOTAL_C - 1))
-	path=ALG_PATHS[$index]
-
-	# path="$path planner=${PLANNER[$PLANNER_C]}"
-	# path="$path ${ABSTRACTION_PATH[$ABSTRACTION_C]}"
-	# path="$path stateradius=${STATERADIUS[$STATERADIUS_C]}"
-	# path="$path whichsearch=${WHICHSEARCH[$WHICHSEARCH_C]}"
-	# path="$path ${EDGEDISTRIBUTION_PATH[$EDGEDISTRIBUTION_PATH_C]}"
+	path="$path planner=${PLANNER[$PLANNER_C]}"
+	path="$path ${ABSTRACTION_PATH[$ABSTRACTION_C]}"
+	path="$path stateradius=${STATERADIUS[$STATERADIUS_C]}"
+	path="$path whichsearch=${WHICHSEARCH[$WHICHSEARCH_C]}"
+	path="$path ${EDGEDISTRIBUTION_PATH[$EDGEDISTRIBUTION_PATH_C]}"
 
 	eval $__resultvar="'$path'" 
 }
@@ -85,15 +87,12 @@ function getPlannerPathAttrs() {
 function getPlannerParamFile() {
 	local  __resultvar=$1
 	local param=""
-
-	index=$((ALG_TOTAL_C - 1))
-	param=ALG_PARAMS[$index]
 	
-	# param="${param}Planner ? ${PLANNER[$PLANNER_C]}\n"
-	# param="${param}${ABSTRACTION_PARAM[$ABSTRACTION_C]}\n"
-	# param="${param}StateRadius ? ${STATERADIUS[$STATERADIUS_C]}\n"
-	# param="${param}WhichSearch ? ${WHICHSEARCH[$WHICHSEARCH_C]}\n"
-	# param="${param}${EDGEDISTRIBUTION_PARAM[$EDGEDISTRIBUTION_PATH_C]}\n"
+	param="${param}Planner ? ${PLANNER[$PLANNER_C]}\n"
+	param="${param}${ABSTRACTION_PARAM[$ABSTRACTION_C]}\n"
+	param="${param}StateRadius ? ${STATERADIUS[$STATERADIUS_C]}\n"
+	param="${param}WhichSearch ? ${WHICHSEARCH[$WHICHSEARCH_C]}\n"
+	param="${param}${EDGEDISTRIBUTION_PARAM[$EDGEDISTRIBUTION_PATH_C]}\n"
 
 	eval $__resultvar="'$param'" 
 }
