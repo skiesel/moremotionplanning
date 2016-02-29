@@ -30,6 +30,8 @@ BenchmarkData straightLineBenchmark(const FileMap &params) {
 
 		stateSpace->as<ompl::base::SE2StateSpace>()->setBounds(bounds);
 		abstract->getStateSpace()->as<ompl::base::SE2StateSpace>()->setBounds(bounds);
+
+		globalParameters.abstractBounds = bounds;
 	} else {
 		OMPL_WARN("using default environment bounds");
 	}
@@ -76,14 +78,13 @@ BenchmarkData straightLineBenchmark(const FileMap &params) {
 		straightLinePtr->getSpaceInformation()->setPropagationStepSize(params.doubleVal("PropagationStepSize"));
 	}
 
-	if(!straightLinePtr->getSpaceInformation()->getStatePropagator()->canSteer()) //if it can steer, leave it alone!
-		straightLinePtr->getSpaceInformation()->setDirectedControlSamplerAllocator(directedControlSamplerAllocator);
+	assert(straightLinePtr->getSpaceInformation()->getStatePropagator()->canSteer());	
 
 	straightLinePtr->setup();
 
 	abstract->setup();
 
-	globalParameters.abstractBounds = abstract->getStateSpace()->as<ompl::base::RealVectorStateSpace>()->getBounds();
+	
 
 	globalParameters.copyVectorToAbstractState = [](ompl::base::State *s, const std::vector<double> &values) {
 		ompl::base::SE2StateSpace::StateType *state = s->as<ompl::base::SE2StateSpace::StateType>();
@@ -96,6 +97,7 @@ BenchmarkData straightLineBenchmark(const FileMap &params) {
 		values.resize(3);
 		values[0] = state->getX();
 		values[1] = state->getY();
+		values[2] = 0;
 	};
 
 	BenchmarkData data;
