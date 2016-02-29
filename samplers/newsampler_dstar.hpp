@@ -21,6 +21,11 @@ public:
 
 		for(unsigned int i = 0; i < abstractionSize; ++i) {
 			vertices.emplace_back(i);
+			auto neighbors = abstraction->getNeighboringCells(i);
+			for(auto n : neighbors) {
+				getEdge(i, n);
+				getEdge(n, i);
+			}
 		}
 
 		vertices[goalID].rhs = 0;
@@ -43,14 +48,14 @@ public:
 	}
 
 	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
-		// static unsigned int sampleCount = 0;
-		// if(sampleCount++ % 100 == 0) {
-		// 	// fprintf(stderr, "open: %u\n", open.getFill());
-		// 	writeVertexFile(sampleCount / 100);
-		// 	writeOpenEdgeFile(sampleCount / 100);
-		// 	writeUpdatedEdgeFile(sampleCount / 100);
-		// 	writeEdgeFile(sampleCount / 100);
-		// }
+		static unsigned int sampleCount = 0;
+		if(sampleCount++ % 1000 == 0) {
+			// fprintf(stderr, "open: %u\n", open.getFill());
+			writeVertexFile(sampleCount / 1000);
+			writeOpenEdgeFile(sampleCount / 1000);
+			// writeUpdatedEdgeFile(sampleCount / 10);
+			writeEdgeFile(sampleCount / 1000);
+		}
 
 		// for(unsigned int i = 1; i < open.fill; i++) {
 		// 	auto l = open.left(i);
@@ -130,10 +135,13 @@ public:
 		} else {
 			si_->copyState(from, vertices[targetEdge->startID].sampleState());
 			ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
-			vertexState = abstraction->getState(targetEdge->endID);
-
-			ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
-			fullStateSampler->sampleUniformNear(to, fullState.get(), stateRadius);
+			if(abstraction->supportsSampling()) {
+				vertexState = abstraction->sampleAbstractState(targetEdge->endID);
+			} else {
+				vertexState = abstraction->getState(targetEdge->endID);
+				ompl::base::ScopedState<> fullState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(vertexState);
+				fullStateSampler->sampleUniformNear(to, fullState.get(), stateRadius);
+			}
 		}
 		return true;
 	}
@@ -221,7 +229,12 @@ protected:
 			else if(u.g > u.rhs) {
 				u.g = u.rhs;
 				for(auto e : reverseEdges[u.id]) {
-					updateEdgeEffort(e.second, u.g + e.second->getEstimatedRequiredSamples(), false);
+					if(e.second->interior) {
+						updateEdgeEffort(e.second, getInteriorEdgeEffort(e.second), false);
+					}
+					else {
+						updateEdgeEffort(e.second, u.g + e.second->getEstimatedRequiredSamples(), false);
+					}
 				}
 
 				auto neighbors = getNeighboringCells(u.id);
@@ -232,7 +245,12 @@ protected:
 				u.g = std::numeric_limits<double>::infinity();
 
 				for(auto e : reverseEdges[u.id]) {
-					updateEdgeEffort(e.second, u.g, false);
+					if(e.second->interior) {
+						updateEdgeEffort(e.second, getInteriorEdgeEffort(e.second), false);
+					}
+					else {
+						updateEdgeEffort(e.second, u.g, false);
+					}
 				}
 
 				updateVertex(u.id);
