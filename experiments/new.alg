@@ -5,22 +5,33 @@ PLANNER_C=-1
 
 ABSTRACTION_PATH=("abstractiontype=prm numprmedges=10 prmsize=100" #
 				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
-				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=fourway" #
-				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=diagonal")
+				  "abstractiontype=prm numprmedges=10 prmsize=10000" #
+				  "abstractiontype=prm numprmedges=5 prmsize=100" #
+				  "abstractiontype=prm numprmedges=5 prmsize=1000" #
+				  "abstractiontype=prm numprmedges=5 prmsize=10000" #
+#				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=fourway" #
+#				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=diagonal"
+				)
 ABSTRACTION_PARAM=("AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 100" #
-				  "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 1000" #
-				  "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? FourWay" #
-				  "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? Diagonals")
+				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 1000" #
+				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 10000" #
+				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 100" #
+				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 1000" #
+				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 10000" #
+#				   "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? FourWay" #
+#				   "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? Diagonals" #
+				  )
 ABSTRACTION_C=-1
 
-STATERADIUS=(2)
+STATERADIUS=(2 4 6)
 STATERADIUS_C=-1
 
-WHICHSEARCH=("D*" Dijkstra)
+WHICHSEARCH=("D*")
+#Dijkstra
 WHICHSEARCH_C=-1
 
-EDGEDISTRIBUTION_PATH[0]="validalpha=6 validbeta=1 invalidalpha=6 invalidbeta=1"
-EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 6\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 6"
+EDGEDISTRIBUTION_PATH[0]="validalpha=10 validbeta=1 invalidalpha=10 invalidbeta=1"
+EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 10\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 10"
 EDGEDISTRIBUTION_C=-1
 
 ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]}))

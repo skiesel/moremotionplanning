@@ -11,7 +11,7 @@ MEMORY_C=-1
 declare -a SEED
 SEED_C=-1
 
-for i in {0..0}
+for i in {0..24}
 do
 	SEED[$i]=$((i+1))
 done

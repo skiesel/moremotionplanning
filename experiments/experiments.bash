@@ -11,7 +11,8 @@ pathattrs="$SEARCH/rdb/pathattrs"
 pathfor="$SEARCH/rdb/pathfor"
 withattrs="$SEARCH/rdb/withattrs"
 
-EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${PROJECT_ROOT}/build; "
+#EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${PROJECT_ROOT}/build; "
+EXPORT_CMD=""
 
 source generalsettings.inc
 moreGeneralSettings moreGen
