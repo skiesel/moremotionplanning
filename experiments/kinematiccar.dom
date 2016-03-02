@@ -1,0 +1,137 @@
+#!/bin/bash
+
+DOMAIN=("KinematicCar")
+DOMAIN_C=-1
+
+PROPSTEPSIZE=(0.05)
+PROPSTEPSIZE_C=-1
+
+MINCTRLDUR=(1)
+MINCTRLDUR_C=-1
+
+MAXCTRLDUR=(100)
+MAXCTRLDUR_C=-1
+
+GOALRADIUS=(0.1)
+GOALRADIUS_C=-1
+
+STARTGOAL_C=0
+
+MAP=()
+STARTGOAL=()
+BOUNDS=()
+
+#MAP[0]="RandomPolygons_planar_env.dae"
+#STARTGOAL[0]="Start ? -1.2 -1\nGoal ? 1.1 1.05\n"
+
+#MAP[1]="Maze_planar_env.dae"
+#STARTGOAL[1]="Start ? 0 1.15\nGoal ? 1 1.2\n"
+
+#MAP[2]="UniqueSolutionMaze_env.dae"
+#STARTGOAL[2]="Start ? -1.1 -1.1\nGoal ? 1.1 1.15\n"
+
+#MAP[3]="Barriers_easy_env.dae"
+#STARTGOAL[3]="Start ? 1 -3\nGoal ? 15 -6\n"
+
+#MAP[4]="EffortEnvironment.dae"
+#STARTGOAL[4]="Start ? -3 -2\nGoal ? 5 -3\n"
+
+#MAP[5]="EffortEnvironment2.dae"
+#STARTGOAL[5]="Start ? -5 2\nGoal ? 5 2\n"
+
+MAP[0]="forest.dae"
+STARTGOAL[0]="Start ? 0 0\nGoal ? 0 -25\n"
+BOUNDS[0]="-30 30 -30 30"
+
+MAP[1]="forest.dae"
+STARTGOAL[1]="Start ? 0.1 0.1\nGoal ? 0 -26\n"
+BOUNDS[1]="-30 30 -30 30"
+
+MAP[2]="forest.dae"
+STARTGOAL[2]="Start ? 3 -5\nGoal ? 0 -25\n"
+BOUNDS[2]="-30 30 -30 30"
+
+MAP[3]="forest.dae"
+STARTGOAL[3]="Start ? -3 -5\nGoal ? 1 -25\n"
+BOUNDS[3]="-30 30 -30 30"
+
+MAP[4]="forest.dae"
+STARTGOAL[4]="Start ? -5 -5\nGoal ? 5 -25\n"
+BOUNDS[4]="-30 30 -30 30"
+
+#dont' include map or bounds since this is all paired
+DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#STARTGOAL[@]}))
+DOM_TOTAL_C=0
+
+function moreDomainSettings() {
+	local  __resultvar=$1
+	local hasMore=true
+	if [ "$DOM_TOTAL_C" -ge "$DOM_TOTAL" ];
+	then
+		hasMore=false
+	fi
+	((DOM_TOTAL_C++))
+
+	old=$DOMAIN_C
+	increment DOMAIN[@] DOMAIN_C
+	if [ "$old" -gt "$DOMAIN_C" ] || [ "$old" -eq "$DOMAIN_C" ]
+	then
+		old=$PROPSTEPSIZE_C
+		increment PROPSTEPSIZE[@] PROPSTEPSIZE_C
+		if [ "$old" -gt "$PROPSTEPSIZE_C" ] || [ "$old" -eq "$PROPSTEPSIZE_C" ]
+		then
+			old=$MINCTRLDUR_C
+			increment MINCTRLDUR[@] MINCTRLDUR_C
+			if [ "$old" -gt "$MINCTRLDUR_C" ] || [ "$old" -eq "$MINCTRLDUR_C" ]
+			then
+				old=$MAXCTRLDUR_C
+				increment MAXCTRLDUR[@] MAXCTRLDUR_C
+				if [ "$old" -gt "$MAXCTRLDUR_C" ] || [ "$old" -eq "$MAXCTRLDUR_C" ]
+				then
+					old=$GOALRADIUS_C
+					increment GOALRADIUS[@] GOALRADIUS_C
+					if [ "$old" -gt "$GOALRADIUS_C" ] || [ "$old" -eq "$GOALRADIUS_C" ]
+					then
+						increment STARTGOAL[@] STARTGOAL_C
+					fi
+				fi
+			fi
+		fi
+	fi
+
+	eval $__resultvar="'$hasMore'"
+}
+
+function getDomainPathAttrs() {
+	local  __resultvar=$1
+	local path=""
+	
+	path="$path domain=${DOMAIN[$DOMAIN_C]}"
+	path="$path propagation_step_size=${PROPSTEPSIZE[$PROPSTEPSIZE_C]}"
+	path="$path min_control_duration=${MINCTRLDUR[$MINCTRLDUR_C]}"
+	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
+	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
+	path="$path map=${MAP[$STARTGOAL_C]}"
+	path="$path inst=$STARTGOAL_C"
+
+	eval $__resultvar="'$path'" 
+}
+
+function getDomainParamFile() {
+	local  __resultvar=$1
+	local param=""
+	
+	param="${param}Domain ? ${DOMAIN[$DOMAIN_C]}\n"
+	param="${param}PropagationStepSize ? ${PROPSTEPSIZE[$PROPSTEPSIZE_C]}\n"
+	param="${param}MinControlDuration ? ${MINCTRLDUR[$MINCTRLDUR_C]}\n"
+	param="${param}MaxControlDuration ? ${MAXCTRLDUR[$MAXCTRLDUR_C]}\n"
+	param="${param}GoalRadius ? ${GOALRADIUS[$GOALRADIUS_C]}\n"
+	param="${param}${STARTGOAL[$STARTGOAL_C]}\n"
+	param="${param}EnvironmentBounds ? ${BOUNDS[$STARTGOAL_C]}\n"
+	param="${param}EnvironmentMesh ? ${MAP[$STARTGOAL_C]}\n"
+
+	param="${param}AgentMesh ? car2_planar_robot.dae.dae\n"
+	
+
+	eval $__resultvar="'$param'" 
+}
