@@ -66,14 +66,17 @@ BenchmarkData carBenchmark(const FileMap &params) {
 		}
 
 		// set the bounds for the R^3 part of SE(3)
-		ompl::base::RealVectorBounds bounds(3);
-		for(unsigned int i = 0; i < 3; i++) {
+		ompl::base::RealVectorBounds bounds(2);
+		for(unsigned int i = 0; i < 2; i++) {
 			bounds.setLow(i, low[i]);
 			bounds.setHigh(i, high[i]);
 		}
-		
-		stateSpace->as<ompl::base::CompoundStateSpace>()->as<ompl::base::SE3StateSpace>(0)->setBounds(bounds);
 
+		if(params.stringVal("Domain").compare("DynamicCar") == 0) {
+			stateSpace->as<ompl::base::CompoundStateSpace>()->as<ompl::base::SE3StateSpace>(0)->setBounds(bounds);
+		} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
+			stateSpace->as<ompl::base::SE2StateSpace>()->setBounds(bounds);
+		}
 		abstract->getStateSpace()->as<ompl::base::SE3StateSpace>()->setBounds(bounds);
 	} else {
 		OMPL_WARN("using default environment bounds");
