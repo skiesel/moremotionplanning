@@ -48,6 +48,7 @@ public:
 	}
 
 	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
+#ifdef STREAM_GRAPHICS
 		static unsigned int sampleCount = 0;
 		if(sampleCount++ % 1000 == 0) {
 			// fprintf(stderr, "open: %u\n", open.getFill());
@@ -56,6 +57,7 @@ public:
 			// writeUpdatedEdgeFile(sampleCount / 10);
 			writeEdgeFile(sampleCount / 1000);
 		}
+#endif
 
 		// for(unsigned int i = 1; i < open.fill; i++) {
 		// 	auto l = open.left(i);
