@@ -23,7 +23,7 @@ ABSTRACTION_PARAM=("AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 100" #
 				  )
 ABSTRACTION_C=0
 
-STATERADIUS=("2" "4" "6")
+STATERADIUS=(2 4 6)
 STATERADIUS_C=0
 
 WHICHSEARCH=("D*")
