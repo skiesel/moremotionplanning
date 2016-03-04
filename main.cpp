@@ -88,7 +88,6 @@ GlobalParameters globalParameters;
 #include "planners/bestfirstplanner.hpp"
 #include "planners/anytimebestfirstplanner.hpp"
 #include "planners/newplanner.hpp"
-#include "planners/anytimebeastplanner.hpp"
 
 
 void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
@@ -123,8 +122,6 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
 	} else if(planner.compare("NewPlanner") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
-	} else if(planner.compare("AnytimeBeast") == 0) {
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::AnytimeBeastPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
 	} else {
 		fprintf(stderr, "unrecognized planner\n");
 		return;
