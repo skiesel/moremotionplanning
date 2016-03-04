@@ -40,14 +40,18 @@ ompl::control::DirectedControlSamplerPtr directedControlSamplerAllocator(const o
 
 std::function<void(const ompl::base::State *, double, double, double, double)> streamPoint;
 
+// FILE *f = fopen("temp.vert", "w");
+
 void stream3DPoint(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
 	auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
 	fprintf(stderr, "point %g %g %g %g %g %g %g\n", s->getX(), s->getY(), s->getZ(), red, green, blue, alpha);
+	// fprintf(f, "%g %g %g %g %g %g\n", s->getX(), s->getY(), s->getZ(), red, green, blue);
 }
 
 void stream2DPoint(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
 	auto s = state->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
 	fprintf(stderr, "point %g %g 0 %g %g %g %g\n", s->getX(), s->getY(), red, green, blue, alpha);
+	// fprintf(f, "%g %g 0 %g %g %g\n", s->getX(), s->getY(), red, green, blue);
 }
 
 void stream2DPoint2(const ompl::base::State *state, double red=1, double green=0, double blue=0, double alpha=1) {
@@ -74,6 +78,7 @@ GlobalParameters globalParameters;
 #include "domains/quadrotor.hpp"
 #include "domains/carsetup.hpp"
 #include "domains/straightline.hpp"
+#include "domains/hovercraft.hpp"
 
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
@@ -83,6 +88,7 @@ GlobalParameters globalParameters;
 #include "planners/bestfirstplanner.hpp"
 #include "planners/anytimebestfirstplanner.hpp"
 #include "planners/newplanner.hpp"
+#include "planners/anytimebeastplanner.hpp"
 
 
 void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
@@ -117,6 +123,8 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::PlakuRRT(benchmarkData.simplesetup->getSpaceInformation(), params));
 	} else if(planner.compare("NewPlanner") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::NewPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
+	} else if(planner.compare("AnytimeBeast") == 0) {
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::AnytimeBeastPlanner(benchmarkData.simplesetup->getSpaceInformation(), params));
 	} else {
 		fprintf(stderr, "unrecognized planner\n");
 		return;
@@ -230,6 +238,10 @@ int main(int argc, char *argv[]) {
 	} else if(domain.compare("StraightLine") == 0) {
 		auto benchmarkData = straightLineBenchmark(params);
 		streamPoint = stream2DPoint2;
+		doBenchmarkRun(benchmarkData, params);
+	} else if(domain.compare("Hovercraft") == 0) {
+		auto benchmarkData = hovercraftBenchmark(params);
+		streamPoint = stream2DPoint;
 		doBenchmarkRun(benchmarkData, params);
 	} else {
 		fprintf(stderr, "unrecognized domain\n");
