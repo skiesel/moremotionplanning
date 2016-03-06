@@ -85,7 +85,7 @@ BenchmarkData robotArmBenchmark(const FileMap &params) {
 
 	// define start state
 	auto jointAngles = params.doubleList("StartJoinAngles");
-	ompl::base::ScopedState<ompl::base::SE3StateSpace> start = arm->buildStartState(jointAngles);
+	ompl::base::ScopedState<ompl::base::SE3StateSpace> start = arm->buildState(jointAngles);
 
 	// define goal state
 	ompl::base::ScopedState<ompl::base::SE3StateSpace> goal(arm->getGeometricComponentStateSpace(0));
