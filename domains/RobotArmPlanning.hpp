@@ -4,6 +4,7 @@
 #include <ompl/base/spaces/SE3StateSpace.h>
 #include <ompl/control/ODESolver.h>
 #include <ompl/control/spaces/RealVectorControlSpace.h>
+#include <ompl/util/RandomNumbers.h>
 #include <boost/math/constants/constants.hpp>
 
 #include "../ikfast/cyton_gamma_1500_ik.cpp"
@@ -152,7 +153,7 @@ public:
 		return s;
 	}
 
-	base::ScopedState<> buildStartState(const std::vector<double> &jointAngles) const {
+	base::ScopedState<> buildState(const std::vector<double> &jointAngles) const {
 		base::ScopedState<base::CompoundStateSpace> s(getStateSpace());
 
 		std::vector<double> transform(16, 0);
@@ -209,12 +210,47 @@ public:
 	}
 
 	virtual base::ScopedState<> getFullStateFromGeometricComponent(const base::ScopedState<> &state) const {
-		base::ScopedState<> r(si_);
-		r = 0.0;
-		r[0] = state[0];
-		r[1] = state[1];
-		r[2] = state[2];
-		return r;
+		IkSolutionList<IkReal> solutions;
+
+		const auto se3 = state->as<ompl::base::SE3StateSpace::StateType>();
+
+		IkReal translation[3]= { se3->getX(),
+								 se3->getY(),
+								 se3->getZ()};
+
+		const auto &rot = se3->rotation();
+
+		IkReal rotation[9] = { 1 - 2 * rot.y * rot.y - 2 * rot.z * rot.z,
+							   2 * rot.z * rot.y - 2 * rot.z * rot.w,
+							   2 * rot.x * rot.z + 2 * rot.y * rot.w,
+							   2 * rot.x * rot.y + 2 * rot.z * rot.w,
+							   1 - 2 * rot.x * rot.x - 2 * rot.z * rot.z,
+							   2 * rot.y * rot.z - 2 * rot.x * rot.w,
+							   2 * rot.x * rot.z - 2 * rot.y * rot.w,
+							   2 * rot.y * rot.z + 2 * rot.x * rot.w,
+							   1 - 2 * rot.x * rot.x - 2 * rot.y * rot.y};
+
+		IkReal freeJoints[3] = {0, 0, 0};
+
+		ComputeIk(translation, rotation, freeJoints, solutions);
+
+		if(solutions.GetNumSolutions() == 0) {
+			throw ompl::Exception("couldn't compute an ik solution");
+		}
+
+		unsigned int solutionIndex = rng.uniformInt(0, solutions.GetNumSolutions());
+
+		const auto &solution = solutions.GetSolution(solutionIndex);
+
+		std::vector<IkReal> angles, freeAngles;
+		solution.GetSolution(angles, freeAngles);
+		
+		std::vector<double> anglesVec(GetNumJoints());
+		for(unsigned int i = 0; i < GetNumJoints(); i++) {
+			anglesVec[i] = angles[i];
+		}
+
+		return buildState(anglesVec);
 	}
 
 	virtual const base::StateSpacePtr &getGeometricComponentStateSpace(unsigned int index) const {
@@ -256,6 +292,7 @@ protected:
 	std::vector<double> linkLengths;
 	std::vector<unsigned int> rotationAxes;
 	ompl::base::RealVectorBounds jointRanges;
+	mutable ompl::RNG rng;
 };
 
 }
