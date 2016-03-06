@@ -82,7 +82,7 @@ public:
 		return stoi(map.at(key));
 	}
 
-	std::vector<std::string> valueList(const std::string &key, const std::string delim = " ") const {
+	std::vector<std::string> stringList(const std::string &key, const std::string delim = " ") const {
 		if(!exists(key)) {
 			fprintf(stderr, "Key \"%s\" not bound\n", key.c_str());
 			exit(1);
@@ -107,6 +107,36 @@ public:
 		boost::tokenizer< boost::char_separator<char> > tokens(map.at(key), sep);
 		for(auto token : tokens) {
 			values.push_back(std::stod(token));
+		}
+		return values;
+	}
+
+	std::vector<int> intList(const std::string &key, const std::string delim = " ") const {
+		if(!exists(key)) {
+			fprintf(stderr, "Key \"%s\" not bound\n", key.c_str());
+			exit(1);
+		}
+
+		std::vector<int> values;
+		boost::char_separator<char> sep(delim.c_str());
+		boost::tokenizer< boost::char_separator<char> > tokens(map.at(key), sep);
+		for(auto token : tokens) {
+			values.push_back(std::stoi(token));
+		}
+		return values;
+	}
+
+	std::vector<unsigned int> uIntList(const std::string &key, const std::string delim = " ") const {
+		if(!exists(key)) {
+			fprintf(stderr, "Key \"%s\" not bound\n", key.c_str());
+			exit(1);
+		}
+
+		std::vector<unsigned int> values;
+		boost::char_separator<char> sep(delim.c_str());
+		boost::tokenizer< boost::char_separator<char> > tokens(map.at(key), sep);
+		for(auto token : tokens) {
+			values.push_back(std::stoi(token));
 		}
 		return values;
 	}

@@ -79,6 +79,7 @@ GlobalParameters globalParameters;
 #include "domains/carsetup.hpp"
 #include "domains/straightline.hpp"
 #include "domains/hovercraft.hpp"
+#include "domains/robotarm.hpp"
 
 #include "planners/fbiasedrrt.hpp"
 #include "planners/fbiasedshellrrt.hpp"
