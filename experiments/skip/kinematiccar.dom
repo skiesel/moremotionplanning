@@ -59,6 +59,10 @@ MAP[4]="forest.dae"
 STARTGOAL[4]="Start ? -5 -5\nGoal ? 5 -25\n"
 BOUNDS[4]="-30 30 -30 30"
 
+MAP[4]="ladder.dae"
+STARTGOAL[4]="Start ? -20 -20 \nGoal ? 20 -20\n"
+BOUNDS[4]="-23 23 -23 23"
+
 #dont' include map or bounds since this is all paired
 DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#STARTGOAL[@]}))
 DOM_TOTAL_C=0

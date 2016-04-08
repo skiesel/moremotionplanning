@@ -8,10 +8,13 @@ TIMEOUT_C=-1
 MEMORY=(1000)
 MEMORY_C=0
 
+INTERMEDIATESTATES=(true)
+INTERMEDIATESTATES_C=0
+
 declare -a SEED
 SEED_C=0
 
-for i in {0..49}
+for i in {0..0}
 do
 	SEED[$i]=$((i+1))
 done
@@ -36,7 +39,12 @@ function moreGeneralSettings() {
 		increment MEMORY[@] MEMORY_C
 		if [ "$old" -gt "$MEMORY_C" ] || [ "$old" -eq "$MEMORY_C" ]
 		then
-			increment SEED[@] SEED_C
+			old=$INTERMEDIATESTATES_C
+			increment INTERMEDIATESTATES[@] INTERMEDIATESTATES_C
+			if [ "$old" -gt "$INTERMEDIATESTATES_C" ] || [ "$old" -eq "$INTERMEDIATESTATES_C" ]
+			then
+				increment SEED[@] SEED_C
+			fi
 		fi
 	fi
 
@@ -49,6 +57,7 @@ function getGeneralPathAttrs() {
 	
 	path="$path timeout=${TIMEOUT[$TIMEOUT_C]}"
 	path="$path memory=${MEMORY[$MEMORY_C]}"
+	path="$path intermediatestates=${INTERMEDIATESTATES[$INTERMEDIATESTATES_C]}"
 	path="$path seed=${SEED[$SEED_C]}"
 
 	eval $__resultvar="'$path'" 
@@ -60,6 +69,7 @@ function getGeneralParamFile() {
 	
 	param="${param}Timeout ? ${TIMEOUT[$TIMEOUT_C]}\n"
 	param="${param}Memory ? ${MEMORY[$MEMORY_C]}\n"
+	param="${param}AddIntermediateStates ? ${INTERMEDIATESTATES[$INTERMEDIATESTATES_C]}\n"
 	param="${param}Seed ? ${SEED[$SEED_C]}\n"
 
 	#this is just an ompl artifact
