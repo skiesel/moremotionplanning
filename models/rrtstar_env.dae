@@ -83,7 +83,7 @@
       <node id="exported" name="exported">
         <matrix>1 0 0 0
                 0 1 0 0
-                0 0 0.001 0
+                0 0 0.0000000001 0
                 0 0 0 1</matrix>
         <instance_geometry url="#meshId0">
           <bind_material>

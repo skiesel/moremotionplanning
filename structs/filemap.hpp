@@ -82,6 +82,16 @@ public:
 		return stoi(map.at(key));
 	}
 
+	bool boolVal(const std::string &key) const {
+		if(!exists(key)) {
+			fprintf(stderr, "Key \"%s\" not bound\n", key.c_str());
+			exit(1);
+		}
+		return map.at(key).compare("true") == 0 ||
+		map.at(key).compare("True") == 0 ||
+		map.at(key).compare("TRUE") == 0;
+	}
+
 	std::vector<std::string> stringList(const std::string &key, const std::string delim = " ") const {
 		if(!exists(key)) {
 			fprintf(stderr, "Key \"%s\" not bound\n", key.c_str());

@@ -81,9 +81,9 @@
   <library_visual_scenes>
     <visual_scene id="myScene" name="myScene">
       <node id="exported" name="exported">
-        <matrix>1 0 0 0
-                0 1 0 0
-                0 0 10000 0
+        <matrix>10000000 0 0 0
+                0 1000 0 0
+                0 0 1000000 0
                 0 0 0 1</matrix>
         <instance_geometry url="#meshId0">
           <bind_material>

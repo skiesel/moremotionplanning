@@ -165,6 +165,27 @@ BenchmarkData carBenchmark(const FileMap &params) {
 		values[2] = state->getYaw();
 	};
 
+	if(params.stringVal("Domain").compare("DynamicCar") == 0) {
+		// globalParameters.admissibleCostEstimate = [](const ompl::base::State *a, const ompl::base::State *b, bool goal) {
+		// 	assert(false);
+		// 	const ompl::base::SE2StateSpace::StateType *se21 = a->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+		// 	const ompl::base::SE2StateSpace::StateType *se22 = b->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+		// 	double dx = se21->getX() - se22->getX();
+		// 	double dy = se21->getY() - se22->getY();
+		// 	return dx * dx + dy * dy;
+		// };
+	} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
+		// globalParameters.admissibleCostEstimate = [](const ompl::base::State *a, const ompl::base::State *b, bool goal) {
+		// 	assert(false);
+		// 	const ompl::base::SE2StateSpace::StateType *se21 = a->as<ompl::base::SE2StateSpace::StateType>();
+		// 	const ompl::base::SE2StateSpace::StateType *se22 = b->as<ompl::base::SE2StateSpace::StateType>();
+		// 	double dx = se21->getX() - se22->getX();
+		// 	double dy = se21->getY() - se22->getY();
+		// 	return dx * dx + dy * dy;
+		// };
+	}
+
+
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*carPtr, car->getName());
 	data.simplesetup = carPtr;

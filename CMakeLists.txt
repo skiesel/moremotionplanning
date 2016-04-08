@@ -6,14 +6,12 @@ set(CMAKE_MODULE_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -O3")
+#set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS} -g")
 
 add_executable(MoreMotionPlanning main.cpp)
 
-#set_target_properties(MoreMotionPlanning PROPERTIES
-#COMPILE_DEFINITIONS "STREAM_GRAPHICS")
-
-set_target_properties(MoreMotionPlanning PROPERTIES
-COMPILE_DEFINITIONS "IKFAST_NO_MAIN")
+target_compile_definitions(MoreMotionPlanning PRIVATE IKFAST_NO_MAIN)
+#target_compile_definitions(MoreMotionPlanning PRIVATE STREAM_GRAPHICS IKFAST_NO_MAIN)
 
 find_package(OMPL REQUIRED)
 find_package(ASSIMP REQUIRED)

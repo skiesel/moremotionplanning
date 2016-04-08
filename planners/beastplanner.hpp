@@ -7,61 +7,46 @@
 
 #include "../structs/filemap.hpp"
 
-#include "../samplers/bestfirstsampler.hpp"
-#include "../samplers/bestfirst/single/astarsampler.hpp"
-#include "../samplers/bestfirst/single/dijkstrasampler.hpp"
-#include "../samplers/bestfirst/single/speedysampler.hpp"
-#include "../samplers/bestfirst/single/greedysampler.hpp"
-#include "../samplers/bestfirst/single/eessampler.hpp"
+#include "../samplers/beastsampler_dstar.hpp"
+#include "../samplers/beastsampler_dijkstra.hpp"
 #include <limits>
 
 namespace ompl {
 
 namespace control {
 
-class BestFirstPlanner : public ompl::control::RRT {
+class BeastPlanner : public ompl::control::RRT {
 public:
 
 	/** \brief Constructor */
-	BestFirstPlanner(const SpaceInformationPtr &si, const FileMap &params) :
-		ompl::control::RRT(si), bestFirstSampler_(NULL), params(params) {
+	BeastPlanner(const SpaceInformationPtr &si, const FileMap &params) :
+		ompl::control::RRT(si), newsampler_(NULL), params(params) {
 
-		whichBestFirst = params.stringVal("WhichBestFirst");
+		whichSearch = params.stringVal("WhichSearch");
 
-		std::string plannerName = whichBestFirst;
+		std::string plannerName = "BeastPlanner_" + whichSearch;
 		setName(plannerName);
 
-		Planner::declareParam<double>("state_radius", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getStateRadius);
-		Planner::declareParam<double>("random_state_probability", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getRandomStateProbability);
-		Planner::declareParam<double>("peek_penalty", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getPeekPenalty);
-		Planner::declareParam<double>("prm_size", this, &BestFirstPlanner::ignoreSetterUnsigedInt, &BestFirstPlanner::getPRMSize);
-		Planner::declareParam<double>("num_prm_edges", this, &BestFirstPlanner::ignoreSetterUnsigedInt, &BestFirstPlanner::getNumPRMEdges);
+		Planner::declareParam<double>("state_radius", this, &BeastPlanner::ignoreSetterDouble, &BeastPlanner::getStateRadius);
+		Planner::declareParam<unsigned int>("prm_size", this, &BeastPlanner::ignoreSetterUnsigedInt, &BeastPlanner::getPRMSize);
+		Planner::declareParam<unsigned int>("num_prm_edges", this, &BeastPlanner::ignoreSetterUnsigedInt, &BeastPlanner::getNumPRMEdges);
 
-		if(whichBestFirst.compare("A*") == 0 || whichBestFirst.compare("EES") == 0) {
-			Planner::declareParam<double>("weight", this, &BestFirstPlanner::ignoreSetterUnsigedInt, &BestFirstPlanner::getWeight);
-		} else if(whichBestFirst.compare("Speedy") == 0) {
-			Planner::declareParam<std::string>("use_d_or_e", this, &BestFirstPlanner::ignoreSetterString, &BestFirstPlanner::getDOrE);
-		}
+		Planner::declareParam<double>("valid_edge_distribution_alpha", this, &BeastPlanner::ignoreSetterDouble, &BeastPlanner::getValidEdgeDistributionAlpha);
+		Planner::declareParam<double>("valid_edge_distribution_beta", this, &BeastPlanner::ignoreSetterDouble, &BeastPlanner::getValidEdgeDistributionBeta);
+		Planner::declareParam<double>("invalid_edge_distribution_alpha", this, &BeastPlanner::ignoreSetterDouble, &BeastPlanner::getInvalidEdgeDistributionAlpha);
+		Planner::declareParam<double>("invalid_edge_distribution_beta", this, &BeastPlanner::ignoreSetterDouble, &BeastPlanner::getInvalidEdgeDistributionBeta);
 
 		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
-		Planner::declareParam<double>("sampler_initialization_time", this, &BestFirstPlanner::ignoreSetterDouble, &BestFirstPlanner::getSamplerInitializationTime);
+		Planner::declareParam<double>("sampler_initialization_time", this, &BeastPlanner::ignoreSetterDouble, &BeastPlanner::getSamplerInitializationTime);
 	}
 
-	virtual ~BestFirstPlanner() {}
-
+	virtual ~BeastPlanner() {}
 
 	void ignoreSetterDouble(double) const {}
 	void ignoreSetterUnsigedInt(unsigned int) const {}
-	void ignoreSetterString(std::string) const {}
 
 	double getStateRadius() const {
 		return params.doubleVal("StateRadius");
-	}
-	double getRandomStateProbability() const {
-		return params.doubleVal("RandomStateProbability");
-	}
-	double getPeekPenalty() const {
-		return params.doubleVal("PeekPenalty");
 	}
 	unsigned int getPRMSize() const {
 		return params.integerVal("PRMSize");
@@ -69,16 +54,17 @@ public:
 	unsigned int getNumPRMEdges() const {
 		return params.integerVal("NumEdges");
 	}
-	double getWeight() const {
-		return params.doubleVal("Weight");
+	double getValidEdgeDistributionAlpha() const {
+		return params.doubleVal("ValidEdgeDistributionAlpha");
 	}
-	std::string getDOrE() const {
-		//This is checked more tightly in the actual sampler
-		if(params.exists("UseD") && (params.stringVal("UseD").compare("true") == 0)) {
-			return "D";
-		} else {
-			return "E";
-		}
+	double getValidEdgeDistributionBeta() const {
+		return params.doubleVal("ValidEdgeDistributionBeta");
+	}
+	double getInvalidEdgeDistributionAlpha() const {
+		return params.doubleVal("InvalidEdgeDistributionAlpha");
+	}
+	double getInvalidEdgeDistributionBeta() const {
+		return params.doubleVal("InvalidEdgeDistributionBeta");
 	}
 	double getSamplerInitializationTime() const {
 		return samplerInitializationTime;
@@ -102,23 +88,21 @@ public:
 			return base::PlannerStatus::INVALID_START;
 		}
 
-		if(!bestFirstSampler_) {
+		if(!newsampler_) {
 			auto start = clock();
 
-			if(whichBestFirst.compare("A*") == 0) {
-				bestFirstSampler_ = new ompl::base::AstarSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("Dijkstra") == 0) {
-				bestFirstSampler_ = new ompl::base::DijkstraSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("Greedy") == 0) {
-				bestFirstSampler_ = new ompl::base::GreedySampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("Speedy") == 0) {
-				bestFirstSampler_ = new ompl::base::SpeedySampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
-			} else if(whichBestFirst.compare("EES") == 0) {
-				bestFirstSampler_ = new ompl::base::EESSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), params);
+			if(whichSearch.compare("D*") == 0) {
+				newsampler_ = new ompl::base::BeastSampler_dstar((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+			        goal_s, params);
+			} else if(whichSearch.compare("Dijkstra") == 0) {
+				newsampler_ = new ompl::base::BeastSampler_dijkstra((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(),
+				        goal_s, params);
 			} else {
-				throw ompl::Exception("Unrecognized best first search type", whichBestFirst.c_str());
+				throw ompl::Exception("Unrecognized best first search type", whichSearch.c_str());
 			}
-			bestFirstSampler_->initialize();
+		
+
+			newsampler_->initialize();
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
 		}
@@ -136,20 +120,27 @@ public:
 		Control       *rctrl = rmotion->control;
 		base::State  *xstate = si_->allocState();
 
+		Motion *resusableMotion = new Motion(siC_);
+
 		while(ptc == false) {
+			Motion *nmotion = NULL;
+
 			/* sample random state (with goal biasing) */
-			if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample())
-				goal_s->sampleGoal(rstate);
-			else {
-				bestFirstSampler_->sample(rstate);
-			}
+			// if(goal_s && rng_.uniform01() < goalBias_ && goal_s->canSample()) {
+			// 	goal_s->sampleGoal(rstate);
+
+			// 	/* find closest state in the tree */
+			// 	nmotion = nn_->nearest(rmotion);
+			// }
+			// else {
+				newsampler_->sample(resusableMotion->state, rstate);
+				/* find closest state in the tree */
+				nmotion = nn_->nearest(rmotion);
+			// }
 
 #ifdef STREAM_GRAPHICS
 			streamPoint(rmotion->state, 0, 1, 0, 1);
 #endif
-
-			/* find closest state in the tree */
-			Motion *nmotion = nn_->nearest(rmotion);
 
 			/* sample a random control that attempts to go towards the random state, and also sample a control duration */
 			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control, nmotion->state, rmotion->state);
@@ -168,7 +159,7 @@ public:
 						Motion *motion = new Motion();
 						motion->state = pstates[p];
 
-						bestFirstSampler_->reached(nmotion->state, pstates[p]);
+						newsampler_->reached(pstates[p]);
 
 #ifdef STREAM_GRAPHICS
 						streamPoint(pstates[p], 1, 0, 0, 1);
@@ -212,7 +203,7 @@ public:
 					motion->steps = cd;
 					motion->parent = nmotion;
 
-					bestFirstSampler_->reached(nmotion->state, motion->state);
+					newsampler_->reached(motion->state);
 
 #ifdef STREAM_GRAPHICS
 					streamPoint(nmotion->state, 1, 0, 0, 1);
@@ -277,16 +268,18 @@ public:
 
 	virtual void clear() {
 		RRT::clear();
-		// delete bestFirstSampler_;
-		// bestFirstSampler_ = NULL;
+		// delete newsampler_;
+		// newsampler_ = NULL;
 	}
 
 protected:
-	ompl::base::BestFirstSampler *bestFirstSampler_;
-	std::string whichBestFirst;
+
+	ompl::base::BeastSamplerBase *newsampler_;
 	const FileMap &params;
+	std::string whichSearch;
 	double samplerInitializationTime = 0;
 };
 
 }
+
 }

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "newsamplerbase.hpp"
+#include "beastsamplerbase.hpp"
 
 namespace ompl {
 
 namespace base {
 
-class NewSampler_dijkstra : public ompl::base::NewSamplerBase {
+class BeastSampler_dijkstra : public ompl::base::BeastSamplerBase {
 	struct VertexWrapper {
 		VertexWrapper(Vertex *vertex) : vertex(vertex), currentParent(NULL) {}
 
@@ -97,13 +97,13 @@ class NewSampler_dijkstra : public ompl::base::NewSamplerBase {
 		Parent *currentParent;
 	};
 public:
-	NewSampler_dijkstra(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	            base::GoalSampleableRegion *gsr, const FileMap &params) : NewSamplerBase(base, start, goal, gsr, params) {}
+	BeastSampler_dijkstra(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
+	            base::GoalSampleableRegion *gsr, const FileMap &params) : BeastSamplerBase(base, start, goal, gsr, params) {}
 
-	~NewSampler_dijkstra() {}
+	~BeastSampler_dijkstra() {}
 
 	virtual void initialize() {
-		NewSamplerBase::initialize();
+		BeastSamplerBase::initialize();
 
 		unsigned int abstractionSize = abstraction->getAbstractionSize();
 		vertices.reserve(abstractionSize);

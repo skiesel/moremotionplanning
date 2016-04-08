@@ -137,6 +137,15 @@ BenchmarkData hovercraftBenchmark(const FileMap &params) {
 		values[2] = state->getYaw();
 	};
 
+	// globalParameters.admissibleCostEstimate = [](const ompl::base::State *a, const ompl::base::State *b, bool goal) {
+	// 	assert(false);
+	// 	const ompl::base::SE2StateSpace::StateType *se21 = a->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+	// 	const ompl::base::SE2StateSpace::StateType *se22 = b->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+	// 	double dx = se21->getX() - se22->getX();
+	// 	double dy = se21->getY() - se22->getY();
+	// 	return dx * dx + dy * dy;
+	// };
+
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*hovercraftPtr, hovercraft->getName());
 	data.simplesetup = hovercraftPtr;

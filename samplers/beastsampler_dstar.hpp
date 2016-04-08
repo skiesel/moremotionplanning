@@ -1,20 +1,20 @@
 #pragma once
 
-#include "newsamplerbase.hpp"
+#include "beastsamplerbase.hpp"
 
 namespace ompl {
 
 namespace base {
 
-class NewSampler_dstar : public ompl::base::NewSamplerBase {
+class BeastSampler_dstar : public ompl::base::BeastSamplerBase {
 public:
-	NewSampler_dstar(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
-	            base::GoalSampleableRegion *gsr, const FileMap &params) : NewSamplerBase(base, start, goal, gsr, params) {}
+	BeastSampler_dstar(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
+	            base::GoalSampleableRegion *gsr, const FileMap &params) : BeastSamplerBase(base, start, goal, gsr, params), addedGoalEdge(false) {}
 
-	~NewSampler_dstar() {}
+	~BeastSampler_dstar() {}
 
 	virtual void initialize() {
-		NewSamplerBase::initialize();
+		BeastSamplerBase::initialize();
 
 		unsigned int abstractionSize = abstraction->getAbstractionSize();
 		vertices.reserve(abstractionSize);
@@ -50,34 +50,18 @@ public:
 	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
 #ifdef STREAM_GRAPHICS
 		static unsigned int sampleCount = 0;
-		if(sampleCount++ % 1000 == 0) {
+		if(sampleCount++ % 100 == 0) {
 			// fprintf(stderr, "open: %u\n", open.getFill());
-			writeVertexFile(sampleCount / 1000);
-			writeOpenEdgeFile(sampleCount / 1000);
+			// writeVertexFile(sampleCount / 1000);
+			// writeOpenEdgeFile(sampleCount / 1000);
 			// writeUpdatedEdgeFile(sampleCount / 10);
-			writeEdgeFile(sampleCount / 1000);
+			writeEdgeFile(sampleCount / 100, 1);
 		}
 #endif
-
-		// for(unsigned int i = 1; i < open.fill; i++) {
-		// 	auto l = open.left(i);
-		// 	auto r = open.right(i);
-		// 	if(l < open.fill && open.heap[i]->effort > open.heap[l]->effort) {
-		// 		fprintf(stderr, "%g > %g\n", open.heap[i]->effort, open.heap[l]->effort);
-		// 		open.siftFromItem(open.heap[l]);
-		// 		i = 1;
-		// 	}
-		// 	if(r < open.fill && open.heap[i]->effort > open.heap[r]->effort) {
-		// 		fprintf(stderr, "%g > %g\n", open.heap[i]->effort, open.heap[r]->effort);
-		// 		open.siftFromItem(open.heap[r]);
-		// 		i = 1;
-		// 	}
-		// }
 
 		if(targetEdge != NULL) { //only will fail the first time through
 
 			if(targetSuccess) {
-				static bool addedGoalEdge = false;
 				if(!addedGoalEdge && targetEdge->endID == goalID) {
 					Edge *goalEdge = new Edge(goalID, goalID);
 					goalEdge->updateEdgeStatusKnowledge(Abstraction::Edge::VALID);
@@ -263,6 +247,8 @@ protected:
 			}
 		}
 	}
+
+	bool addedGoalEdge;
 };
 
 }

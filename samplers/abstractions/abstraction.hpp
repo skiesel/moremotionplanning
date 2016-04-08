@@ -61,6 +61,21 @@ public:
 		return vertices[index]->state;
 	}
 
+	bool edgeExists(unsigned int a, unsigned int b) {
+		auto vertexAndEdges = edges.find(a);
+		if(vertexAndEdges == edges.end()) {
+			return false;
+		}
+
+		auto &edges = vertexAndEdges->second;
+
+		auto edge = edges.find(b);
+		if(edge == edges.end()) {
+			return false;
+		}
+		return true;
+	}
+
 	bool isValidEdge(unsigned int a, unsigned int b) {
 		auto vertexAndEdges = edges.find(a);
 		if(vertexAndEdges == edges.end()) {
@@ -75,7 +90,8 @@ public:
 		}
 
 		if(edge->second.edgeStatus == Edge::UNKNOWN) {
-			if(motionValidator->checkMotion(vertices[a]->state, vertices[b]->state)) {
+			// if(motionValidator->checkMotion(vertices[a]->state, vertices[b]->state)) {
+			if(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->checkMotion(vertices[a]->state, vertices[b]->state)) {
 				edge->second.edgeStatus = Edge::VALID;
 				setEdgeStatusUnchecked(b, a, Edge::VALID);
 			} else {
@@ -91,7 +107,8 @@ public:
 		auto &edge = edges[a][b];
 
 		if(edge.edgeStatus == Edge::UNKNOWN) {
-			if(motionValidator->checkMotion(vertices[a]->state, vertices[b]->state)) {
+			// if(motionValidator->checkMotion(vertices[a]->state, vertices[b]->state)) {
+			if(globalParameters.globalAbstractAppBaseGeometric->getSpaceInformation()->checkMotion(vertices[a]->state, vertices[b]->state)) {
 				edge.edgeStatus = Edge::VALID;
 				setEdgeStatusUnchecked(b, a, Edge::VALID);
 			} else {
@@ -101,6 +118,10 @@ public:
 		}
 
 		return edge.edgeStatus == Edge::VALID;
+	}
+
+	Edge::CollisionCheckingStatus getCollisionCheckStatusUnchecked(unsigned int a, unsigned int b) {
+		return edges[a][b].edgeStatus;
 	}
 
 	const std::vector<unsigned int>& getNeighboringCells(unsigned int index) {
@@ -180,6 +201,6 @@ protected:
 
 	std::vector<Vertex *> vertices;
 	std::unordered_map<unsigned int, std::unordered_map<unsigned int, Edge>> edges;
-	ompl::base::MotionValidatorPtr motionValidator;
+	const ompl::base::MotionValidatorPtr &motionValidator;
 	const ompl::base::State *start, *goal;
 };

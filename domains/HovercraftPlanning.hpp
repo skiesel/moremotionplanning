@@ -28,8 +28,7 @@ public:
 		si_->setStatePropagator(control::ODESolver::getStatePropagator(odeSolver, boost::bind(&HovercraftPlanning::postPropagate, this, _1, _2, _3, _4)));
 	}
 
-	~HovercraftPlanning() {
-	}
+	~HovercraftPlanning() {}
 
 	bool isSelfCollisionEnabled(void) const {
 		return false;

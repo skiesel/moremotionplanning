@@ -348,7 +348,7 @@ protected:
 		Motion(const SpaceInformation *si) : state(si->allocState()), control(si->allocControl()), steps(0), parent(NULL) {
 		}
 
-		~Motion() {
+		virtual ~Motion() {
 		}
 
 		/** \brief The state contained by the motion */

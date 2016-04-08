@@ -1,4 +1,44 @@
+#pragma once
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+
+#include <ompl/base/goals/GoalState.h>
+
+#include "SE2RigidBodyPlanning.hpp"
 #include "StraightLinePlanning.hpp"
+
+class StraightLineOptimizationObjective : public ompl::base::OptimizationObjective {
+public:
+	StraightLineOptimizationObjective(const ompl::base::SpaceInformationPtr &si, double goalRadius) : OptimizationObjective(si), goalRadius(goalRadius) {
+		setCostToGoHeuristic(boost::bind(&StraightLineOptimizationObjective::costToGoHeuristic, this, _1, _2));
+	}
+
+	ompl::base::Cost costToGoHeuristic(const ompl::base::State *a, const ompl::base::Goal *b) const {
+		double cost = motionCostHeuristic(a, b->as<ompl::base::GoalState>()->getState()).value();
+		return ompl::base::Cost(cost - goalRadius);
+	}
+
+	ompl::base::Cost stateCost(const ompl::base::State *s) const {
+		return ompl::base::Cost(0.);
+	}
+
+ 	ompl::base::Cost motionCostHeuristic(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		const ompl::base::SE2StateSpace::StateType *se21 = s1->as<ompl::base::SE2StateSpace::StateType>();
+		const ompl::base::SE2StateSpace::StateType *se22 = s2->as<ompl::base::SE2StateSpace::StateType>();
+		double dx = se21->getX() - se22->getX();
+		double dy = se21->getY() - se22->getY();
+
+		return ompl::base::Cost(sqrt(dx * dx + dy * dy));
+	}
+
+	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		return motionCostHeuristic(s1, s2);
+	}
+
+	double goalRadius;
+};
 
 BenchmarkData straightLineBenchmark(const FileMap &params) {
 	ompl::app::StraightLinePlanning *straightLine = new ompl::app::StraightLinePlanning();
@@ -84,8 +124,6 @@ BenchmarkData straightLineBenchmark(const FileMap &params) {
 
 	abstract->setup();
 
-	
-
 	globalParameters.copyVectorToAbstractState = [](ompl::base::State *s, const std::vector<double> &values) {
 		ompl::base::SE2StateSpace::StateType *state = s->as<ompl::base::SE2StateSpace::StateType>();
 		state->setXY(values[0], values[1]);
@@ -100,9 +138,11 @@ BenchmarkData straightLineBenchmark(const FileMap &params) {
 		values[2] = 0;
 	};
 
+	straightLinePtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new StraightLineOptimizationObjective(straightLinePtr->getSpaceInformation(), goalRadius)));
+
 	BenchmarkData data;
-	data.benchmark = new ompl::tools::Benchmark(*straightLinePtr, straightLine->getName());
 	data.simplesetup = straightLinePtr;
+	data.benchmark = new ompl::tools::Benchmark(*straightLinePtr, straightLine->getName());
 	data.decomposition = straightLine->allocDecomposition();
 
 	return data;

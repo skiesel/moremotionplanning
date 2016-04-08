@@ -79,7 +79,7 @@ public:
 
 	virtual unsigned int mapToAbstractRegion(const ompl::base::ScopedState<> &s) const {
 		Vertex v(0);
-		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(s, 0);
+		auto ss = globalParameters.globalAppBaseControl->getGeometricComponentState(s, -1); //-1 is intentional overflow on unsigned int
 		v.state = ss.get();
 		return nn->nearest(&v)->id;
 	}

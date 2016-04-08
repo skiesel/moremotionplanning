@@ -1,12 +1,13 @@
 #pragma once
 
+#include "../structs/inplacebinaryheap.hpp"
 #include "abstractionbasedsampler.hpp"
 
 namespace ompl {
 
 namespace base {
 
-class NewSamplerBase : public ompl::base::AbstractionBasedSampler {
+class BeastSamplerBase : public ompl::base::AbstractionBasedSampler {
 	
 protected:
 	struct Key {
@@ -16,6 +17,17 @@ protected:
 				return second < k.second;
 			return first < k.first;
 		}
+	};
+
+	struct RunningAverage {
+		void addToAverage(double val) {
+			unsigned int newCount = count + 1;
+			average = (average * count + val) / (newCount);
+			count = newCount;
+		}
+
+		double average = 0;
+		unsigned int count = 0;
 	};
 
 	struct Vertex {
@@ -44,6 +56,22 @@ protected:
 			std::push_heap(states.begin(), states.end());
 		}
 
+		void removeState(const ompl::base::State *state) {
+			for(unsigned int i = 0; i < states.size(); i++) {
+				if(states[i].state == state) {
+					states[i] = states.back();
+					break;
+				}
+			}
+
+			states.erase(states.end()-1);
+			std::make_heap(states.begin(), states.end());
+		}
+
+		void clearStates() {
+			states.clear();
+		}
+
 		ompl::base::State* sampleState() {
 			auto state = states.front();
 			std::pop_heap(states.begin(), states.end());
@@ -57,6 +85,22 @@ protected:
 			return state.state;
 		}
 
+		void updateGCostHistory(double g) {
+			estimatedGCost.addToAverage(g);
+		}
+
+		double getAverageGCost() const {
+			return estimatedGCost.average;
+		}
+
+		double getEstimatedHCost() const {
+			return cost_g;
+		}
+
+		double getEstimatedFCost() const {
+			return estimatedGCost.average + cost_g;
+		}
+
 		std::vector<StateWrapper> states;
 	
 
@@ -66,6 +110,11 @@ protected:
 		unsigned int heapIndex = std::numeric_limits<unsigned int>::max();
 		double g = std::numeric_limits<double>::infinity();
 		double rhs = std::numeric_limits<double>::infinity();
+
+		double cost_g = std::numeric_limits<double>::infinity();
+		double cost_rhs = std::numeric_limits<double>::infinity();
+
+		RunningAverage estimatedGCost;
 	};
 
 	struct Edge {
@@ -87,14 +136,14 @@ protected:
 		double getEstimatedRequiredSamples() const {
 			double probability = alpha / (alpha + beta);
 			double estimate = 1. / probability;
-			return estimate;// > 1 ? estimate : 1;
+			return estimate;
 		}
 
 		double getHypotheticalRequiredSamplesAfterPositivePropagation(unsigned int numberOfStates) const {
 			double additive = (1. / (double)numberOfStates);
 			double probability = (alpha + additive) / (alpha + additive + beta);
 			double estimate = 1. / probability;
-			return estimate;//> 1 ? estimate : 1;
+			return estimate;
 		}
 
 		void rewardHypotheticalSamplesAfterPositivePropagation(unsigned int numberOfStates) {
@@ -126,8 +175,23 @@ protected:
 					// alpha = unknownEdgeDistributionAlpha;
 					// beta = unknownEdgeDistributionBeta;
 					break;
-
 			}
+		}
+
+		void updateEdgeCostHistory(double cost) {
+			estimatedEdgeCost.addToAverage(cost);
+		}
+
+		double getEstimatedEdgeCost(double globalCorrection) const {
+			if(estimatedEdgeCost.count <= 1) {
+				return estimatedEdgeCost.average * globalCorrection;
+			} else {
+				return estimatedEdgeCost.average;
+			}
+		}
+
+		double getEstimatedFCost() const {
+			return estimatedGCost + estimatedEdgeCost.average + estimatedHCost;
 		}
 
 		void print() const {
@@ -143,10 +207,15 @@ protected:
 		double effort = std::numeric_limits<double>::infinity();
 		double initialEffort = std::numeric_limits<double>::infinity();
 		bool interior = false;
+
+		RunningAverage estimatedEdgeCost;
+		double initialEstimatedEdgeCost;
+		double estimatedGCost;
+		double estimatedHCost;
 	};
 
 public:
-	NewSamplerBase(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
+	BeastSamplerBase(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	                         base::GoalSampleableRegion *gsr, const FileMap &params) : AbstractionBasedSampler(base, start, goal, params), goalSampler(gsr) {
 
 		startState = base->allocState();
@@ -159,7 +228,7 @@ public:
 		Edge::invalidEdgeDistributionBeta = params.doubleVal("InvalidEdgeDistributionBeta");
 	}
 
-	virtual ~NewSamplerBase() {}
+	virtual ~BeastSamplerBase() {}
 
 	virtual void initialize() {
 		abstraction->initialize();
@@ -202,7 +271,7 @@ public:
 		fclose(f);
 	}
 
-	void writeEdgeFile(unsigned int outputNumber) {
+	void writeEdgeFile(unsigned int outputNumber, unsigned int whichValue = 0) {
 		char buf[56];
 		sprintf(buf, "effortALL%04u.edge", outputNumber);
 		FILE *f = fopen(buf, "w");
@@ -212,7 +281,7 @@ public:
 
 		for(auto eset : edges) {
 			for(auto e : eset.second) {
-				double val = e.second->effort;
+				double val = whichValue == 0 ? e.second->effort : e.second->getEstimatedRequiredSamples();
 
 				if(std::isinf(val)) continue;
 				if(val < min) min = val;
@@ -222,7 +291,7 @@ public:
 
 		for(auto eset : edges) {
 			for(auto e : eset.second) {
-				double val = e.second->effort;
+				double val = whichValue == 0 ? e.second->effort : e.second->getEstimatedRequiredSamples();
 
 				if(std::isinf(val)) continue;
 
@@ -332,6 +401,9 @@ protected:
 		Edge *e = edges[a][b];
 		if(e == NULL) {
 			e = new Edge(a, b);
+			if(abstraction->getCollisionCheckStatusUnchecked(a, b) == Abstraction::Edge::INVALID) {
+				e->updateEdgeStatusKnowledge(Abstraction::Edge::INVALID);
+			}
 			edges[a][b] = e;
 			reverseEdges[b][a] = e;
 		}
@@ -393,11 +465,11 @@ protected:
 	base::GoalSampleableRegion *goalSampler;
 };
 
-double NewSamplerBase::Edge::validEdgeDistributionAlpha = 0;
-double NewSamplerBase::Edge::validEdgeDistributionBeta = 0;
+double BeastSamplerBase::Edge::validEdgeDistributionAlpha = 0;
+double BeastSamplerBase::Edge::validEdgeDistributionBeta = 0;
 
-double NewSamplerBase::Edge::invalidEdgeDistributionAlpha = 0;
-double NewSamplerBase::Edge::invalidEdgeDistributionBeta = 0;
+double BeastSamplerBase::Edge::invalidEdgeDistributionAlpha = 0;
+double BeastSamplerBase::Edge::invalidEdgeDistributionBeta = 0;
 
 }
 

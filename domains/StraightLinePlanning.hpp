@@ -20,9 +20,14 @@ public:
 			const auto toSE2 = to->as<ompl::base::SE2StateSpace::StateType>();
 			auto resultRVC = result->as<ompl::control::RealVectorControlSpace::ControlType>();
 
-			resultRVC->values[0] = toSE2->getX() - fromSE2->getX();
-			resultRVC->values[1] = toSE2->getY() - fromSE2->getY();
-			duration = 1;
+			double dx = toSE2->getX() - fromSE2->getX();
+			double dy = toSE2->getY() - fromSE2->getY();
+
+			duration = sqrt(dx*dx + dy*dy);
+
+			resultRVC->values[0] = dx / duration;
+			resultRVC->values[1] = dy / duration;
+
 			return true;
 		}
 
@@ -30,9 +35,10 @@ public:
 			const auto stateSE2 = state->as<ompl::base::SE2StateSpace::StateType>();
 			const auto controlRVC = control->as<ompl::control::RealVectorControlSpace::ControlType>();
 			auto resultSE2 = result->as<ompl::base::SE2StateSpace::StateType>();
-			
+
 			resultSE2->setX(stateSE2->getX() + controlRVC->values[0] * duration);
 			resultSE2->setY(stateSE2->getY() + controlRVC->values[1] * duration);
+
 			resultSE2->setYaw(0);
 		}
 
@@ -45,14 +51,13 @@ public:
 		}
 	};
 
-	StraightLinePlanning() : AppBase<CONTROL>(constructControlSpace(), Motion_2D), timeStep_(1e-2) {
+	StraightLinePlanning() : AppBase<CONTROL>(constructControlSpace(), Motion_2D) {
 		name_ = std::string("StraightLine");
 		setDefaultControlBounds();
 		si_->setStatePropagator(ompl::control::StatePropagatorPtr(new StraightLinePropagator(si_)));
 	}
 
-	~StraightLinePlanning() {
-	}
+	~StraightLinePlanning() {}
 
 	bool isSelfCollisionEnabled(void) const {
 		return false;
@@ -93,17 +98,12 @@ protected:
 		return state;
 	}
 
-	virtual void postPropagate(const base::State * /*state*/, const control::Control * /*control*/, const double /*duration*/, base::State *result) {
-	}
-
 	static control::ControlSpacePtr constructControlSpace(void) {
 		return control::ControlSpacePtr(new control::RealVectorControlSpace(constructStateSpace(), 2));
 	}
 	static base::StateSpacePtr constructStateSpace(void) {
 		return base::StateSpacePtr(new base::SE2StateSpace());
 	}
-
-	double timeStep_;
 };
 }
 }
