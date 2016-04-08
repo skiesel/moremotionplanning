@@ -254,7 +254,6 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 							globalParameters.solutionStream.addSolution(solution->g, start);
 							newsampler->foundSolution(solution->g);
 							OMPL_INFORM("Found solution with cost %.2f", solution->g.value());
-							fprintf(stderr, "Found solution with cost %.2f\n", solution->g.value());
 
 							break;
 						}
@@ -333,7 +332,6 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 								globalParameters.solutionStream.addSolution(solution->g, start);
 								newsampler->foundSolution(solution->g);
 								OMPL_INFORM("Found solution with cost %.2f", solution->g.value());
-								fprintf(stderr, "Found solution with cost %.2f\n", solution->g.value());
 
 								break;
 							}

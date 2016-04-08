@@ -14,7 +14,7 @@ public:
 		specs_.approximateSolutions = true;
 		siC_ = si.get();
 
-		goalBias_ = params.doubleVal("GoalBias");
+		goalBias_ = 0.05; //params.doubleVal("GoalBias");
 		selectionRadius_ = params.doubleVal("SelectionRadius");
 		pruningRadius_ = params.doubleVal("PruningRadius");
 		n0_ = params.doubleVal("N0");
@@ -96,7 +96,6 @@ public:
 #endif
 
 			if(iterations >= iterationBound) {
-				fprintf(stderr, "SST* iteration completed\n");
 				OMPL_INFORM("SST* iteration completed");
 
 				SSTStarIteration++;

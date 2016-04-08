@@ -65,7 +65,7 @@ public:
 		prevSolutionControls_.clear();
 		prevSolutionSteps_.clear();
 
-		goalBias_ = params.doubleVal("GoalBias");
+		goalBias_ = 0.05; //params.doubleVal("GoalBias");
 		selectionRadius_ = params.doubleVal("SelectionRadius");
 		pruningRadius_ = params.doubleVal("PruningRadius");
 
