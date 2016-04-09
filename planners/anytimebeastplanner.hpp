@@ -31,7 +31,7 @@ public:
 
 		addIntermediateStates = false;
 
-		Planner::declareParam<bool>("intermediate_states", this, &AnytimeBeastPlanner::ignoreSetterBool, &AnytimeBeastPlanner::getIntermediateStates);
+		Planner::declareParam<bool>("intermediate_states", this, &AnytimeBeastPlanner::setIntermediateStates, &AnytimeBeastPlanner::getIntermediateStates);
 
 		Planner::declareParam<double>("stateradius", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getStateRadius);
 		Planner::declareParam<unsigned int>("prmsize", this, &AnytimeBeastPlanner::ignoreSetterUnsigedInt, &AnytimeBeastPlanner::getPRMSize);
@@ -118,7 +118,7 @@ public:
 
 			auto witness = new Witness(siC);
 			si_->copyState(witness->state, motion->state);
-			witness->rep = (Motion*)motion;
+			witness->rep = motion;
 			witnesses->add(witness);
 		}
 
@@ -217,7 +217,7 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 					std::vector<Motion*> addedMotions;
 					for(; p < pstates.size(); ++p) {
 						/* create a motion */
-						Motion *motion = new Motion();
+						Motion *motion = new Motion(siC);
 						motion->state = pstates[p];
 
 						//we need multiple copies of rctrl
@@ -350,38 +350,41 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 
 		bool solved = false;
 		bool approximate = false;
-		if(solution == NULL) {
+		if(solution == nullptr) {
 			solution = approxsol;
 			approximate = true;
 		}
 
-		if(solution != NULL) {
-#ifdef STREAM_GRAPHICS
-			streamClearScreen();
-#endif
-			/* construct the solution path */
-			std::vector<Motion *> mpath;
-			while(solution != NULL) {
-#ifdef STREAM_GRAPHICS
+// 		if(solution != nullptr) {
+// #ifdef STREAM_GRAPHICS
+// 			streamClearScreen();
+// #endif
+// 			/* construct the solution path */
+// 			std::vector<Motion *> mpath;
+// 			while(solution != NULL) {
+// #ifdef STREAM_GRAPHICS
 				
-				if(solution->parent != nullptr) {
-					streamLine(solution->parent->state, solution->state, 1,0,0,1);
-				}
-#endif
-				mpath.push_back(solution);
-				solution = (Motion*)solution->parent;
-			}
+// 				if(solution->parent) {
+// 					streamLine(solution->parent->state, solution->state, 1,0,0,1);
+// 				}
+// #endif
+// 				assert(solution != NULL);
+// 				mpath.push_back(solution);
+// 				solution = solution->parent;
+// 			}
 
-			/* set the solution path */
-			PathControl *path = new PathControl(si_);
-			for(int i = mpath.size() - 1 ; i >= 0 ; --i)
-				if(mpath[i]->parent)
-					path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC->getPropagationStepSize());
-				else
-					path->append(mpath[i]->state);
-			solved = true;
-			pdef_->addSolutionPath(base::PathPtr(path), approximate, approxdif, getName());
-		}
+// 			// set the solution path 
+// 			PathControl *path = new PathControl(si_);
+// 			for(int i = mpath.size() - 1 ; i >= 0 ; --i)
+// 				if(mpath[i]->parent)
+// 					path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC->getPropagationStepSize());
+// 				else {
+// 					assert(mpath[i]->state != nullptr);
+// 					path->append(mpath[i]->state);
+// 				}
+// 			solved = true;
+// 			pdef_->addSolutionPath(base::PathPtr(path), approximate, approxdif, getName());
+// 		}
 
 		if(rmotion->state)
 			si_->freeState(rmotion->state);
@@ -511,6 +514,7 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 	}
 
 	void freeMemory() {
+		assert(false);
 		if(nn) {
 			std::vector<Motion *> motions;
 			nn->list(motions);
