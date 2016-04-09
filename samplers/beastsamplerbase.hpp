@@ -57,15 +57,19 @@ protected:
 		}
 
 		void removeState(const ompl::base::State *state) {
+			bool found = false;
 			for(unsigned int i = 0; i < states.size(); i++) {
 				if(states[i].state == state) {
 					states[i] = states.back();
+					found = true;
 					break;
 				}
 			}
 
-			states.erase(states.end()-1);
-			std::make_heap(states.begin(), states.end());
+			if(found) {
+				states.pop_back();
+				std::make_heap(states.begin(), states.end());
+			}
 		}
 
 		void clearStates() {
