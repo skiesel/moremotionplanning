@@ -14,7 +14,7 @@ INTERMEDIATESTATES_C=0
 declare -a SEED
 SEED_C=0
 
-for i in {0..0}
+for i in {0..49}
 do
 	SEED[$i]=$((i+1))
 done

@@ -14,6 +14,8 @@ withattrs="$SEARCH/rdb/withattrs"
 #EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${PROJECT_ROOT}/build; "
 EXPORT_CMD=""
 
+SEARCHTYPE="anytime"
+
 source generalsettings.inc
 moreGeneralSettings moreGen
 
@@ -22,6 +24,8 @@ do
 	getGeneralPathAttrs generalPathAttrs
 	getGeneralParamFile generalParamFile
 	moreGeneralSettings moreGen
+
+	generalPathAttrs="searchtype=${SEARCHTYPE} ${generalPathAttrs}"
 
 	for DOMAIN_INC in `ls *.dom`;
 	do
@@ -45,7 +49,7 @@ do
 					getPlannerParamFile plannerParamFile
 					morePlannerSettings morePS
 
-					outputFile=`$pathfor $DATA_ROOT $domainPathAttrs $plannerPathAttrs $generalPathAttrs`
+					outputFile=`$pathfor $DATA_ROOT $generalPathAttrs $domainPathAttrs $plannerPathAttrs`
 
 					inputFile="printf \"$generalParamFile $domainParamFile $plannerParamFile Output ? ${outputFile}\n\""
 					echo "if [ ! -s $outputFile ]; then $EXPORT_CMD $inputFile | $EXEC; fi"
