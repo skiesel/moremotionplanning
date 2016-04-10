@@ -102,7 +102,8 @@ public:
 		}
 #endif
 
-		if(targetEdge != NULL && vertices[targetEdge->startID].states.size() > 0) { //only will fail the first time through
+		//This will fail when we're (res)starting or if the target edge start vertex was cleaned out due to SST pruning
+		if(targetEdge != NULL && vertices[targetEdge->startID].states.size() > 1) {
 			if(targetSuccess) {
 				if(!addedGoalEdge && targetEdge->endID == goalID) {
 					Edge *goalEdge = new Edge(goalID, goalID);
