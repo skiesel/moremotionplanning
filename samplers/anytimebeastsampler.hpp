@@ -102,8 +102,7 @@ public:
 		}
 #endif
 
-		if(targetEdge != NULL) { //only will fail the first time through
-
+		if(targetEdge != NULL && vertices[targetEdge->startID].states.size() > 0) { //only will fail the first time through
 			if(targetSuccess) {
 				if(!addedGoalEdge && targetEdge->endID == goalID) {
 					Edge *goalEdge = new Edge(goalID, goalID);
@@ -126,15 +125,12 @@ public:
 				targetEdge->failurePropagation();
 				updateEdgeEffort(targetEdge, targetEdge->getEstimatedRequiredSamples() + vertices[targetEdge->endID].g);
 			}
-
 			updateVertex(targetEdge->startID);
 			computeShortestPath();
-
 			if(targetSuccess) {
 				addOutgoingEdgesToOpen(targetEdge->endID);
 			}
 		}
-
 		while(true) {
 			assert(!open.isEmpty());
 
@@ -146,7 +142,7 @@ public:
 				Abstraction::Edge::CollisionCheckingStatus status = abstraction->isValidEdge(targetEdge->startID, targetEdge->endID) ? Abstraction::Edge::VALID :
 																																		Abstraction::Edge::INVALID;
 				targetEdge->updateEdgeStatusKnowledge(status);
-				
+
 				//yes this looks weird but we need it for right now to do some debugging
 				updateEdgeEffort(targetEdge, targetEdge->effort);
 
@@ -156,7 +152,6 @@ public:
 				break;
 			}
 		}
-
 		targetSuccess = false;
 
 		if(targetEdge->startID == targetEdge->endID && targetEdge->startID == goalID) {
