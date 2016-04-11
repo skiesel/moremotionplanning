@@ -59,7 +59,6 @@ public:
 
 	/** \brief Constructor */
 	SSTLocal(const SpaceInformationPtr &si, const FileMap &params) : base::Planner(si, "SST") {
-		specs_.approximateSolutions = true;
 		siC_ = si.get();
 		prevSolution_.clear();
 		prevSolutionControls_.clear();
@@ -130,14 +129,14 @@ public:
 		if(!sampler_)
 			sampler_ = si_->allocStateSampler();
 		if(!controlSampler_)
-			controlSampler_ = siC_->allocControlSampler();
+			controlSampler_ = siC_->allocDirectedControlSampler();
 
 		OMPL_INFORM("%s: Starting planning with %u states already in datastructure\n", getName().c_str(), nn_->size());
 
 		Motion *solution  = nullptr;
 		Motion *approxsol = nullptr;
 		double  approxdif = std::numeric_limits<double>::infinity();
-		bool sufficientlyShort = false;
+		bool solved = false;
 
 		Motion      *rmotion = new Motion(siC_);
 		base::State  *rstate = rmotion->state_;
@@ -168,18 +167,25 @@ public:
 			/* find closest state in the tree */
 			Motion *nmotion = selectNode(rmotion);
 
+			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control_, nmotion->state_, rmotion->state_);
 
-
-			/* sample a random control that attempts to go towards the random state, and also sample a control duration */
-			controlSampler_->sample(rctrl);
-			unsigned int cd = rng_.uniformInt(siC_->getMinControlDuration(),siC_->getMaxControlDuration());
-			unsigned int propCd = siC_->propagateWhileValid(nmotion->state_,rctrl,cd,rstate);
-
-			if(propCd == cd) {
+			if(cd >= siC_->getMinControlDuration()) {
 				base::Cost incCost = opt_->motionCost(nmotion->state_, rstate);
 				base::Cost cost = opt_->combineCosts(nmotion->accCost_, incCost);
-				Witness *closestWitness = findClosestWitness(rmotion);
 
+				double dist = 0.0;
+				bool solv = goal->isSatisfied(nmotion->state_, &dist);
+				if(solv && opt_->isSatisfied(cost)) {
+					opt_->setCostThreshold(cost);
+
+					globalParameters.solutionStream.addSolution(cost, start);
+
+					OMPL_INFORM("Found solution with cost %.2f", cost.value());
+
+					solved = true;
+				}
+
+				Witness *closestWitness = findClosestWitness(rmotion);
 
 				if(closestWitness->rep_ == rmotion || opt_->isCostBetterThan(cost,closestWitness->rep_->accCost_)) {
 					Motion *oldRep = closestWitness->rep_;
@@ -194,67 +200,10 @@ public:
 					closestWitness->linkRep(motion);
 
 #ifdef STREAM_GRAPHICS
-					// streamPoint(motion->state_, 1, 0, 0, 1);
+					streamPoint(motion->state_, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);
-					double dist = 0.0;
-					bool solv = goal->isSatisfied(motion->state_, &dist);
-					if(solv && opt_->isCostBetterThan(motion->accCost_,prevSolutionCost_)) {
-						approxdif = dist;
-						solution = motion;
-
-						globalParameters.solutionStream.addSolution(motion->accCost_, start);
-
-						for(unsigned int i = 0 ; i < prevSolution_.size() ; ++i)
-							if(prevSolution_[i])
-								si_->freeState(prevSolution_[i]);
-						prevSolution_.clear();
-						for(unsigned int i = 0 ; i < prevSolutionControls_.size() ; ++i)
-							if(prevSolutionControls_[i])
-								siC_->freeControl(prevSolutionControls_[i]);
-						prevSolutionControls_.clear();
-						prevSolutionSteps_.clear();
-
-
-						Motion *solTrav = solution;
-						while(solTrav->parent_!=nullptr) {
-							prevSolution_.push_back(si_->cloneState(solTrav->state_));
-							prevSolutionControls_.push_back(siC_->cloneControl(solTrav->control_));
-							prevSolutionSteps_.push_back(solTrav->steps_);
-							solTrav = solTrav->parent_;
-						}
-						prevSolution_.push_back(si_->cloneState(solTrav->state_));
-						prevSolutionCost_ = solution->accCost_;
-
-						OMPL_INFORM("Found solution with cost %.2f",solution->accCost_.value());
-						sufficientlyShort = opt_->isSatisfied(solution->accCost_);
-						if(sufficientlyShort)
-							break;
-					}
-					if(solution==nullptr && dist < approxdif) {
-						approxdif = dist;
-						approxsol = motion;
-
-						for(unsigned int i = 0 ; i < prevSolution_.size() ; ++i)
-							if(prevSolution_[i])
-								si_->freeState(prevSolution_[i]);
-						prevSolution_.clear();
-						for(unsigned int i = 0 ; i < prevSolutionControls_.size() ; ++i)
-							if(prevSolutionControls_[i])
-								siC_->freeControl(prevSolutionControls_[i]);
-						prevSolutionControls_.clear();
-						prevSolutionSteps_.clear();
-
-						Motion *solTrav = approxsol;
-						while(solTrav->parent_!=nullptr) {
-							prevSolution_.push_back(si_->cloneState(solTrav->state_));
-							prevSolutionControls_.push_back(siC_->cloneControl(solTrav->control_));
-							prevSolutionSteps_.push_back(solTrav->steps_);
-							solTrav = solTrav->parent_;
-						}
-						prevSolution_.push_back(si_->cloneState(solTrav->state_));
-					}
 
 					if(oldRep != rmotion) {
 						oldRep->inactive_ = true;
@@ -279,23 +228,6 @@ public:
 			iterations++;
 		}
 
-		bool solved = false;
-		bool approximate = false;
-		if(solution == nullptr) {
-			solution = approxsol;
-			approximate = true;
-		}
-
-		if(solution != nullptr) {
-			/* set the solution path */
-			PathControl *path = new PathControl(si_);
-			for(int i = prevSolution_.size() - 1 ; i >= 1 ; --i)
-				path->append(prevSolution_[i], prevSolutionControls_[i-1], prevSolutionSteps_[i-1] * siC_->getPropagationStepSize());
-			path->append(prevSolution_[0]);
-			solved = true;
-			pdef_->addSolutionPath(base::PathPtr(path), approximate, approxdif, getName());
-		}
-
 		si_->freeState(xstate);
 		if(rmotion->state_)
 			si_->freeState(rmotion->state_);
@@ -305,7 +237,7 @@ public:
 
 		OMPL_INFORM("%s: Created %u states in %u iterations", getName().c_str(), nn_->size(),iterations);
 
-		return base::PlannerStatus(solved, approximate);
+		return base::PlannerStatus(solved, false);
 	}
 
 
@@ -598,7 +530,7 @@ protected:
 	base::StateSamplerPtr                          sampler_;
 
 	/** \brief Control sampler */
-	ControlSamplerPtr                              controlSampler_;
+	DirectedControlSamplerPtr                      controlSampler_;
 
 	/** \brief The base::SpaceInformation cast as control::SpaceInformation, for convenience */
 	const SpaceInformation                        *siC_;

@@ -240,7 +240,7 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 						newsampler->reached(nmotion->state, nmotion->g.value(), pstates[p], motion->g.value());
 
 #ifdef STREAM_GRAPHICS
-						streamPoint(pstates[p], 1, 0, 0, 1);
+						// streamPoint(pstates[p], 1, 0, 0, 1);
 #endif
 
 						nn->add(motion);
@@ -308,6 +308,24 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 
 						Witness *closestWitness = findClosestWitness(rmotion);
 
+						double dist = 0.0;
+						bool solv = goal->isSatisfied(motion->state, &dist);
+						if(solv && optimizationObjective->isSatisfied(motion->g)) {
+							approxdif = dist;
+							solution = motion;
+
+							optimizationObjective->setCostThreshold(solution->g);
+							globalParameters.solutionStream.addSolution(solution->g, start);
+							newsampler->foundSolution(solution->g);
+							OMPL_INFORM("Found solution with cost %.2f", solution->g.value());
+
+							break;
+						}
+						if(dist < approxdif) {
+							approxdif = dist;
+							approxsol = motion;
+						}
+
 						if(closestWitness->rep == rmotion || optimizationObjective->isCostBetterThan(motion->g, closestWitness->rep->g)) {
 
 							Motion *oldRep = closestWitness->rep;
@@ -322,23 +340,7 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 #endif
 
 							nn->add(motion);
-							double dist = 0.0;
-							bool solv = goal->isSatisfied(motion->state, &dist);
-							if(solv && optimizationObjective->isSatisfied(motion->g)) {
-								approxdif = dist;
-								solution = motion;
 
-								optimizationObjective->setCostThreshold(solution->g);
-								globalParameters.solutionStream.addSolution(solution->g, start);
-								newsampler->foundSolution(solution->g);
-								OMPL_INFORM("Found solution with cost %.2f", solution->g.value());
-
-								break;
-							}
-							if(dist < approxdif) {
-								approxdif = dist;
-								approxsol = motion;
-							}
 							if(oldRep != rmotion) {
 								cleanupTree(oldRep);
 							}
@@ -354,37 +356,6 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 			solution = approxsol;
 			approximate = true;
 		}
-
-// 		if(solution != nullptr) {
-// #ifdef STREAM_GRAPHICS
-// 			streamClearScreen();
-// #endif
-// 			/* construct the solution path */
-// 			std::vector<Motion *> mpath;
-// 			while(solution != NULL) {
-// #ifdef STREAM_GRAPHICS
-				
-// 				if(solution->parent) {
-// 					streamLine(solution->parent->state, solution->state, 1,0,0,1);
-// 				}
-// #endif
-// 				assert(solution != NULL);
-// 				mpath.push_back(solution);
-// 				solution = solution->parent;
-// 			}
-
-// 			// set the solution path 
-// 			PathControl *path = new PathControl(si_);
-// 			for(int i = mpath.size() - 1 ; i >= 0 ; --i)
-// 				if(mpath[i]->parent)
-// 					path->append(mpath[i]->state, mpath[i]->control, mpath[i]->steps * siC->getPropagationStepSize());
-// 				else {
-// 					assert(mpath[i]->state != nullptr);
-// 					path->append(mpath[i]->state);
-// 				}
-// 			solved = true;
-// 			pdef_->addSolutionPath(base::PathPtr(path), approximate, approxdif, getName());
-// 		}
 
 		if(rmotion->state)
 			si_->freeState(rmotion->state);

@@ -11,7 +11,6 @@ public:
 
 	/** \brief Constructor */
 	SSTStar(const SpaceInformationPtr &si, const FileMap &params) : base::Planner(si, "SSTStar") {
-		specs_.approximateSolutions = true;
 		siC_ = si.get();
 
 		goalBias_ = 0.05; //params.doubleVal("GoalBias");
@@ -65,7 +64,7 @@ public:
 		if(!sampler_)
 			sampler_ = si_->allocStateSampler();
 		if(!controlSampler_)
-			controlSampler_ = siC_->allocControlSampler();
+			controlSampler_ = siC_->allocDirectedControlSampler();
 
 		OMPL_INFORM("%s: Starting planning with %u states already in datastructure\n", getName().c_str(), nn_->size());
 
@@ -90,9 +89,9 @@ public:
 
 			globalIterations++;
 #ifdef STREAM_GRAPHICS
-			if(globalIterations % 1000 == 0) {
-				dumpCurrentTree();
-			}
+			// if(globalIterations % 1000 == 0) {
+			// 	dumpCurrentTree();
+			// }
 #endif
 
 			if(iterations >= iterationBound) {
@@ -117,16 +116,24 @@ public:
 			/* find closest state in the tree */
 			Motion *nmotion = selectNode(rmotion);
 
+			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control_, nmotion->state_, rmotion->state_);
 
-
-			/* sample a random control that attempts to go towards the random state, and also sample a control duration */
-			controlSampler_->sample(rctrl);
-			unsigned int cd = rng_.uniformInt(siC_->getMinControlDuration(),siC_->getMaxControlDuration());
-			unsigned int propCd = siC_->propagateWhileValid(nmotion->state_,rctrl,cd,rstate);
-
-			if(propCd == cd) {
+			if(cd >= siC_->getMinControlDuration()) {
 				base::Cost incCost = opt_->motionCost(nmotion->state_, rstate);
 				base::Cost cost = opt_->combineCosts(nmotion->accCost_, incCost);
+
+				double dist = 0.0;
+				bool solv = goal->isSatisfied(nmotion->state_, &dist);
+				if(solv && opt_->isSatisfied(cost)) {
+					opt_->setCostThreshold(cost);
+
+					globalParameters.solutionStream.addSolution(cost, start);
+
+					OMPL_INFORM("Found solution with cost %.2f", cost.value());
+
+					solved = true;
+				}
+
 				Witness *closestWitness = findClosestWitness(rmotion);
 
 				if(closestWitness->rep_ == rmotion || opt_->isCostBetterThan(cost,closestWitness->rep_->accCost_)) {
@@ -142,42 +149,10 @@ public:
 					closestWitness->linkRep(motion);
 
 #ifdef STREAM_GRAPHICS
-					// streamPoint(motion->state_, 1, 0, 0, 1);
+					streamPoint(motion->state_, 1, 0, 0, 1);
 #endif
 
 					nn_->add(motion);
-					double dist = 0.0;
-					bool solv = goal->isSatisfied(motion->state_, &dist);
-					if(solv && opt_->isSatisfied(motion->accCost_)) {
-						approxdif = dist;
-						solution = motion;
-
-						opt_->setCostThreshold(solution->accCost_);
-
-						globalParameters.solutionStream.addSolution(motion->accCost_, start);
-
-						OMPL_INFORM("Found solution with cost %.2f",solution->accCost_.value());
-
-						/* construct the solution path */
-						std::vector<Motion *> mpath;
-						while(solution != nullptr) {
-#ifdef STREAM_GRAPHICS
-							// streamPoint(solution->state_, 0, 0, 1, 1);
-#endif
-							mpath.push_back(solution);
-							solution = solution->parent_;
-						}
-
-						/* set the solution path */
-						PathControl *path = new PathControl(si_);
-						for(int i = mpath.size() - 1 ; i >= 0 ; --i)
-							if(mpath[i]->parent_)
-								path->append(mpath[i]->state_, mpath[i]->control_, mpath[i]->steps_ * siC_->getPropagationStepSize());
-							else
-								path->append(mpath[i]->state_);
-						solved = true;
-						pdef_->addSolutionPath(base::PathPtr(path), false, approxdif, getName());
-					}
 
 					if(oldRep != rmotion) {
 						oldRep->inactive_ = true;
@@ -401,7 +376,7 @@ protected:
 	base::StateSamplerPtr                          sampler_;
 
 	/** \brief Control sampler */
-	ControlSamplerPtr                              controlSampler_;
+	DirectedControlSamplerPtr                      controlSampler_;
 
 	/** \brief The base::SpaceInformation cast as control::SpaceInformation, for convenience */
 	const SpaceInformation                        *siC_;
