@@ -20,7 +20,7 @@ class AnytimeBeastSampler : public ompl::base::BeastSampler_dstar {
 public:
 	AnytimeBeastSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	            base::GoalSampleableRegion *gsr, const ompl::base::OptimizationObjectivePtr &optimizationObjective, const FileMap &params) :
-					BeastSampler_dstar(base, start, goal, gsr, params), goal(goal.get()), optimizationObjective(optimizationObjective) {}
+					BeastSampler_dstar(base, start, goal, gsr, params), optimizationObjective(optimizationObjective) {}
 
 	~AnytimeBeastSampler() {}
 
@@ -92,14 +92,14 @@ public:
 
 	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
 #ifdef STREAM_GRAPHICS
-		static unsigned int sampleCount = 0;
-		if(sampleCount++ % 100 == 0) {
+		// static unsigned int sampleCount = 0;
+		// if(sampleCount++ % 100 == 0) {
 			// fprintf(stderr, "open: %u\n", open.getFill());
 			// writeVertexFile(sampleCount / 1000);
 			// writeOpenEdgeFile(sampleCount / 1000);
 			// writeUpdatedEdgeFile(sampleCount / 10);
-			writeEdgeFile(sampleCount / 100, 1);
-		}
+		// 	writeEdgeFile(sampleCount / 100, 1);
+		// }
 #endif
 
 		//This will fail when we're (res)starting or if the target edge start vertex was cleaned out due to SST pruning
@@ -289,7 +289,6 @@ protected:
 
 	double incumbentCost = std::numeric_limits<double>::infinity();
 	InPlaceBinaryHeap<Vertex, Vertex> cost_U;
-	ompl::base::Goal *goal;
 	const ompl::base::OptimizationObjectivePtr &optimizationObjective;
 	RunningAverage globalEdgeCostCorrection;
 };
