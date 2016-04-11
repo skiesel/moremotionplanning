@@ -86,9 +86,9 @@ public:
 		unsigned int iterationBound = n0_;
 
 		while(ptc == false) {
-
-			globalIterations++;
+			
 #ifdef STREAM_GRAPHICS
+			// globalIterations++;
 			// if(globalIterations % 1000 == 0) {
 			// 	dumpCurrentTree();
 			// }
@@ -119,11 +119,11 @@ public:
 			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control_, nmotion->state_, rmotion->state_);
 
 			if(cd >= siC_->getMinControlDuration()) {
-				base::Cost incCost = opt_->motionCost(nmotion->state_, rstate);
+				base::Cost incCost(cd * siC_->getPropagationStepSize());
 				base::Cost cost = opt_->combineCosts(nmotion->accCost_, incCost);
 
 				double dist = 0.0;
-				bool solv = goal->isSatisfied(nmotion->state_, &dist);
+				bool solv = goal->isSatisfied(rmotion->state_, &dist);
 				if(solv && opt_->isSatisfied(cost)) {
 					opt_->setCostThreshold(cost);
 

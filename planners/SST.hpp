@@ -60,9 +60,6 @@ public:
 	/** \brief Constructor */
 	SSTLocal(const SpaceInformationPtr &si, const FileMap &params) : base::Planner(si, "SST") {
 		siC_ = si.get();
-		prevSolution_.clear();
-		prevSolutionControls_.clear();
-		prevSolutionSteps_.clear();
 
 		goalBias_ = 0.05; //params.doubleVal("GoalBias");
 		selectionRadius_ = params.doubleVal("SelectionRadius");
@@ -88,20 +85,8 @@ public:
 		witnesses_->setDistanceFunction(std::bind(&SSTLocal::distanceFunction, this,
 		                                std::placeholders::_1, std::placeholders::_2));
 
-		if(pdef_) {
-			if(pdef_->hasOptimizationObjective()) {
-				opt_ = pdef_->getOptimizationObjective();
-				if(dynamic_cast<base::MaximizeMinClearanceObjective *>(opt_.get()) || dynamic_cast<base::MinimaxObjective *>(opt_.get()))
-					OMPL_WARN("%s: Asymptotic near-optimality has only been proven with Lipschitz continuous cost functions w.r.t. state and control. This optimization objective will result in undefined behavior", getName().c_str());
-			} else {
-				OMPL_WARN("%s: No optimization object set. Using path length", getName().c_str());
-				opt_.reset(new base::PathLengthOptimizationObjective(si_));
-				pdef_->setOptimizationObjective(opt_);
-			}
-		}
-
-		prevSolutionCost_ = opt_->infiniteCost();
-
+		opt_ = pdef_->getOptimizationObjective();
+		opt_->setCostThreshold(opt_->infiniteCost());
 	}
 
 	/** \brief Continue solving for some amount of time. Return true if solution was found. */
@@ -146,12 +131,12 @@ public:
 		unsigned iterations = 0;
 
 		while(ptc == false) {
-
-			globalIterations++;
+			
 #ifdef STREAM_GRAPHICS
-			if(globalIterations % 1000 == 0) {
-				dumpCurrentTree();
-			}
+			// globalIterations++;
+			// if(globalIterations % 1000 == 0) {
+			// 	dumpCurrentTree();
+			// }
 #endif
 
 			/* sample random state (with goal biasing) */
@@ -170,11 +155,11 @@ public:
 			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control_, nmotion->state_, rmotion->state_);
 
 			if(cd >= siC_->getMinControlDuration()) {
-				base::Cost incCost = opt_->motionCost(nmotion->state_, rstate);
+				base::Cost incCost(cd * siC_->getPropagationStepSize());
 				base::Cost cost = opt_->combineCosts(nmotion->accCost_, incCost);
 
 				double dist = 0.0;
-				bool solv = goal->isSatisfied(nmotion->state_, &dist);
+				bool solv = goal->isSatisfied(rmotion->state_, &dist);
 				if(solv && opt_->isSatisfied(cost)) {
 					opt_->setCostThreshold(cost);
 
@@ -243,41 +228,6 @@ public:
 
 	virtual void getPlannerData(base::PlannerData &data) const {
 		Planner::getPlannerData(data);
-
-		std::vector<Motion *> motions;
-		std::vector<Motion *> allMotions;
-		if(nn_)
-			nn_->list(motions);
-
-		for(unsigned i=0; i<motions.size(); i++) {
-			if(motions[i]->numChildren_==0) {
-				allMotions.push_back(motions[i]);
-			}
-		}
-		for(unsigned i=0; i<allMotions.size(); i++) {
-			if(allMotions[i]->parent_!=nullptr) {
-				allMotions.push_back(allMotions[i]->parent_);
-			}
-		}
-
-		double delta = siC_->getPropagationStepSize();
-
-		if(prevSolution_.size()!=0)
-			data.addGoalVertex(base::PlannerDataVertex(prevSolution_[0]));
-
-		for(unsigned int i = 0 ; i < allMotions.size() ; ++i) {
-			const Motion *m = allMotions[i];
-			if(m->parent_) {
-				if(data.hasControls())
-					data.addEdge(base::PlannerDataVertex(m->parent_->state_),
-					             base::PlannerDataVertex(m->state_),
-					             control::PlannerDataEdgeControl(m->control_, m->steps_ * delta));
-				else
-					data.addEdge(base::PlannerDataVertex(m->parent_->state_),
-					             base::PlannerDataVertex(m->state_));
-			} else
-				data.addStartVertex(base::PlannerDataVertex(m->state_));
-		}
 	}
 
 	/** \brief Clear datastructures. Call this function if the
@@ -292,7 +242,6 @@ public:
 			nn_->clear();
 		if(witnesses_)
 			witnesses_->clear();
-		prevSolutionCost_ = opt_->infiniteCost();
 	}
 
 
@@ -495,17 +444,6 @@ protected:
 				delete witnesses[i];
 			}
 		}
-		for(unsigned int i = 0 ; i < prevSolution_.size() ; ++i) {
-			if(prevSolution_[i])
-				si_->freeState(prevSolution_[i]);
-		}
-		prevSolution_.clear();
-		for(unsigned int i = 0 ; i < prevSolutionControls_.size() ; ++i) {
-			if(prevSolutionControls_[i])
-				siC_->freeControl(prevSolutionControls_[i]);
-		}
-		prevSolutionControls_.clear();
-		prevSolutionSteps_.clear();
 	}
 
 #ifdef STREAM_GRAPHICS
@@ -554,13 +492,6 @@ protected:
 	/** \brief The random number generator */
 	RNG                                            rng_;
 
-	/** \brief The best solution we found so far. */
-	std::vector<base::State *>                      prevSolution_;
-	std::vector<Control *>                          prevSolutionControls_;
-	std::vector<unsigned>                          prevSolutionSteps_;
-
-	/** \brief The best solution cost we found so far. */
-	base::Cost                                     prevSolutionCost_;
 
 	/** \brief The optimization objective. */
 	base::OptimizationObjectivePtr                 opt_;
