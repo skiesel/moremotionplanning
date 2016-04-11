@@ -34,7 +34,8 @@ public:
 	}
 
 	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
-		return motionCostHeuristic(s1, s2);
+		throw new ompl::Exception("StraightLineOptimizationObjective::motionCost not implemented");
+		return ompl::base::Cost(0);
 	}
 
 	double goalRadius;

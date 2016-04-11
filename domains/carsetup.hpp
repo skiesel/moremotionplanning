@@ -26,6 +26,44 @@ protected:
 	const ompl::base::SE2StateSpace::StateType *se2State = NULL;
 };
 
+class KinematicCarOptimizationObjective : public ompl::base::OptimizationObjective {
+public:
+	KinematicCarOptimizationObjective(const ompl::base::SpaceInformationPtr &si, double maximumVelocity, double goalRadius) : OptimizationObjective(si),
+		maximumVelocity(maximumVelocity), goalRadius(goalRadius) {
+		setCostToGoHeuristic(boost::bind(&KinematicCarOptimizationObjective::costToGoHeuristic, this, _1, _2));
+	}
+
+	ompl::base::Cost costToGoHeuristic(const ompl::base::State *a, const ompl::base::Goal *b) const {
+		double dist = motionDistance(a, b->as<ompl::base::GoalState>()->getState());
+		return ompl::base::Cost((dist - goalRadius) / maximumVelocity);
+	}
+
+	ompl::base::Cost stateCost(const ompl::base::State *s) const {
+		return ompl::base::Cost(0.);
+	}
+
+	ompl::base::Cost motionCostHeuristic(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		double dist = motionDistance(s1, s2);
+		return ompl::base::Cost(dist / maximumVelocity);
+	}
+
+	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("KinematicCarOptimizationObjective::motionCost not implemented");
+		return ompl::base::Cost(0);
+	}
+
+	double motionDistance(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		const ompl::base::SE2StateSpace::StateType *se21 = s1->as<ompl::base::SE2StateSpace::StateType>();
+		const ompl::base::SE2StateSpace::StateType *se22 = s2->as<ompl::base::SE2StateSpace::StateType>();
+		double dx = se21->getX() - se22->getX();
+		double dy = se21->getY() - se22->getY();
+
+		return sqrt(dx * dx + dy * dy);
+	}
+
+	double maximumVelocity, goalRadius;
+};
+
 class DynamicSpatialGoal : public ompl::base::GoalState {
 public:
 	DynamicSpatialGoal(const ompl::base::SpaceInformationPtr &si, const ompl::base::State *state) : ompl::base::GoalState(si) {
@@ -41,6 +79,44 @@ public:
 	}
 protected:
 	const ompl::base::SE2StateSpace::StateType *se2State = NULL;
+};
+
+class DynamicCarOptimizationObjective : public ompl::base::OptimizationObjective {
+public:
+	DynamicCarOptimizationObjective(const ompl::base::SpaceInformationPtr &si, double maximumVelocity, double goalRadius) : OptimizationObjective(si),
+		maximumVelocity(maximumVelocity), goalRadius(goalRadius) {
+		setCostToGoHeuristic(boost::bind(&DynamicCarOptimizationObjective::costToGoHeuristic, this, _1, _2));
+	}
+
+	ompl::base::Cost costToGoHeuristic(const ompl::base::State *a, const ompl::base::Goal *b) const {
+		double dist = motionDistance(a, b->as<ompl::base::GoalState>()->getState());
+		return ompl::base::Cost((dist - goalRadius) / maximumVelocity);
+	}
+
+	ompl::base::Cost stateCost(const ompl::base::State *s) const {
+		return ompl::base::Cost(0.);
+	}
+
+	ompl::base::Cost motionCostHeuristic(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		double dist = motionDistance(s1, s2);
+		return ompl::base::Cost(dist / maximumVelocity);
+	}
+
+	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("DynamicCarOptimizationObjective::motionCost not implemented");
+		return ompl::base::Cost(0);
+	}
+
+	 double motionDistance(const ompl::base::State *s1, const ompl::base::State *s2) const {
+ 		const ompl::base::SE2StateSpace::StateType *se21 = s1->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+		const ompl::base::SE2StateSpace::StateType *se22 = s2->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
+		double dx = se21->getX() - se22->getX();
+		double dy = se21->getY() - se22->getY();
+
+		return sqrt(dx * dx + dy * dy);
+	}
+
+	double maximumVelocity, goalRadius;
 };
 
 template <class Car>
@@ -165,26 +241,13 @@ BenchmarkData carBenchmark(const FileMap &params) {
 		values[2] = state->getYaw();
 	};
 
-	if(params.stringVal("Domain").compare("DynamicCar") == 0) {
-		// globalParameters.admissibleCostEstimate = [](const ompl::base::State *a, const ompl::base::State *b, bool goal) {
-		// 	assert(false);
-		// 	const ompl::base::SE2StateSpace::StateType *se21 = a->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
-		// 	const ompl::base::SE2StateSpace::StateType *se22 = b->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE2StateSpace::StateType>(0);
-		// 	double dx = se21->getX() - se22->getX();
-		// 	double dy = se21->getY() - se22->getY();
-		// 	return dx * dx + dy * dy;
-		// };
-	} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
-		// globalParameters.admissibleCostEstimate = [](const ompl::base::State *a, const ompl::base::State *b, bool goal) {
-		// 	assert(false);
-		// 	const ompl::base::SE2StateSpace::StateType *se21 = a->as<ompl::base::SE2StateSpace::StateType>();
-		// 	const ompl::base::SE2StateSpace::StateType *se22 = b->as<ompl::base::SE2StateSpace::StateType>();
-		// 	double dx = se21->getX() - se22->getX();
-		// 	double dy = se21->getY() - se22->getY();
-		// 	return dx * dx + dy * dy;
-		// };
-	}
 
+	double maxVel = car->getMaximumTranslationalVelocity();
+	if(params.stringVal("Domain").compare("DynamicCar") == 0) {
+		carPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new DynamicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius)));
+	} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
+		carPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new KinematicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius)));
+	}
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*carPtr, car->getName());

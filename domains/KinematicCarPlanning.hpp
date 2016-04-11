@@ -93,7 +93,10 @@ public:
 		getControlSpace()->as<control::RealVectorControlSpace>()->setBounds(cbounds);
 	}
 
-
+	double getMaximumTranslationalVelocity() const {
+		//this value matches the the max absolute value of cbounds.low and cbound.high for the control space from above
+		return 0.5;
+	}
 
 protected:
 

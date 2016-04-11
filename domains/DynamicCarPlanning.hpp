@@ -114,6 +114,11 @@ public:
 		getControlSpace()->as<control::RealVectorControlSpace>()->setBounds(bounds);
 	}
 
+	double getMaximumTranslationalVelocity() const {
+		//this value matches the the max absolute value of bounds.low and bound.high for the state space from above
+		return 1;
+	}
+
 protected:
 
 	virtual const base::State *getGeometricComponentStateInternal(const base::State *state, unsigned int /*index*/) const {

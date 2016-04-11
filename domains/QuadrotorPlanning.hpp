@@ -98,6 +98,11 @@ public:
 		getControlSpace()->as<control::RealVectorControlSpace>()->setBounds(controlbounds);
 	}
 
+	double getMaximumTranslationalVelocity() const {
+		// Maximum is 1 in x, 1 in y and 1 in z
+		return sqrt(3);
+	}
+
 protected:
 
 	virtual const base::State *getGeometricComponentStateInternal(const base::State *state, unsigned int /*index*/) const {

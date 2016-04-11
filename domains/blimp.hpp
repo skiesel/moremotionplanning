@@ -29,6 +29,45 @@ protected:
 	const ompl::base::SE3StateSpace::StateType *se3State = NULL;
 };
 
+class BlimpOptimizationObjective : public ompl::base::OptimizationObjective {
+public:
+	BlimpOptimizationObjective(const ompl::base::SpaceInformationPtr &si, double maximumVelocity, double goalRadius) : OptimizationObjective(si),
+		maximumVelocity(maximumVelocity), goalRadius(goalRadius) {
+		setCostToGoHeuristic(boost::bind(&BlimpOptimizationObjective::costToGoHeuristic, this, _1, _2));
+	}
+
+	ompl::base::Cost costToGoHeuristic(const ompl::base::State *a, const ompl::base::Goal *b) const {
+		double dist = motionDistance(a, b->as<ompl::base::GoalState>()->getState());
+		return ompl::base::Cost((dist - goalRadius) / maximumVelocity);
+	}
+
+	ompl::base::Cost stateCost(const ompl::base::State *s) const {
+		return ompl::base::Cost(0.);
+	}
+
+	ompl::base::Cost motionCostHeuristic(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		double dist = motionDistance(s1, s2);
+		return ompl::base::Cost(dist / maximumVelocity);
+	}
+
+	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("BlimpOptimizationObjective::motionCost not implemented");
+		return ompl::base::Cost(0);
+	}
+
+	double motionDistance(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		const ompl::base::SE3StateSpace::StateType *se21 = s1->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+		const ompl::base::SE3StateSpace::StateType *se22 = s2->as<ompl::base::CompoundStateSpace::StateType>()->as<ompl::base::SE3StateSpace::StateType>(0);
+		double dx = se21->getX() - se22->getX();
+		double dy = se21->getY() - se22->getY();
+		double dz = se21->getZ() - se22->getZ();
+
+		return sqrt(dx * dx + dy * dy + dz * dz);
+	}
+
+	double maximumVelocity, goalRadius;
+};
+
 ompl::base::ValidStateSamplerPtr SE3ZOnlyValidStateSamplerAllocator(const ompl::base::SpaceInformation *si) {
 	class SE3ZOnlyValidStateSampler : public ompl::base::UniformValidStateSampler {
 	public:
@@ -173,6 +212,9 @@ BenchmarkData blimpBenchmark(const FileMap &params) {
 		
 		values[3] = asin(-2 * (x * z - w * y));
 	};
+
+	double maxVel = blimp->getMaximumTranslationalVelocity();
+	blimpPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new BlimpOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius)));
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*blimpPtr, blimp->getName());

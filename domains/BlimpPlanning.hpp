@@ -97,6 +97,10 @@ public:
 
 	}
 
+	double getMaximumTranslationalVelocity() const {
+		// Maximum is 1 in x/y and 1 in z
+		return sqrt(2);
+	}
 
 protected:
 
