@@ -254,7 +254,6 @@ bestSolutions := map[string]float64{}
 	plotutil.AddErrorBars(p, plottingErrorArgs...)
 
 	p.Title.Text = title
-	p.Legend.Top = true
 	p.X.Label.Text = xLabel
 	p.Y.Label.Text = yLabel
 	p.X.Min = startTime

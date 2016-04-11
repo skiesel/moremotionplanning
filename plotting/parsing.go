@@ -106,16 +106,12 @@ func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[s
 
 	if anytime && scanner.Scan() {
 		str := scanner.Text()
-		fmt.Print(strings.Replace(data[0], "control_", "", -1))
-		solutionCount := 0
 		if str == "Solution Stream" {
 			for scanner.Scan() {
 				str = scanner.Text()
 				columnData["solution"] = append(columnData["solution"], strings.Split(str, " "))
-				solutionCount++
 			}
 		}
-		fmt.Printf(": %d\n", solutionCount)
 	}
 
 	params := map[string]string{}
