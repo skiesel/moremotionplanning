@@ -69,6 +69,14 @@ func parseNewPlannerParams(data []string) map[string]string {
 }
 
 func nonRDBReader(filename string) (map[string]string, map[string][][]string, bool) {
+	return nonRDBReaderHelper(filename, false)
+}
+
+func nonAnytimeRDBReader(filename string) (map[string]string, map[string][][]string, bool) {
+	return nonRDBReaderHelper(filename, true)
+}
+
+func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[string][][]string, bool) {
 	openFile, err := os.Open(filename)
 	if err != nil {
 		panic(err)
@@ -90,6 +98,24 @@ func nonRDBReader(filename string) (map[string]string, map[string][][]string, bo
 		if str == "." {
 			break
 		}
+	}
+
+	columnData := map[string][][]string{}
+	columnData["solution"] = [][]string{}
+	columnData["solution"] = append(columnData["solution"], []string{"solution time", "solution cost"})
+
+	if anytime && scanner.Scan() {
+		str := scanner.Text()
+		fmt.Print(strings.Replace(data[0], "control_", "", -1))
+		solutionCount := 0
+		if str == "Solution Stream" {
+			for scanner.Scan() {
+				str = scanner.Text()
+				columnData["solution"] = append(columnData["solution"], strings.Split(str, " "))
+				solutionCount++
+			}
+		}
+		fmt.Printf(": %d\n", solutionCount)
 	}
 
 	params := map[string]string{}
@@ -126,32 +152,38 @@ func nonRDBReader(filename string) (map[string]string, map[string][][]string, bo
 	dataPoint := data[len(data)-2]
 	dataPointValues := strings.Split(dataPoint, ";")
 
-if len(dataPointValues) < 12 {
-	fmt.Println(filename)
-	fmt.Println(dataPoint)
-}
+	if !anytime {
+		length := strings.TrimSpace(dataPointValues[7])
+		time := strings.TrimSpace(dataPointValues[11])
 
-	length := strings.TrimSpace(dataPointValues[7])
-	time := strings.TrimSpace(dataPointValues[11])
+		statusInt, err := strconv.ParseInt(strings.TrimSpace(dataPointValues[10]), 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		if statusInt == 6 || statusInt == 5 {
+			if statusInt == 5 {
+				fmt.Println(filename)
+			}
+			params["Solved"]="true"
+		} else {
+			fmt.Println(filename)
+			params["Solved"]="false"
+		}
 
-	statusInt, err := strconv.ParseInt(strings.TrimSpace(dataPointValues[10]), 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	if statusInt == 6 || statusInt == 5 {
-		params["Solved"]="true"
+		params["Solution Length"]=length
+		params["Solving Time"]=time
+		if precomp, ok := params["sampler_initialization_time"]; ok {
+			params["Precomputation Time"] = precomp
+		} else {
+			params["Precomputation Time"] = "0"
+		}
 	} else {
-		fmt.Println(filename)
-		params["Solved"]="false"
+		if len(columnData["solution"][0]) > 1 {
+			params["Solved"]="true"
+		} else {
+			params["Solved"]="false"
+		}
 	}
 
-	params["Solution Length"]=length
-	params["Solving Time"]=time
-	if precomp, ok := params["sampler_initialization_time"]; ok {
-		params["Precomputation Time"] = precomp
-	} else {
-		params["Precomputation Time"] = "0"
-	}
-
-	return params, map[string][][]string{}, true
+	return params, columnData, true
 }

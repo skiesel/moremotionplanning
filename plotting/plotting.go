@@ -3,14 +3,17 @@ package main
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/skiesel/plot"
 	"github.com/skiesel/plot/plotter"
+	"github.com/skiesel/plot/plotutil"
 	"github.com/skiesel/plot/vg"
 
 	"github.com/skiesel/expsys/rdb"
+	"github.com/skiesel/expsys/plots"
 )
 
 type ParallelSlices struct {
@@ -31,7 +34,7 @@ func (a ParallelSlices) Swap(i, j int) {
 	a.Labels[i], a.Labels[j] = a.Labels[j], a.Labels[i]
 }
 
-func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment []*rdb.Dataset, log10 bool) {
+func makeBoxPlot(title, yLabel, key, format string, width, height float64, experiment []*rdb.Dataset, log10, tryStacked bool) {
 	p, err := plot.New()
 	if err != nil {
 		panic(err)
@@ -53,11 +56,19 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 			continue
 		}
 
-		for _, val := range ds.GetDatasetFloatValues(key) {
+		precomputationTime := ds.GetDatasetFloatValues("Precomputation Time")
+		for i, val := range ds.GetDatasetFloatValues(key) {
 			if log10 == true {
-				mean = mean + math.Log10(val)
+				if tryStacked {
+					mean = mean + math.Log10(val)
+				} else {
+					mean = mean + math.Log10(val + precomputationTime[i])
+				}
 			} else {
 				mean = mean + val
+				if !tryStacked {
+					mean = mean + precomputationTime[i]
+				}
 			}
 		}
 
@@ -113,7 +124,7 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 		}
 
 		var box plot.Plotter
-		if key == "Solving Time" /*&& algorithm.UseStackedBoxes*/ {
+		if key == "Solving Time" && tryStacked {
 			box, err = plotter.NewBoxPlotWithConfidenceIntervalsStacked(w, i, data, data2)
 		} else {
 			box, err = plotter.NewBoxPlotWithConfidenceIntervals(w, i, data)
@@ -132,12 +143,131 @@ func makeBoxPlot(title, yLabel, key, format string, width, height float64, exper
 
 	p.Add(plotters...)
 	p.NominalX(labels...)
+	p.Y.Max = 2
 
-	filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
+	filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + "_cropped" + format
+
 
 	fmt.Println(filename)
 
 	if err := p.Save(vg.Length(width)*vg.Points(15*float64(len(plotters))), vg.Length(height)*vg.Inch, filename); err != nil {
+		panic(err)
+	}
+}
+
+func savePlot(title, directory string, plot *plot.Plot) {
+	_, err := os.Stat(directory)
+	if os.IsNotExist(err) {
+		os.MkdirAll(directory, 0755)
+	}
+
+	plotFilename := strings.Replace(directory+"/"+title+".pdf", " ", "", -1)
+
+	err = plot.Save(vg.Length(5)*vg.Inch, vg.Length(5)*vg.Inch, plotFilename)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, yValues, xLabel, yLabel, format string, startTime, endTime, timeIncrement, width, height float64) {
+
+bestSolutions := map[string]float64{}
+
+	anytimeData := map[string][][][]string{}
+
+	for _, ds := range dss {
+		anytimeData[ds.GetName()] = ds.GetColumnValuesWithKey(tableName, "inst", xValues, yValues)
+
+		for _, dfValues := range anytimeData[ds.GetName()] {
+
+			if len(dfValues[0]) == 0 {
+				continue
+			}
+
+			num := dfValues[2][0]
+			bestSolution := datautils.ParseFloatOrFail(dfValues[1][len(dfValues[1])-1])
+			val, ok := bestSolutions[num]
+			if !ok || val > bestSolution {
+				bestSolutions[num] = bestSolution
+			}
+		}
+	}
+
+	var plottingPointArgs []interface{}
+	var plottingErrorArgs []interface{}
+
+	for i, ds := range dss {
+
+		//Build a function that maps x -> y's across the entire dataset
+		generator := func(val float64) []float64 {
+			dsValues := anytimeData[ds.GetName()]
+			sampledPoints := make([]float64, len(dsValues))
+			for i := range sampledPoints {
+				sampledPoints[i] = 0
+			}
+
+			for i, dfValues := range dsValues {
+
+				curPoint := 0
+				for ; curPoint < (len(dfValues[0])-1) && datautils.ParseFloatOrFail(dfValues[0][curPoint+1]) <= val; curPoint++ {
+				}
+				if curPoint >= len(dfValues[0]) {
+					curPoint = len(dfValues[0]) - 1
+				}
+
+				if len(dfValues[0]) == 0 {
+					continue
+				}
+
+				best := bestSolutions[dfValues[2][0]]
+
+				if curPoint == 0 && datautils.ParseFloatOrFail(dfValues[0][curPoint]) > val {
+					sampledPoints[i] = best / math.Inf(1)
+				} else {
+					sampledPoints[i] = best / datautils.ParseFloatOrFail(dfValues[1][curPoint])
+				}
+			}
+
+			return sampledPoints
+		}
+
+		points, errorBars, err := plotutil.NewErrorPointsSpaced(plotutil.MeanAndConf95,
+			int64(i), int64(len(dss)),
+			1000, 5,
+			startTime, endTime,
+			generator,
+			startTime, endTime)
+		if err != nil {
+			panic(err)
+		}
+
+		plottingPointArgs = append(plottingPointArgs, ds.GetName(), points)
+		plottingErrorArgs = append(plottingErrorArgs, errorBars)
+	}
+
+	p, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+
+	plotutil.AddLines(p, plottingPointArgs...)
+	plotutil.AddErrorBars(p, plottingErrorArgs...)
+
+	p.Title.Text = title
+	p.Legend.Top = true
+	p.X.Label.Text = xLabel
+	p.Y.Label.Text = yLabel
+	p.X.Min = startTime
+	p.X.Max = endTime
+	p.Y.Min = 0.0
+	p.Y.Max = 1.0
+
+	filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
+
+
+	fmt.Println(filename)
+
+	if err := p.Save(vg.Length(width)*vg.Inch, vg.Length(height)*vg.Inch, filename); err != nil {
 		panic(err)
 	}
 }
