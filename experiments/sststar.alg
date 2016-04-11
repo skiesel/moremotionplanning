@@ -12,7 +12,7 @@ PRUNINGRADIUS_C=0
 N0=(100)
 N0_C=0
 
-XI=(0.5)
+XI=(0.99)
 XI_C=0
 
 ALG_TOTAL=$((${#PLANNER[@] * ${#SELECTIONRADIUS[@]} * ${#PRUNINGRADIUS[@] * ${#N0[@]} * ${#XI[@]}))

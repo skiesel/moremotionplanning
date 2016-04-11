@@ -1,5 +1,5 @@
 build
-experiments/data
+experiments/data*
 plotting/plotting
 plotting/*.png
 plotting/*.pdf
