@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOMAIN=("Blimp")
+DOMAIN=("KinematicCar")
 DOMAIN_C=-1
 
 PROPSTEPSIZE=(0.05)
@@ -12,7 +12,7 @@ MINCTRLDUR_C=0
 MAXCTRLDUR=(100)
 MAXCTRLDUR_C=0
 
-GOALRADIUS=(0.25)
+GOALRADIUS=(0.1)
 GOALRADIUS_C=0
 
 STARTGOAL_C=0
@@ -21,29 +21,7 @@ MAP=()
 STARTGOAL=()
 BOUNDS=()
 
-#MAP[0]="blimp_world.dae"
-#STARTGOAL[0]="Start ? 5 -2 -0.1\nGoal ? 5 28 -4\n"
-#BOUNDS[0]="0 39.65 -4 30 -8.23 0"
-
-MAP[0]="forest.dae"
-STARTGOAL[0]="Start ? 0 0 0\nGoal ? 0 -25 0\n"
-BOUNDS[0]="-30 30 -30 30 -5 5"
-
-MAP[1]="forest.dae"
-STARTGOAL[1]="Start ? 0.1 0.1 -1\nGoal ? 0 -26 -1\n"
-BOUNDS[1]="-30 30 -30 30 -5 5"
-
-MAP[2]="forest.dae"
-STARTGOAL[2]="Start ? 3 -5 1\nGoal ? 0 -25 0\n"
-BOUNDS[2]="-30 30 -30 30 -5 5"
-
-MAP[3]="forest.dae"
-STARTGOAL[3]="Start ? -3 -5 1\nGoal ? 1 -25 1\n"
-BOUNDS[3]="-30 30 -30 30 -5 5"
-
-MAP[4]="forest.dae"
-STARTGOAL[4]="Start ? -5 -5 -2\nGoal ? 5 -25 -3\n"
-BOUNDS[4]="-30 30 -30 30 -5 5"
+source 2dinstances.inc
 
 #dont' include map or bounds since this is all paired
 DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#STARTGOAL[@]}))
@@ -98,7 +76,10 @@ function getDomainPathAttrs() {
 	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
 	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
 	path="$path map=${MAP[$STARTGOAL_C]}"
-	path="$path inst=$STARTGOAL_C"
+
+	INST=""
+	getInstanceNumber $STARTGOAL_C INST
+	path="$path inst=${INST}"
 
 	eval $__resultvar="'$path'" 
 }
@@ -116,7 +97,7 @@ function getDomainParamFile() {
 	param="${param}EnvironmentBounds ? ${BOUNDS[$STARTGOAL_C]}\n"
 	param="${param}EnvironmentMesh ? ${MAP[$STARTGOAL_C]}\n"
 
-	param="${param}AgentMesh ? blimp.dae\n"
+	param="${param}AgentMesh ? car2_planar_robot.dae.dae\n"
 	
 
 	eval $__resultvar="'$param'" 

@@ -21,43 +21,7 @@ MAP=()
 STARTGOAL=()
 BOUNDS=()
 
-#MAP[0]="RandomPolygons_planar_env.dae"
-#STARTGOAL[0]="Start ? -1.2 -1\nGoal ? 1.1 1.05\n"
-
-#MAP[1]="Maze_planar_env.dae"
-#STARTGOAL[1]="Start ? 0 1.15\nGoal ? 1 1.2\n"
-
-#MAP[2]="UniqueSolutionMaze_env.dae"
-#STARTGOAL[2]="Start ? -1.1 -1.1\nGoal ? 1.1 1.15\n"
-
-#MAP[3]="Barriers_easy_env.dae"
-#STARTGOAL[3]="Start ? 1 -3\nGoal ? 15 -6\n"
-
-#MAP[4]="EffortEnvironment.dae"
-#STARTGOAL[4]="Start ? -3 -2\nGoal ? 5 -3\n"
-
-#MAP[5]="EffortEnvironment2.dae"
-#STARTGOAL[5]="Start ? -5 2\nGoal ? 5 2\n"
-
-MAP[0]="forest.dae"
-STARTGOAL[0]="Start ? 0 0\nGoal ? 0 -25\n"
-BOUNDS[0]="-30 30 -30 30"
-
-MAP[1]="forest.dae"
-STARTGOAL[1]="Start ? 0.1 0.1\nGoal ? 0 -26\n"
-BOUNDS[1]="-30 30 -30 30"
-
-MAP[2]="forest.dae"
-STARTGOAL[2]="Start ? 3 -5\nGoal ? 0 -25\n"
-BOUNDS[2]="-30 30 -30 30"
-
-MAP[3]="forest.dae"
-STARTGOAL[3]="Start ? -3 -5\nGoal ? 1 -25\n"
-BOUNDS[3]="-30 30 -30 30"
-
-MAP[4]="forest.dae"
-STARTGOAL[4]="Start ? -5 -5\nGoal ? 5 -25\n"
-BOUNDS[4]="-30 30 -30 30"
+source 2dinstances.inc
 
 #dont' include map or bounds since this is all paired
 DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#STARTGOAL[@]}))
@@ -112,7 +76,10 @@ function getDomainPathAttrs() {
 	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
 	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
 	path="$path map=${MAP[$STARTGOAL_C]}"
-	path="$path inst=$STARTGOAL_C"
+	
+	INST=""
+	getInstanceNumber $STARTGOAL_C INST
+	path="$path inst=${INST}"
 
 	eval $__resultvar="'$path'" 
 }
