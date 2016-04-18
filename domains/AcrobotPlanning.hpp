@@ -222,6 +222,10 @@ public:
 		getControlSpace()->as<control::RealVectorControlSpace>()->setBounds(bounds);
 	}
 
+	double getMaximumTranslationalVelocity() const {
+		throw new ompl::Exception("AcrobotPlanning::getMaximumTranslationalVelocity not implemented");
+	}
+
 protected:
 
 	virtual const base::State *getGeometricComponentStateInternal(const base::State *state, unsigned int index) const {

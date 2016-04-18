@@ -198,7 +198,8 @@ BenchmarkData quadrotorBenchmark(const FileMap &params) {
 	};
 
 	double maxVel = quadrotor->getMaximumTranslationalVelocity();
-	quadrotorPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new QuadrotorOptimizationObjective(quadrotorPtr->getSpaceInformation(), maxVel, goalRadius)));
+	globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new QuadrotorOptimizationObjective(quadrotorPtr->getSpaceInformation(), maxVel, goalRadius));
+	// quadrotorPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new QuadrotorOptimizationObjective(quadrotorPtr->getSpaceInformation(), maxVel, goalRadius)));
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*quadrotorPtr, quadrotor->getName());

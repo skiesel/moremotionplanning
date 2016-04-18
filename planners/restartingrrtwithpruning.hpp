@@ -30,7 +30,7 @@ public:
 
 		ompl::base::PlannerStatus status(false, true);
 
-		optimizationObjective = pdef_->getOptimizationObjective();
+		optimizationObjective = globalParameters.optimizationObjective;
 		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
 
 		while(ptc == false) {

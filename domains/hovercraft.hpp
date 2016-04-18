@@ -176,7 +176,8 @@ BenchmarkData hovercraftBenchmark(const FileMap &params) {
 	};
 
 	double maxVel = hovercraft->getMaximumTranslationalVelocity();
-	hovercraftPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new HovercraftOptimizationObjective(hovercraftPtr->getSpaceInformation(), maxVel, goalRadius)));
+	globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new HovercraftOptimizationObjective(hovercraftPtr->getSpaceInformation(), maxVel, goalRadius));
+	// hovercraftPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new HovercraftOptimizationObjective(hovercraftPtr->getSpaceInformation(), maxVel, goalRadius)));
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*hovercraftPtr, hovercraft->getName());

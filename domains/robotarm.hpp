@@ -32,6 +32,32 @@ protected:
 	unsigned int numberOfLinks;
 };
 
+class RobotArmOptimizationObjective : public ompl::base::OptimizationObjective {
+public:
+	RobotArmOptimizationObjective(const ompl::base::SpaceInformationPtr &si, double maximumVelocity, double goalRadius) : OptimizationObjective(si),
+		maximumVelocity(maximumVelocity), goalRadius(goalRadius) {
+		setCostToGoHeuristic(boost::bind(&RobotArmOptimizationObjective::costToGoHeuristic, this, _1, _2));
+	}
+
+	ompl::base::Cost costToGoHeuristic(const ompl::base::State *a, const ompl::base::Goal *b) const {
+		throw new ompl::Exception("RobotArmOptimizationObjective::costToGoHeuristic not implemented");
+	}
+
+	ompl::base::Cost stateCost(const ompl::base::State *s) const {
+		throw new ompl::Exception("RobotArmOptimizationObjective::stateCost not implemented");
+	}
+
+	ompl::base::Cost motionCostHeuristic(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("RobotArmOptimizationObjective::motionCostHeuristic not implemented");
+	}
+
+	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("RobotArmOptimizationObjective::motionCost not implemented");
+	}
+
+	double maximumVelocity, goalRadius;
+};
+
 class RobotArmValidStateSampler : public ompl::base::UniformValidStateSampler {
 public:
 	RobotArmValidStateSampler(const ompl::base::SpaceInformation *si) : UniformValidStateSampler(si), stateValidityCheckerPtr(si->getStateValidityChecker()) {}
@@ -285,6 +311,10 @@ BenchmarkData robotArmBenchmark(const FileMap &params) {
 	globalParameters.copyAbstractStateToVector = [](std::vector<double> &values, const ompl::base::State *s) {
 		throw ompl::Exception("Robot Arm :: copyAbstractStateToVector not implemented");
 	};
+
+	double maxVel = arm->getMaximumTranslationalVelocity();
+	globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new RobotArmOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius)));
+
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*armPtr, arm->getName());

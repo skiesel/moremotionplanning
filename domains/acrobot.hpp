@@ -28,6 +28,32 @@ protected:
 	const ompl::base::SE2StateSpace::StateType *se2State = NULL;
 };
 
+class AcrobotOptimizationObjective : public ompl::base::OptimizationObjective {
+public:
+	AcrobotOptimizationObjective(const ompl::base::SpaceInformationPtr &si, double maximumVelocity, double goalRadius) : OptimizationObjective(si),
+		maximumVelocity(maximumVelocity), goalRadius(goalRadius) {
+		setCostToGoHeuristic(boost::bind(&AcrobotOptimizationObjective::costToGoHeuristic, this, _1, _2));
+	}
+
+	ompl::base::Cost costToGoHeuristic(const ompl::base::State *a, const ompl::base::Goal *b) const {
+		throw new ompl::Exception("AcrobotOptimizationObjective::costToGoHeuristic not implemented");
+	}
+
+	ompl::base::Cost stateCost(const ompl::base::State *s) const {
+		throw new ompl::Exception("AcrobotOptimizationObjective::stateCost not implemented");
+	}
+
+	ompl::base::Cost motionCostHeuristic(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("AcrobotOptimizationObjective::motionCostHeuristic not implemented");
+	}
+
+	ompl::base::Cost motionCost(const ompl::base::State *s1, const ompl::base::State *s2) const {
+		throw new ompl::Exception("AcrobotOptimizationObjective::motionCost not implemented");
+	}
+
+	double maximumVelocity, goalRadius;
+};
+
 class AcrobotValidStateSampler : public ompl::base::UniformValidStateSampler {
 public:
 	AcrobotValidStateSampler(const ompl::base::SpaceInformation *si) : UniformValidStateSampler(si),
@@ -175,6 +201,10 @@ BenchmarkData acrobotBenchmark(const FileMap &params) {
 	globalParameters.copyAbstractStateToVector = [](std::vector<double> &values, const ompl::base::State *s) {
 		throw ompl::Exception("Acrobot :: copyAbstractStateToVector not implemented");
 	};
+
+	double maxVel = acrobot->getMaximumTranslationalVelocity();
+	globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new AcrobotOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius)));
+	// blimpPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new BlimpOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius)));
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*acrobotPtr, acrobot->getName());

@@ -139,7 +139,8 @@ BenchmarkData straightLineBenchmark(const FileMap &params) {
 		values[2] = 0;
 	};
 
-	straightLinePtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new StraightLineOptimizationObjective(straightLinePtr->getSpaceInformation(), goalRadius)));
+	globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new StraightLineOptimizationObjective(straightLinePtr->getSpaceInformation(), goalRadius));
+	// straightLinePtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new StraightLineOptimizationObjective(straightLinePtr->getSpaceInformation(), goalRadius)));
 
 	BenchmarkData data;
 	data.simplesetup = straightLinePtr;

@@ -37,6 +37,7 @@ struct GlobalParameters {
 	ompl::base::RealVectorBounds abstractBounds = ompl::base::RealVectorBounds(0);
 	std::function<void(ompl::base::State*, const std::vector<double>&)> copyVectorToAbstractState;
 	std::function<void(std::vector<double>&, const ompl::base::State*)> copyAbstractStateToVector;
+	ompl::base::OptimizationObjectivePtr optimizationObjective;
 	SolutionStream solutionStream;
 };
 

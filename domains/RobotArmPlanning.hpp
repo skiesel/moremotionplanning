@@ -138,6 +138,10 @@ public:
 		getControlSpace()->as<control::RealVectorControlSpace>()->setBounds(bounds);
 	}
 
+	double getMaximumTranslationalVelocity() const {
+		throw new ompl::Exception("RobotArmPlanning::getMaximumTranslationalVelocity not implemented");
+	}
+
 protected:
 
 	void computeIKSolutionsFromAbstractState(const ompl::base::State *state, IkSolutionList<IkReal> &solutions) const {

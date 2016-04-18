@@ -35,7 +35,7 @@ public:
 		witnesses_->setDistanceFunction(std::bind(&SSTStar::distanceFunction, this,
 		                                std::placeholders::_1, std::placeholders::_2));
 
-		opt_ = pdef_->getOptimizationObjective();
+		opt_ = globalParameters.optimizationObjective;
 		opt_->setCostThreshold(opt_->infiniteCost());
 	}
 

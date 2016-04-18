@@ -214,7 +214,8 @@ BenchmarkData blimpBenchmark(const FileMap &params) {
 	};
 
 	double maxVel = blimp->getMaximumTranslationalVelocity();
-	blimpPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new BlimpOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius)));
+	globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new BlimpOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius));
+	// blimpPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new BlimpOptimizationObjective(blimpPtr->getSpaceInformation(), maxVel, goalRadius)));
 
 	BenchmarkData data;
 	data.benchmark = new ompl::tools::Benchmark(*blimpPtr, blimp->getName());

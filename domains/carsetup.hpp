@@ -244,9 +244,11 @@ BenchmarkData carBenchmark(const FileMap &params) {
 
 	double maxVel = car->getMaximumTranslationalVelocity();
 	if(params.stringVal("Domain").compare("DynamicCar") == 0) {
-		carPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new DynamicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius)));
+		globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new DynamicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius));
+		// carPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new DynamicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius)));
 	} else if(params.stringVal("Domain").compare("KinematicCar") == 0) {
-		carPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new KinematicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius)));
+		globalParameters.optimizationObjective = ompl::base::OptimizationObjectivePtr(new KinematicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius));
+		// carPtr->getProblemDefinition()->setOptimizationObjective(ompl::base::OptimizationObjectivePtr(new KinematicCarOptimizationObjective(carPtr->getSpaceInformation(), maxVel, goalRadius)));
 	}
 
 	BenchmarkData data;

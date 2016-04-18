@@ -87,9 +87,6 @@ public:
 			witnesses.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion *>(this));
 		witnesses->setDistanceFunction(std::bind(&AnytimeBeastPlanner::distanceFunction, this,
 		                                std::placeholders::_1, std::placeholders::_2));
-
-		optimizationObjective = pdef_->getOptimizationObjective();
-		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
 	}
 
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
@@ -103,7 +100,7 @@ public:
 		double SSTStarIteration = 0;
 		unsigned int iterationBound = n0;
 
-		optimizationObjective = pdef_->getOptimizationObjective();
+		optimizationObjective = globalParameters.optimizationObjective;
 		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
 
 		checkValidity();
