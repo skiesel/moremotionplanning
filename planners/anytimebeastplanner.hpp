@@ -463,10 +463,10 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 	void cleanupTree(Motion *oldRep) {
 		oldRep->inactive = true;
 
-		newsampler->remove(oldRep->state);
-
 		nn->remove(oldRep);
 		while(oldRep->inactive && oldRep->numChildren == 0) {
+			newsampler->remove(oldRep->state);
+
 			if(oldRep->state)
 				si_->freeState(oldRep->state);
 			if(oldRep->control)
