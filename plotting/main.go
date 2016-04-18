@@ -1,7 +1,8 @@
 package main
 
 import (
-	// "fmt"
+	"fmt"
+	"strings"
 	"strconv"
 	
 	"github.com/skiesel/expsys/rdb"
@@ -9,7 +10,7 @@ import (
 
 const (
 	dataRoot = "../experiments/data/"
-	plottype = ".pdf"
+	plottype = ".eps"
 	plotWidth = 5.
 	plotHeight = 5.
 )
@@ -50,13 +51,57 @@ func Anytime() {
 	// // 	}
 	// // }
 
-	for key := range filters {
-		filters[key]["timeout"] = "60"
-		filters[key]["domain"] = "StraightLine"
+	
+
+	domainTypes := map[string][]string {
+		"2D" : []string{"KinematicCar", "DynamicCar", "Hovercraft"},
+		"3D" : []string{"Quadrotor", "Blimp"},
 	}
 
-	dss := rdb.GetDatasetsFromNonRDBFormat(dataRoot, filters, true, nonAnytimeRDBReader)
-	makeAnytimePlot(dss, "StraightLine", ".", "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 60, 15, plotWidth, plotHeight)
+	maps := map[string][]string {
+		"2D" : []string{"forest.dae", "single-wall.dae", "3-ladder.dae", "parking-lot.dae", "intersection.dae"},
+		"3D" : []string{"forest.dae", "fifthelement.dae"},
+	}
+
+	for domainType, domains := range domainTypes {
+		for _, domain := range domains {
+			for _, mmap := range maps[domainType] {
+				for key := range filters {
+					filters[key]["timeout"] = "60"
+					filters[key]["domain"] = domain
+					filters[key]["map"] = mmap
+				}
+
+				dss := rdb.GetDatasetsFromNonRDBFormat(dataRoot, filters, true, nonAnytimeRDBReader)
+
+				title := fmt.Sprintf("%s - %s", domain, strings.Replace(mmap, ".dae", "", -1))
+
+				fmt.Println(title)
+
+				solvedCounts := map[string]float64{}
+				for _, ds := range dss {
+					fmt.Printf("\t%s: %d\n", ds.GetName(), ds.GetSize())
+
+					dsValues := ds.GetColumnValuesWithKey("solution", "inst", "solution cost")
+
+					count := 0.
+					for _, dfValues := range dsValues {
+						if len(dfValues[0]) > 0 {
+							count++
+						}
+					}
+					solvedCounts[ds.GetName()] = count / float64(len(dsValues))
+				}
+				fmt.Println()
+
+				makeBarPlot(solvedCounts, title, ".", "Percent Solved", plottype, plotWidth, plotHeight)
+
+				makeAnytimePlot(dss, title, ".", "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 60, 15, plotWidth, plotHeight)
+			}
+		}
+	}
+
+
 }
 
 func Quadrotor() {

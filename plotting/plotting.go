@@ -171,12 +171,15 @@ func savePlot(title, directory string, plot *plot.Plot) {
 
 func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, yValues, xLabel, yLabel, format string, startTime, endTime, timeIncrement, width, height float64) {
 
-bestSolutions := map[string]float64{}
+	bestSolutions := map[string]float64{}
 
 	anytimeData := map[string][][][]string{}
 
+	algorithms := []string{}
+
 	for _, ds := range dss {
 		anytimeData[ds.GetName()] = ds.GetColumnValuesWithKey(tableName, "inst", xValues, yValues)
+		algorithms = append(algorithms, ds.GetName())
 
 		for _, dfValues := range anytimeData[ds.GetName()] {
 
@@ -193,14 +196,18 @@ bestSolutions := map[string]float64{}
 		}
 	}
 
+	sort.Strings(algorithms)
+
+	fmt.Println(algorithms)
+
 	var plottingPointArgs []interface{}
 	var plottingErrorArgs []interface{}
 
-	for i, ds := range dss {
+	for i, algorithmName := range algorithms {
 
 		//Build a function that maps x -> y's across the entire dataset
 		generator := func(val float64) []float64 {
-			dsValues := anytimeData[ds.GetName()]
+			dsValues := anytimeData[algorithmName]
 			sampledPoints := make([]float64, len(dsValues))
 			for i := range sampledPoints {
 				sampledPoints[i] = 0
@@ -241,7 +248,7 @@ bestSolutions := map[string]float64{}
 			panic(err)
 		}
 
-		plottingPointArgs = append(plottingPointArgs, ds.GetName(), points)
+		plottingPointArgs = append(plottingPointArgs, algorithmName, points)
 		plottingErrorArgs = append(plottingErrorArgs, errorBars)
 	}
 
@@ -263,10 +270,59 @@ bestSolutions := map[string]float64{}
 
 	filename := strings.Replace(title, " ", "", -1) + strings.Replace(yLabel, " ", "", -1) + format
 
-
 	fmt.Println(filename)
 
 	if err := p.Save(vg.Length(width)*vg.Inch, vg.Length(height)*vg.Inch, filename); err != nil {
 		panic(err)
 	}
 }
+
+func makeBarPlot(data map[string]float64, title, directory, yLabel, format string, width, height float64) {
+	p, err := plot.New()
+	if err != nil {
+	    panic(err)
+	}
+
+	w := vg.Length(width / (float64(len(data)) + 2.))*vg.Inch
+
+	
+	algorithms := []string{}
+	for algorithmName, _ := range data {
+		algorithms = append(algorithms, algorithmName)
+	}
+
+	sort.Strings(algorithms)
+
+
+	algIndex := 0
+	for _, algorithmName := range algorithms {
+		solvedCount := data[algorithmName]
+		
+		bar, err := plotter.NewBarChart(plotter.Values{solvedCount}, w)
+		if err != nil {
+			panic(err)
+		}		
+		bar.LineStyle.Width = vg.Length(0)
+		bar.Color = plotutil.Color(algIndex)
+		bar.Offset = w * vg.Length(len(data) / 2 - algIndex)
+
+		p.Add(bar)
+		p.Legend.Add(algorithmName, bar)
+
+		algIndex++
+	}
+
+	p.Title.Text = title
+	p.Y.Label.Text = yLabel
+	p.Y.Min = 0.0
+	p.Y.Max = 1.0
+    p.Legend.Top = true	
+    p.NominalX("")
+
+    filename := strings.Replace(title, " ", "", -1) + "_bars" + format
+
+	if err := p.Save(vg.Length(width)*vg.Inch, vg.Length(height)*vg.Inch, filename); err != nil {
+		panic(err)
+	}
+}
+
