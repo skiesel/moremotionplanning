@@ -76,6 +76,7 @@ function getDomainPathAttrs() {
 	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
 	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
 	path="$path map=${MAP[$STARTGOAL_C]}"
+	path="$path agent=quadrotor.dae"
 
 	INST=""
 	getInstanceNumber $STARTGOAL_C INST

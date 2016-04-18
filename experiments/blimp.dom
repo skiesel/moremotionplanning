@@ -76,6 +76,7 @@ function getDomainPathAttrs() {
 	path="$path max_control_duration=${MAXCTRLDUR[$MAXCTRLDUR_C]}"
 	path="$path goal_radius=${GOALRADIUS[$GOALRADIUS_C]}"
 	path="$path map=${MAP[$STARTGOAL_C]}"
+	path="$path agent=blimp.dae"
 
 	INST=""
 	getInstanceNumber $STARTGOAL_C INST
@@ -96,7 +97,6 @@ function getDomainParamFile() {
 	param="${param}${STARTGOAL[$STARTGOAL_C]}\n"
 	param="${param}EnvironmentBounds ? ${BOUNDS[$STARTGOAL_C]}\n"
 	param="${param}EnvironmentMesh ? ${MAP[$STARTGOAL_C]}\n"
-
 	param="${param}AgentMesh ? blimp.dae\n"
 	
 
