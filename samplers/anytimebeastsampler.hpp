@@ -32,14 +32,22 @@ public:
 		unsigned int abstractionSize = abstraction->getAbstractionSize();
 		vertices.reserve(abstractionSize);
 
+		ompl::base::ScopedState<> startStateSS(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
+		ompl::base::ScopedState<> endStateSS(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
+
 		for(unsigned int i = 0; i < abstractionSize; ++i) {
 			vertices.emplace_back(i);
 			const auto *startState = abstraction->getState(i);
+			startStateSS = startState;
+			ompl::base::ScopedState<> fullStartState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(startStateSS);
 
 			auto neighbors = abstraction->getNeighboringCells(i);
 			for(auto n : neighbors) {
 				const auto *endState = abstraction->getState(n);
-				ompl::base::Cost cost = optimizationObjective->motionCostHeuristic(startState, endState);
+				endStateSS = endState;
+				ompl::base::ScopedState<> fullEndState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(endStateSS);
+
+				ompl::base::Cost cost = optimizationObjective->motionCostHeuristic(fullStartState.get(), fullEndState.get());
 
 				auto *edgeA = getEdge(i, n);
 				edgeA->initialEstimatedEdgeCost = cost.value();
@@ -91,17 +99,6 @@ public:
 	}
 
 	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
-#ifdef STREAM_GRAPHICS
-		// static unsigned int sampleCount = 0;
-		// if(sampleCount++ % 100 == 0) {
-			// fprintf(stderr, "open: %u\n", open.getFill());
-			// writeVertexFile(sampleCount / 1000);
-			// writeOpenEdgeFile(sampleCount / 1000);
-			// writeUpdatedEdgeFile(sampleCount / 10);
-		// 	writeEdgeFile(sampleCount / 100, 1);
-		// }
-#endif
-
 		//This will fail when we're (res)starting or if the target edge start vertex was cleaned out due to SST pruning
 		if(targetEdge != NULL && vertices[targetEdge->startID].states.size() > 1) {
 			if(targetSuccess) {
