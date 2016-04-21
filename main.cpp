@@ -98,9 +98,6 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 	benchmarkData.benchmark->benchmark(req);
 	benchmarkData.benchmark->saveResultsToFile(params.stringVal("Output").c_str());
 
-	// params.stringVal("Output").c_str();
-
-
 	// If there were multiple solutions being logged to global parameters, append them to the output file
 	// for some reason the OMPL benchmarking doesn't include all the solutions added, just the final one
 	if(globalParameters.solutionStream.solutions.size() > 0) {
