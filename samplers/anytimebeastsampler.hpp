@@ -207,9 +207,10 @@ public:
 		incomingState = end;
 		unsigned int endCellId = abstraction->mapToAbstractRegion(incomingState);
 
-		// costDistributions[endCellId].addGValue(endG);
+		costDistributions[endCellId].addGValue(endG);
 
-		// costDistributions[endCellId].addHValue(optimizationObjective->costToGo(end, goalPtr.get()).value());
+		//pass this value back up through the tree branch?
+		costDistributions[endCellId].addHValue(optimizationObjective->costToGo(end, goalPtr.get()).value());
 
 		vertices[endCellId].addState(end);
 
