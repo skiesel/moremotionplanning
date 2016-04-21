@@ -6,11 +6,13 @@
 #include "../structs/filemap.hpp"
 #include "../samplers/anytimebeastsampler.hpp"
 
+#include "../samplers/beastsampler_dstar.hpp"
+
 namespace ompl {
 
 namespace control {
 
-class AnytimeBeastPlanner : public ompl::base::Planner {
+class AnytimeBeastPlanner : public ompl::control::RRT {
 protected:
 	class Witness;
 
@@ -18,18 +20,16 @@ public:
 	
 	/** \brief Constructor */
 	AnytimeBeastPlanner(const SpaceInformationPtr &si, const FileMap &params) :
-		base::Planner(si, "AnytimeBeastPlanner"), newsampler(NULL), params(params) {
+		ompl::control::RRT(si), params(params) {
 
-		siC = si.get();
-		propagationStepSize = siC->getPropagationStepSize();
-		useHeuristic = true;
+		setName("AnytimeBeastPlanner");
+
+		propagationStepSize = siC_->getPropagationStepSize();
 
 		selectionRadius = params.doubleVal("SelectionRadius");
 		pruningRadius = params.doubleVal("PruningRadius");
 		n0 = params.doubleVal("N0");
 		xi = params.doubleVal("Xi");
-
-		addIntermediateStates = false;
 
 		Planner::declareParam<bool>("intermediate_states", this, &AnytimeBeastPlanner::setIntermediateStates, &AnytimeBeastPlanner::getIntermediateStates);
 
@@ -74,197 +74,150 @@ public:
 	
 	double getSamplerInitializationTime() const { return samplerInitializationTime; }
 
-	bool getIntermediateStates() const { return addIntermediateStates; }
-	void setIntermediateStates(bool add) { addIntermediateStates = add; }
+	bool getIntermediateStates() const { return addIntermediateStates_; }
+	void setIntermediateStates(bool add) { addIntermediateStates_ = add; }
 
 	virtual void setup() {
-		base::Planner::setup();
-		if(!nn)
-			nn.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion *>(this));
-		nn->setDistanceFunction(std::bind(&AnytimeBeastPlanner::distanceFunction, this,
-		                                   std::placeholders::_1, std::placeholders::_2));
+		ompl::control::RRT::setup();
 		if(!witnesses)
 			witnesses.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion *>(this));
-		witnesses->setDistanceFunction(std::bind(&AnytimeBeastPlanner::distanceFunction, this,
-		                                std::placeholders::_1, std::placeholders::_2));
+		witnesses->setDistanceFunction(boost::bind(&AnytimeBeastPlanner::distanceFunction, this, _1, _2));
 	}
 
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
 		start = clock();
 
-		ompl::base::PlannerStatus status(false, true);
-
-		double j = 0;
-		double d = siC->getStateSpace()->getDimension();
-		double l = siC->getControlSpace()->getDimension();
-		double SSTStarIteration = 0;
-		unsigned int iterationBound = n0;
-
-		optimizationObjective = globalParameters.optimizationObjective;
-		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
-
 		checkValidity();
 		base::Goal                   *goal = pdef_->getGoal().get();
-		base::GoalSampleableRegion *goals = dynamic_cast<base::GoalSampleableRegion *>(goal);
+		base::GoalSampleableRegion *goal_s = dynamic_cast<base::GoalSampleableRegion *>(goal);
 
 		while(const base::State *st = pis_.nextStart()) {
-			Motion *motion = new Motion(siC);
+			Motion *motion = new MotionWithCost(siC_);
 			si_->copyState(motion->state, st);
-			siC->nullControl(motion->control);
-			nn->add(motion);
+			siC_->nullControl(motion->control);
+			nn_->add(motion);
 
-			auto witness = new Witness(siC);
+			auto witness = new Witness(siC_);
 			si_->copyState(witness->state, motion->state);
 			witness->rep = motion;
 			witnesses->add(witness);
 		}
 
-		if(nn->size() == 0) {
+		if(nn_->size() == 0) {
 			OMPL_ERROR("%s: There are no valid initial states!", getName().c_str());
 			return base::PlannerStatus::INVALID_START;
 		}
 
-		if(!newsampler) {
-			auto initStart = clock();
+		optimizationObjective = globalParameters.optimizationObjective;
+		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
 
-			newsampler = new ompl::base::AnytimeBeastSampler((ompl::base::SpaceInformation*)siC, pdef_->getStartState(0), pdef_->getGoal(),
-			        goals, optimizationObjective, params);
-		
+		unsigned int iterations = 0;
+		double j = 0;
+		double d = siC_->getStateSpace()->getDimension();
+		double l = siC_->getControlSpace()->getDimension();
+		double SSTStarIteration = 0;
+		unsigned int iterationBound = n0;
+
+		if(!newsampler) {
+			auto start = clock();
+
+			newsampler = new ompl::base::AnytimeBeastSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params);
+
 			newsampler->initialize();
 
-			samplerInitializationTime = (double)(clock() - initStart) / CLOCKS_PER_SEC;
+			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
 		}
-		if(!controlSampler)
-			controlSampler = siC->allocDirectedControlSampler();
+		if(!controlSampler_)
+			controlSampler_ = siC_->allocDirectedControlSampler();
 
-		OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn->size());
+		OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size());
 
 		while(ptc == false) {
-
-			// clear();
-			auto newStatus = subSolve(ptc, goal, iterationBound);
+			subSolve(ptc, goal, iterationBound);
 
 			SSTStarIteration++;
 			selectionRadius *= xi;
 			pruningRadius *= xi;
 			iterationBound += (1 + log(SSTStarIteration)) * pow(xi, -(d + l + 1) * SSTStarIteration) * n0;
-
-			if(newStatus == ompl::base::PlannerStatus::EXACT_SOLUTION) {
-				status = newStatus;
-			}
 		}
 
-		return status;
-	}
-
-	virtual void clear() {
-		Planner::clear();
-		// sampler_.reset();
-		// controlSampler_.reset();
-		// freeMemory();
-		// if(nn_)
-		// 	nn_->clear();
-		// if(witnesses_)
-		// 	witnesses_->clear();
+		return ompl::base::PlannerStatus(false, false);
 	}
 
 protected:
 
-base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl::base::Goal *goal, unsigned int iterationBound) {
-		Motion *solution  = NULL;
-		Motion *approxsol = NULL;
-		double  approxdif = std::numeric_limits<double>::infinity();
-
-		Motion      *rmotion = new Motion(siC);
+	void subSolve(const base::PlannerTerminationCondition &ptc, base::Goal* goal, unsigned int iterationBound) {
+		Motion      *rmotion = new MotionWithCost(siC_);
 		base::State  *rstate = rmotion->state;
 		Control       *rctrl = rmotion->control;
-		base::State  *xstate = si_->allocState();
 
-		Motion *resusableMotion = new Motion(siC);
+		Motion *resusableMotion = new MotionWithCost(siC_);
 
 		unsigned int iterations = 0;
 
 		while(ptc == false && iterations < iterationBound) {
-			globalIterations++;
-#ifdef STREAM_GRAPHICS
-			if(globalIterations % 1000 == 0) {
-				dumpCurrentTree();
-			}
-#endif
+			iterations++;
+
+			Motion *nmotion = NULL;
 
 			newsampler->sample(resusableMotion->state, rstate);
-			Motion *nmotion = selectNode(rmotion);
 
-#ifdef STREAM_GRAPHICS
-			streamPoint(rmotion->state, 0, 1, 0, 1);
-#endif
+			// nmotion = nn_->nearest(resusableMotion);
+			// nmotion = nn_->nearest(rmotion);
+			nmotion = selectNode(rmotion);
 
-			/* sample a random control that attempts to go towards the random state, and also sample a control duration */
-			unsigned int cd = controlSampler->sampleTo(rctrl, nmotion->control, nmotion->state, rmotion->state);
+			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control, nmotion->state, rmotion->state);
 
-			if(addIntermediateStates) {
-				// this code is contributed by Jennifer Barry
+			if(addIntermediateStates_) {
 				std::vector<base::State *> pstates;
-				cd = siC->propagateWhileValid(nmotion->state, rctrl, cd, pstates, true);
+				cd = siC_->propagateWhileValid(nmotion->state, rctrl, cd, pstates, true);
 
-				if(cd >= siC->getMinControlDuration()) {
+				if(cd >= siC_->getMinControlDuration()) {
 					Motion *lastmotion = nmotion;
 					bool solved = false;
 					size_t p = 0;
 					std::vector<Motion*> addedMotions;
 					for(; p < pstates.size(); ++p) {
-						/* create a motion */
-						Motion *motion = new Motion(siC);
+						Motion *motion = new MotionWithCost();
 						motion->state = pstates[p];
 
-						//we need multiple copies of rctrl
-						motion->control = siC->allocControl();
-						siC->copyControl(motion->control, rctrl);
+						motion->control = siC_->allocControl();
+						siC_->copyControl(motion->control, rctrl);
 						motion->steps = 1;
 						motion->parent = lastmotion;
-						motion->updateGValue(propagationStepSize);
-						lastmotion = motion;
+						((MotionWithCost*)motion)->updateGValue(propagationStepSize);
 
-						ompl::base::Cost h = useHeuristic ? optimizationObjective->costToGo(motion->state, goal) : ompl::base::Cost(0);
-						ompl::base::Cost f = optimizationObjective->combineCosts(motion->g, h);
+						ompl::base::Cost h = optimizationObjective->costToGo(motion->state, goal);
+						ompl::base::Cost f = optimizationObjective->combineCosts(((MotionWithCost*)motion)->g, h);
 						if(!optimizationObjective->isSatisfied(f)) {
 							break;
 						}
 
-						lastmotion->numChildren++;
+						newsampler->reached(lastmotion->state, ((MotionWithCost*)lastmotion)->g.value(), pstates[p], ((MotionWithCost*)motion)->g.value());
 
+						((MotionWithCost*)lastmotion)->numChildren++;
 						addedMotions.emplace_back(motion);
-						newsampler->reached(nmotion->state, nmotion->g.value(), pstates[p], motion->g.value());
+						nn_->add(motion);
 
-#ifdef STREAM_GRAPHICS
-						// streamPoint(pstates[p], 1, 0, 0, 1);
-#endif
+						lastmotion = motion;
 
-						nn->add(motion);
 						double dist = 0.0;
 						solved = goal->isSatisfied(motion->state, &dist);
-						if(solved && optimizationObjective->isSatisfied(motion->g)) {
-							approxdif = dist;
-							solution = motion;
-
-							optimizationObjective->setCostThreshold(solution->g);
-							globalParameters.solutionStream.addSolution(solution->g, start);
-							newsampler->foundSolution(solution->g);
-							OMPL_INFORM("Found solution with cost %.2f", solution->g.value());
-
+						if(solved && optimizationObjective->isSatisfied(((MotionWithCost*)motion)->g)) {
+							globalParameters.solutionStream.addSolution(((MotionWithCost*)motion)->g, start);
+							newsampler->foundSolution(((MotionWithCost*)motion)->g);
+							optimizationObjective->setCostThreshold(((MotionWithCost*)motion)->g);
 							break;
-						}
-						if(dist < approxdif) {
-							approxdif = dist;
-							approxsol = motion;
 						}
 					}
 
-					//post process the branch just added for SST* like pruning from leaf to root
+					// post process the branch just added for SST* like pruning from leaf to root
 					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {
 						Motion *motion = *addedMotionsIterator;
 						Witness *closestWitness = findClosestWitness(motion);
-						if(closestWitness->rep == motion || optimizationObjective->isCostBetterThan(motion->g, closestWitness->rep->g)) {
+						if(closestWitness->rep == motion ||
+							optimizationObjective->isCostBetterThan(((MotionWithCost*)motion)->g, ((MotionWithCost*)closestWitness->rep)->g)) {
+
 							Motion *oldRep = closestWitness->rep;
 							closestWitness->linkRep(motion);
 							if(oldRep != motion) {
@@ -277,68 +230,52 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 					}
 
 					//free any states after we hit the goal
-					while(++p < pstates.size()) {
-						newsampler->remove(pstates[p]);
+					while(++p < pstates.size())
 						si_->freeState(pstates[p]);
-					}
 					if(solved)
 						break;
-				} else
-					for(size_t p = 0 ; p < pstates.size(); ++p) {
-						newsampler->remove(pstates[p]);
+				} else {
+					for(size_t p = 0 ; p < pstates.size(); ++p)
 						si_->freeState(pstates[p]);
-					}
+				}
 			} else {
-				if(cd >= siC->getMinControlDuration()) {
+				if(cd >= siC_->getMinControlDuration()) {
 					/* create a motion */
-					Motion *motion = new Motion(siC);
+					Motion *motion = new MotionWithCost(siC_);
 
 					si_->copyState(motion->state, rmotion->state);
-					siC->copyControl(motion->control, rctrl);
+					siC_->copyControl(motion->control, rctrl);
 					motion->steps = cd;
 					motion->parent = nmotion;
-					motion->updateGValue(propagationStepSize);
+					((MotionWithCost*)motion)->updateGValue(propagationStepSize);
 
-					ompl::base::Cost h = useHeuristic ? optimizationObjective->costToGo(motion->state, goal) : ompl::base::Cost(0);
-					ompl::base::Cost f = optimizationObjective->combineCosts(motion->g, h);
+					ompl::base::Cost h = optimizationObjective->costToGo(motion->state, goal);
+					ompl::base::Cost f = optimizationObjective->combineCosts(((MotionWithCost*)motion)->g, h);
 					if(optimizationObjective->isSatisfied(f)) {
-
-						Witness *closestWitness = findClosestWitness(rmotion);
 
 						double dist = 0.0;
 						bool solv = goal->isSatisfied(motion->state, &dist);
-						if(solv && optimizationObjective->isSatisfied(motion->g)) {
-							approxdif = dist;
-							solution = motion;
-
-							optimizationObjective->setCostThreshold(solution->g);
-							globalParameters.solutionStream.addSolution(solution->g, start);
-							newsampler->foundSolution(solution->g);
-							OMPL_INFORM("Found solution with cost %.2f", solution->g.value());
-
+						if(solv && optimizationObjective->isSatisfied(((MotionWithCost*)motion)->g)) {
+							globalParameters.solutionStream.addSolution(((MotionWithCost*)motion)->g, start);
+							newsampler->foundSolution(((MotionWithCost*)motion)->g);
+							optimizationObjective->setCostThreshold(((MotionWithCost*)motion)->g);
 							break;
 						}
-						if(dist < approxdif) {
-							approxdif = dist;
-							approxsol = motion;
-						}
 
-						if(closestWitness->rep == rmotion || optimizationObjective->isCostBetterThan(motion->g, closestWitness->rep->g)) {
+						Witness *closestWitness = findClosestWitness(motion);
+
+						if(closestWitness->rep == motion || optimizationObjective->isCostBetterThan(((MotionWithCost*)nmotion)->g, ((MotionWithCost*)closestWitness->rep)->g)) {
 
 							Motion *oldRep = closestWitness->rep;
-							nmotion->numChildren++;
 							closestWitness->linkRep(motion);
+							((MotionWithCost*)nmotion)->numChildren++;
 
-							newsampler->reached(nmotion->state, nmotion->g.value(), motion->state, motion->g.value());
+							newsampler->reached(nmotion->state, ((MotionWithCost*)nmotion)->g.value(), motion->state, ((MotionWithCost*)motion)->g.value());
 
-#ifdef STREAM_GRAPHICS
-							streamPoint(nmotion->state, 1, 0, 0, 1);
-							streamPoint(motion->state, 1, 0, 0, 1);
-#endif
+							((MotionWithCost*)nmotion)->numChildren++;
+							nn_->add(motion);
 
-							nn->add(motion);
-
-							if(oldRep != rmotion) {
+							if(oldRep != motion) {
 								cleanupTree(oldRep);
 							}
 						}
@@ -347,52 +284,96 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 			}
 		}
 
-		bool solved = false;
-		bool approximate = false;
-		if(solution == nullptr) {
-			solution = approxsol;
-			approximate = true;
-		}
-
 		if(rmotion->state)
 			si_->freeState(rmotion->state);
 		if(rmotion->control)
-			siC->freeControl(rmotion->control);
+			siC_->freeControl(rmotion->control);
 		delete rmotion;
-		si_->freeState(xstate);
 
-		OMPL_INFORM("%s: Created %u states", getName().c_str(), nn->size());
-
-		return base::PlannerStatus(solved, approximate);
+		OMPL_INFORM("%s: Created %u states", getName().c_str(), nn_->size());
 	}
 
-	class Motion {
+	double distanceFunction(const Motion *a, const Motion *b) const {
+		return si_->distance(a->state, b->state);
+	}
+
+	Motion *selectNode(Motion *sample) {
+		std::vector<Motion *> ret;
+		Motion *selected = nullptr;
+		base::Cost bestCost = optimizationObjective->infiniteCost();
+		nn_->nearestR(sample, selectionRadius, ret);
+		for(unsigned int i = 0; i < ret.size(); i++) {
+			if(!((MotionWithCost*)ret[i])->inactive && optimizationObjective->isCostBetterThan(((MotionWithCost*)ret[i])->g, bestCost)) {
+				bestCost = ((MotionWithCost*)ret[i])->g;
+				selected = ret[i];
+			}
+		}
+		if(selected == nullptr) {
+			int k = 1;
+			while(selected == nullptr) {
+				nn_->nearestK(sample, k, ret);
+				for(unsigned int i=0; i < ret.size() && selected == nullptr; i++)
+					if(!((MotionWithCost*)ret[i])->inactive)
+						selected = ret[i];
+				k += 5;
+			}
+		}
+		return selected;
+	}
+
+	Witness *findClosestWitness(Motion *node) {
+		if(witnesses->size() > 0) {
+			Witness *closest = (Witness *)witnesses->nearest(node);
+			if(distanceFunction(closest,node) > pruningRadius) {
+				closest = new Witness(siC_);
+				closest->linkRep(node);
+				si_->copyState(closest->state, node->state);
+				witnesses->add(closest);
+			}
+			return closest;
+		} else {
+			Witness *closest = new Witness(siC_);
+			closest->linkRep(node);
+			si_->copyState(closest->state, node->state);
+			witnesses->add(closest);
+			return closest;
+		}
+	}
+
+	void cleanupTree(Motion *oldRep) {
+		((MotionWithCost*)oldRep)->inactive = true;
+
+		nn_->remove(oldRep);
+		while(((MotionWithCost*)oldRep)->inactive && ((MotionWithCost*)oldRep)->numChildren == 0) {
+			newsampler->remove(oldRep->state);
+
+			if(oldRep->state)
+				si_->freeState(oldRep->state);
+			if(oldRep->control)
+				siC_->freeControl(oldRep->control);
+
+			oldRep->state = nullptr;
+			oldRep->control = nullptr;
+			((MotionWithCost*)oldRep->parent)->numChildren--;
+			Motion *oldRepParent = oldRep->parent;
+			delete oldRep;
+			oldRep = oldRepParent;
+		}
+	}
+
+	class MotionWithCost : public Motion {
 	public:
+		MotionWithCost() {}
 
-		Motion() :state(nullptr), control(nullptr) {}
-
-		Motion(const SpaceInformation *si) : state(si->allocState()), control(si->allocControl()) {}
-
-		virtual ~Motion() {}
-
-		virtual base::State *getState() const {
-			return state;
-		}
-
-		virtual Motion *getParent() const {
-			return parent;
-		}
+		MotionWithCost(const SpaceInformation *si) : Motion(si) {}
 
 		void updateGValue(double propagationStepSize) {
-			g = ompl::base::Cost(parent->g.value() + propagationStepSize * steps);
+			g = ompl::base::Cost(((MotionWithCost*)parent)->g.value() + propagationStepSize * steps);
 		}
 
-		base::State *state;
-		Control *control;
-		Motion *parent = nullptr;
-		unsigned int steps = 0, numChildren = 0;
-		bool inactive = false;
 		ompl::base::Cost g = ompl::base::Cost(0);
+		unsigned int numChildren = 0;
+		bool inactive = false;
 	};
 
 	class Witness : public Motion {
@@ -417,119 +398,12 @@ base::PlannerStatus subSolve(const base::PlannerTerminationCondition &ptc, ompl:
 		Motion *rep;
 	};
 
-	Motion *selectNode(Motion *sample) {
-		std::vector<Motion *> ret;
-		Motion *selected = nullptr;
-		base::Cost bestCost = optimizationObjective->infiniteCost();
-		nn->nearestR(sample, selectionRadius, ret);
-		for(unsigned int i = 0; i < ret.size(); i++) {
-			if(!ret[i]->inactive && optimizationObjective->isCostBetterThan(ret[i]->g, bestCost)) {
-				bestCost = ret[i]->g;
-				selected = ret[i];
-			}
-		}
-		if(selected == nullptr) {
-			int k = 1;
-			while(selected == nullptr) {
-				nn->nearestK(sample, k, ret);
-				for(unsigned int i=0; i < ret.size() && selected == nullptr; i++)
-					if(!ret[i]->inactive)
-						selected = ret[i];
-				k += 5;
-			}
-		}
-		return selected;
-	}
+	ompl::base::AnytimeBeastSampler *newsampler = NULL;
 
-	Witness *findClosestWitness(Motion *node) {
-		if(witnesses->size() > 0) {
-			Witness *closest = (Witness *)witnesses->nearest(node);
-			if(distanceFunction(closest,node) > pruningRadius) {
-				closest = new Witness(siC);
-				closest->linkRep(node);
-				si_->copyState(closest->state, node->state);
-				witnesses->add(closest);
-			}
-			return closest;
-		} else {
-			Witness *closest = new Witness(siC);
-			closest->linkRep(node);
-			si_->copyState(closest->state, node->state);
-			witnesses->add(closest);
-			return closest;
-		}
-	}
-
-	void cleanupTree(Motion *oldRep) {
-		oldRep->inactive = true;
-
-		nn->remove(oldRep);
-		while(oldRep->inactive && oldRep->numChildren == 0) {
-			newsampler->remove(oldRep->state);
-
-			if(oldRep->state)
-				si_->freeState(oldRep->state);
-			if(oldRep->control)
-				siC->freeControl(oldRep->control);
-
-			oldRep->state = nullptr;
-			oldRep->control = nullptr;
-			oldRep->parent->numChildren--;
-			Motion *oldRepParent = oldRep->parent;
-			delete oldRep;
-			oldRep = oldRepParent;
-		}
-	}
-
-	void freeMemory() {
-		assert(false);
-		if(nn) {
-			std::vector<Motion *> motions;
-			nn->list(motions);
-			for(unsigned int i = 0 ; i < motions.size() ; ++i) {
-				if(motions[i]->state)
-					si_->freeState(motions[i]->state);
-				if(motions[i]->control)
-					siC->freeControl(motions[i]->control);
-				delete motions[i];
-			}
-		}
-		if(witnesses) {
-			std::vector<Motion *> witnesseList;
-			witnesses->list(witnesseList);
-			for(unsigned int i = 0 ; i < witnesseList.size() ; ++i) {
-				delete witnesseList[i];
-			}
-		}
-	}
-
-	/** \brief Compute distance between motions (actually distance between contained states) */
-	double distanceFunction(const Motion *a, const Motion *b) const {
-		return si_->distance(a->state, b->state);
-	}
-
-#ifdef STREAM_GRAPHICS
-	void dumpCurrentTree() const {
-		streamClearScreen();
-		std::vector<Motion *> motions;
-		nn->list(motions);
-		for(unsigned int i = 0 ; i < motions.size() ; ++i) {
-			if(!motions[i]->inactive && motions[i]->parent != nullptr) {
-				streamLine(motions[i]->parent->state, motions[i]->state, 1,1,1,1);
-			}
-		}
-	}
-#endif
-
-	ompl::base::AnytimeBeastSampler *newsampler;
-	DirectedControlSamplerPtr controlSampler;
-	const SpaceInformation *siC;
-	std::shared_ptr< NearestNeighbors<Motion *> > nn, witnesses;
-	RNG rng;
+	std::shared_ptr< NearestNeighbors<Motion *> > witnesses;
 	base::OptimizationObjectivePtr optimizationObjective;
 	double propagationStepSize, selectionRadius, pruningRadius, xi, n0, samplerInitializationTime = 0;
 	clock_t start;
-	bool addIntermediateStates, useHeuristic;
 	unsigned int globalIterations = 0;
 
 	const FileMap &params;

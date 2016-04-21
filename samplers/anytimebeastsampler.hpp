@@ -1,15 +1,5 @@
 #pragma once
 
-/*
-
-	After first solution is found
-		Keep effort estimates, edges, states, etc (helpful knowledge)
-		Empty open, add back start edges (restarts the search progress, kind of makes sense?)
-		Only include edges within cost bound (keep the search focused)
-			Are cost estimates admissible? (if not we can't prune using them)
-			Can we prune?
-*/
-
 #include "beastsampler_dstar.hpp"
 
 namespace ompl {
@@ -17,45 +7,82 @@ namespace ompl {
 namespace base {
 
 class AnytimeBeastSampler : public ompl::base::BeastSampler_dstar {
+protected:
+	class DistributionTriple {
+		class NormalDistribution {
+		public:
+			void addDataPoint(double value) {
+				double oldMu = mu;
+				mu += (value - oldMu) / (double)n;
+				sigma = (n - 1) * sigma * sigma + (value - oldMu) * (value - mu);
+				n++;
+			}
+
+			inline double getMu() const {
+				return mu;
+			}
+
+			inline double getSigma() const {
+				return sigma;
+			}
+
+			double getCDF(double value) const {
+				return 0.5 * (1 + std::erf((value - mu) / (sqrt(2 * sigma))));
+			}
+
+			void add(const NormalDistribution &a, const NormalDistribution &b) {
+				mu = a.mu + b.mu;
+				sigma = a.sigma + b.sigma;
+			}
+
+		protected:
+			double mu = 0, sigma = 0;
+			unsigned int n = 1;
+		};
+
+	public:
+		void addGValue(double value) {
+			g.addDataPoint(value);
+		}
+		
+		void addHValue(double value) {
+			h.addDataPoint(value);
+		}
+
+		double getProbabilityFLessThanEqual(double incumbent) {
+			f.add(g, h);
+			//really it's like (incumbent - epsilon) but it's not going to matter
+			return f.getCDF(incumbent);
+		}
+
+	protected:
+		NormalDistribution g, h, f;
+	};
+
 public:
 	AnytimeBeastSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	            base::GoalSampleableRegion *gsr, const ompl::base::OptimizationObjectivePtr &optimizationObjective, const FileMap &params) :
-					BeastSampler_dstar(base, start, goal, gsr, params), optimizationObjective(optimizationObjective) {}
+					BeastSampler_dstar(base, start, goal, gsr, params), optimizationObjective(optimizationObjective), goalPtr(goal) {}
 
 	~AnytimeBeastSampler() {}
 
 	virtual void initialize() {
 		BeastSamplerBase::initialize();
 
-		globalEdgeCostCorrection.addToAverage(1);
-
 		unsigned int abstractionSize = abstraction->getAbstractionSize();
 		vertices.reserve(abstractionSize);
+
+		costDistributions.resize(abstractionSize);
 
 		ompl::base::ScopedState<> startStateSS(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
 		ompl::base::ScopedState<> endStateSS(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
 
 		for(unsigned int i = 0; i < abstractionSize; ++i) {
 			vertices.emplace_back(i);
-			const auto *startState = abstraction->getState(i);
-			startStateSS = startState;
-			ompl::base::ScopedState<> fullStartState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(startStateSS);
-
 			auto neighbors = abstraction->getNeighboringCells(i);
 			for(auto n : neighbors) {
-				const auto *endState = abstraction->getState(n);
-				endStateSS = endState;
-				ompl::base::ScopedState<> fullEndState = globalParameters.globalAppBaseControl->getFullStateFromGeometricComponent(endStateSS);
-
-				ompl::base::Cost cost = optimizationObjective->motionCostHeuristic(fullStartState.get(), fullEndState.get());
-
-				auto *edgeA = getEdge(i, n);
-				edgeA->initialEstimatedEdgeCost = cost.value();
-				edgeA->updateEdgeCostHistory(cost.value());
-
-				auto *edgeB = getEdge(n, i);
-				edgeB->initialEstimatedEdgeCost = cost.value();
-				edgeB->updateEdgeCostHistory(cost.value());
+				getEdge(i, n);
+				getEdge(n, i);
 			}
 		}
 
@@ -63,14 +90,9 @@ public:
 		vertices[goalID].key = calculateKey(goalID);
 		U.push(&vertices[goalID]);
 
-		vertices[goalID].cost_rhs = 0;
-		vertices[goalID].key = calculateKey(goalID);
-		cost_U.push(&vertices[goalID]);
-
 		{
 			Timer t("D* lite");
 			computeShortestPath();
-			cost_computeShortestPath();
 		}
 
 		for(auto eset : edges) {
@@ -83,24 +105,9 @@ public:
 		addOutgoingEdgesToOpen(startID);
 	}
 
-	void remove(ompl::base::State *state) {
-		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
-		incomingState = state;
-		unsigned int newCellId = abstraction->mapToAbstractRegion(incomingState);
-		vertices[newCellId].removeState(state);
-	}
-
-	void foundSolution(const ompl::base::Cost &incumbent) {
-		incumbentCost = incumbent.value();
-		targetEdge = NULL;
-		addedGoalEdge = false;
-		open.clear();
-		addOutgoingEdgesToOpen(startID);
-	}
-
 	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
-		//This will fail when we're (res)starting or if the target edge start vertex was cleaned out due to SST pruning
-		if(targetEdge != NULL && vertices[targetEdge->startID].states.size() > 1) {
+		if(targetEdge != NULL) { //only will fail the first time through
+
 			if(targetSuccess) {
 				if(!addedGoalEdge && targetEdge->endID == goalID) {
 					Edge *goalEdge = new Edge(goalID, goalID);
@@ -123,26 +130,26 @@ public:
 				targetEdge->failurePropagation();
 				updateEdgeEffort(targetEdge, targetEdge->getEstimatedRequiredSamples() + vertices[targetEdge->endID].g);
 			}
+
 			updateVertex(targetEdge->startID);
 			computeShortestPath();
+
 			if(targetSuccess) {
 				addOutgoingEdgesToOpen(targetEdge->endID);
 			}
 		}
+
 		while(true) {
 			assert(!open.isEmpty());
 
 			targetEdge = open.peek();
 
-			if(vertices[targetEdge->startID].states.size() <= 0 || targetEdge->getEstimatedFCost() > incumbentCost) {
+			if(vertices[targetEdge->startID].states.size() <= 0 || !shouldExpand(targetEdge)) {
 				open.pop();
 			} else if(targetEdge->status == Abstraction::Edge::UNKNOWN) {
 				Abstraction::Edge::CollisionCheckingStatus status = abstraction->isValidEdge(targetEdge->startID, targetEdge->endID) ? Abstraction::Edge::VALID :
 																																		Abstraction::Edge::INVALID;
 				targetEdge->updateEdgeStatusKnowledge(status);
-
-				//yes this looks weird but we need it for right now to do some debugging
-				updateEdgeEffort(targetEdge, targetEdge->effort);
 
 				updateVertex(targetEdge->startID);
 				computeShortestPath();
@@ -150,6 +157,7 @@ public:
 				break;
 			}
 		}
+
 		targetSuccess = false;
 
 		if(targetEdge->startID == targetEdge->endID && targetEdge->startID == goalID) {
@@ -169,6 +177,28 @@ public:
 		return true;
 	}
 
+	void remove(ompl::base::State *state) {
+		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
+		incomingState = state;
+		unsigned int newCellId = abstraction->mapToAbstractRegion(incomingState);
+		vertices[newCellId].removeState(state);
+	}
+
+	void foundSolution(const ompl::base::Cost &incumbent) {
+		incumbentCost = incumbent.value();
+		targetEdge = NULL;
+		addedGoalEdge = false;
+		open.clear();
+
+		for(auto &v : vertices) {
+			v.clearStates();
+		}
+
+		vertices[startID].addState(startState);
+
+		addOutgoingEdgesToOpen(startID);
+	}
+
 	void reached(ompl::base::State *start, double startG, ompl::base::State *end, double endG) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = start;
@@ -177,20 +207,9 @@ public:
 		incomingState = end;
 		unsigned int endCellId = abstraction->mapToAbstractRegion(incomingState);
 
-		vertices[endCellId].updateGCostHistory(endG);
-		double newG = vertices[endCellId].getAverageGCost();
-		for(auto &edge : edges[endCellId]) {
-			edge.second->estimatedGCost = newG;
-		}
+		// costDistributions[endCellId].addGValue(endG);
 
-		if(abstraction->edgeExists(startCellId, endCellId)) {
-			auto *e = getEdge(startCellId, endCellId);
-			double edgeCost = endG - startG;
-			globalEdgeCostCorrection.addToAverage(edgeCost / e->initialEstimatedEdgeCost);
-			e->updateEdgeCostHistory(edgeCost);
-			cost_updateVertex(e->startID);
-			cost_computeShortestPath();
-		}
+		// costDistributions[endCellId].addHValue(optimizationObjective->costToGo(end, goalPtr.get()).value());
 
 		vertices[endCellId].addState(end);
 
@@ -205,89 +224,15 @@ public:
 
 protected:
 
-	void updateEdgeEffort(Edge *e, double effort, bool addToOpen = true) {
-		e->effort = effort;
-		if(addToOpen && e->getEstimatedFCost() < incumbentCost) {
-			if(!open.inHeap(e)) {
-				open.push(e);
-			} else {
-				open.siftFromItem(e);
-			}
-		}
-	}
-
-	Key cost_calculateKey(unsigned int id) {
-		Vertex &s = vertices[id];
-		Key key;
-		key.first = std::min(s.cost_g, s.cost_rhs);
-		key.second = std::min(s.cost_g, s.cost_rhs);
-		return key;
-	}
-
-	void cost_updateVertex(unsigned int id) {
-		Vertex &s = vertices[id];
-		if(s.id != goalID) {
-			double minValue = std::numeric_limits<double>::infinity();
-			auto neighbors = abstraction->getNeighboringCells(id);
-			for(auto n : neighbors) {
-				Edge *e = getEdge(id, n);
-				double value = vertices[n].cost_g + e->getEstimatedEdgeCost(globalEdgeCostCorrection.average);
-				if(value < minValue) {
-					minValue = value;
-				}
-			}
-			s.cost_rhs = minValue;
-		}
-
-		if(cost_U.inHeap(&vertices[id])) {
-			cost_U.remove(&vertices[id]);
-		}
-
-		if(s.cost_g != s.cost_rhs) {
-			s.key = calculateKey(id);
-			cost_U.push(&vertices[id]);
-		}
-	}
-
-	void cost_computeShortestPath() {
-		while(!cost_U.isEmpty()) {
-			Vertex &u = vertices[cost_U.pop()->id];
-			Key k_old = u.key;
-			Key k_new = calculateKey(u.id);
-
-			if(k_old < k_new) {
-				u.key = k_new;
-				cost_U.push(&vertices[u.id]);
-			}
-			else if(u.cost_g > u.cost_rhs) {
-				u.cost_g = u.cost_rhs;
-				for(auto e : reverseEdges[u.id]) {
-					e.second->estimatedHCost = u.cost_g;
-				}
-
-				auto neighbors = getNeighboringCells(u.id);
-				for(auto n : neighbors) {
-					updateVertex(n);
-				}
-			} else {
-				u.cost_g = std::numeric_limits<double>::infinity();
-				for(auto e : reverseEdges[u.id]) {
-					e.second->estimatedHCost = u.cost_g;
-				}
-
-				updateVertex(u.id);
-				auto neighbors = abstraction->getNeighboringCells(u.id);
-				for(auto n : neighbors) {
-					updateVertex(n);
-				}
-			}
-		}
+	bool shouldExpand(const Edge* e) {
+		return true;//std::isinf(incumbentCost) || randomNumbers.uniform01() <= costDistributions[e->endID].getProbabilityFLessThanEqual(incumbentCost);
 	}
 
 	double incumbentCost = std::numeric_limits<double>::infinity();
-	InPlaceBinaryHeap<Vertex, Vertex> cost_U;
 	const ompl::base::OptimizationObjectivePtr &optimizationObjective;
-	RunningAverage globalEdgeCostCorrection;
+	std::vector<DistributionTriple> costDistributions;
+	const ompl::base::GoalPtr &goalPtr; 
+
 };
 
 }
