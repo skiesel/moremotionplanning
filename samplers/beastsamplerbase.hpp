@@ -19,17 +19,6 @@ protected:
 		}
 	};
 
-	struct RunningAverage {
-		void addToAverage(double val) {
-			unsigned int newCount = count + 1;
-			average = (average * count + val) / (newCount);
-			count = newCount;
-		}
-
-		double average = 0;
-		unsigned int count = 0;
-	};
-
 	struct Vertex {
 		Vertex(unsigned int id) : id(id) {}
 
@@ -89,22 +78,6 @@ protected:
 			return state.state;
 		}
 
-		void updateGCostHistory(double g) {
-			estimatedGCost.addToAverage(g);
-		}
-
-		double getAverageGCost() const {
-			return estimatedGCost.average;
-		}
-
-		double getEstimatedHCost() const {
-			return cost_g;
-		}
-
-		double getEstimatedFCost() const {
-			return estimatedGCost.average + cost_g;
-		}
-
 		std::vector<StateWrapper> states;
 	
 
@@ -114,11 +87,6 @@ protected:
 		unsigned int heapIndex = std::numeric_limits<unsigned int>::max();
 		double g = std::numeric_limits<double>::infinity();
 		double rhs = std::numeric_limits<double>::infinity();
-
-		double cost_g = std::numeric_limits<double>::infinity();
-		double cost_rhs = std::numeric_limits<double>::infinity();
-
-		RunningAverage estimatedGCost;
 	};
 
 	struct Edge {
@@ -182,22 +150,6 @@ protected:
 			}
 		}
 
-		void updateEdgeCostHistory(double cost) {
-			estimatedEdgeCost.addToAverage(cost);
-		}
-
-		double getEstimatedEdgeCost(double globalCorrection) const {
-			if(estimatedEdgeCost.count <= 1) {
-				return estimatedEdgeCost.average * globalCorrection;
-			} else {
-				return estimatedEdgeCost.average;
-			}
-		}
-
-		double getEstimatedFCost() const {
-			return estimatedGCost + estimatedEdgeCost.average + estimatedHCost;
-		}
-
 		void print() const {
 			fprintf(stderr, "%u -> %u (%g) +:%g -:%g\n", startID, endID, effort, alpha, beta);
 		}
@@ -211,11 +163,6 @@ protected:
 		double effort = std::numeric_limits<double>::infinity();
 		double initialEffort = std::numeric_limits<double>::infinity();
 		bool interior = false;
-
-		RunningAverage estimatedEdgeCost;
-		double initialEstimatedEdgeCost;
-		double estimatedGCost;
-		double estimatedHCost;
 	};
 
 public:
@@ -224,6 +171,9 @@ public:
 
 		startState = base->allocState();
 		si_->copyState(startState, start);
+
+		goalState = base->allocState();
+		si_->copyState(goalState, goal.get()->as<ompl::base::GoalState>()->getState());
 
 		Edge::validEdgeDistributionAlpha = params.doubleVal("ValidEdgeDistributionAlpha");
 		Edge::validEdgeDistributionBeta = params.doubleVal("ValidEdgeDistributionBeta");
@@ -390,7 +340,7 @@ protected:
 	virtual void vertexMayBeInconsistent(unsigned int) = 0;
 	virtual void vertexHasInfiniteValue(unsigned int) = 0;
 
-	void addOutgoingEdgesToOpen(unsigned int source) {
+	virtual void addOutgoingEdgesToOpen(unsigned int source) {
 		auto neighbors = abstraction->getNeighboringCells(source);
 		for(auto n : neighbors) {
 			Edge *e = getEdge(source, n);
@@ -414,7 +364,7 @@ protected:
 		return e;
 	}
 
-	void updateEdgeEffort(Edge *e, double effort, bool addToOpen = true) {
+	virtual void updateEdgeEffort(Edge *e, double effort, bool addToOpen = true) {
 		e->effort = effort;
 		if(!open.inHeap(e) && addToOpen) {
 			open.push(e);
@@ -464,6 +414,7 @@ protected:
 	bool targetSuccess = false;
 	Edge *targetEdge = NULL;
 	ompl::base::State *startState = NULL;
+	ompl::base::State *goalState = NULL;
 
 	ompl::RNG randomNumbers;
 	base::GoalSampleableRegion *goalSampler;
