@@ -27,7 +27,7 @@ BOUNDS=()
 source 2dinstances.inc
 
 #dont' include map or bounds since this is all paired
-DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#STARTGOAL[@]}))
+DOM_TOTAL=$((${#DOMAIN[@]} * ${#PROPSTEPSIZE[@]} * ${#MINCTRLDUR[@]} * ${#MAXCTRLDUR[@]} * ${#GOALRADIUS[@]} * ${#AGENT_MESH[@]} * ${#STARTGOAL[@]}))
 DOM_TOTAL_C=0
 
 function moreDomainSettings() {
