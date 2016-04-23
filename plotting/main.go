@@ -74,7 +74,7 @@ func Anytime() {
 	for domainType, domains := range domainTypes {
 		for _, domain := range domains {
 			for _, mmap := range maps[domainType] {
-				for _, mesh := range meshes[domainType] {
+				for _, mesh := range meshes[domain] {
 					for key := range filters {
 						filters[key]["timeout"] = "60"
 						filters[key]["domain"] = domain
