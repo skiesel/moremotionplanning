@@ -3,27 +3,30 @@
 PLANNER=(AnytimeBEAST)
 PLANNER_C=-1
 
-ABSTRACTION_PATH=("abstractiontype=prm numprmedges=10 prmsize=100" #
-				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
-				  "abstractiontype=prm numprmedges=10 prmsize=10000" #
-				  "abstractiontype=prm numprmedges=5 prmsize=100" #
+ABSTRACTION_PATH=(
+#				  "abstractiontype=prm numprmedges=10 prmsize=100" #
+#				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
+#				  "abstractiontype=prm numprmedges=10 prmsize=10000" #
+#				  "abstractiontype=prm numprmedges=5 prmsize=100" #
 				  "abstractiontype=prm numprmedges=5 prmsize=1000" #
-				  "abstractiontype=prm numprmedges=5 prmsize=10000" #
+#				  "abstractiontype=prm numprmedges=5 prmsize=10000" #
 #				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=fourway" #
 #				  "abstractiontype=grid gridhintsize=0.5 gridconnectivity=diagonal"
 				)
-ABSTRACTION_PARAM=("AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 100" #
-				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 1000" #
-				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 10000" #
-				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 100" #
+ABSTRACTION_PARAM=(
+#				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 100" #
+#				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 1000" #
+#				   "AbstractionType ? PRM\nNumEdges ? 10\nPRMSize ? 10000" #
+#				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 100" #
 				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 1000" #
-				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 10000" #
+#				   "AbstractionType ? PRM\nNumEdges ? 5\nPRMSize ? 10000" #
 #				   "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? FourWay" #
 #				   "AbstractionType ? GRID\nGridHintSize ? 0.5\nGridConnectivity ? Diagonals" #
 				  )
 ABSTRACTION_C=0
 
-STATERADIUS=(2 4 6)
+#2 4 
+STATERADIUS=(6)
 STATERADIUS_C=0
 
 WHICHSEARCH=("D*")
@@ -34,16 +37,16 @@ EDGEDISTRIBUTION_PATH[0]="validalpha=10 validbeta=1 invalidalpha=10 invalidbeta=
 EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 10\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 10"
 EDGEDISTRIBUTION_C=0
 
-SELECTIONRADIUS=(2.0)
+SELECTIONRADIUS=(0.005)
 SELECTIONRADIUS_C=0
 
-PRUNINGRADIUS=(1.0)
+PRUNINGRADIUS=(0.0025)
 PRUNINGRADIUS_C=0
 
 N0=(100)
 N0_C=0
 
-XI=(0.99)
+XI=(0.5)
 XI_C=0
 
 ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]} * ${#SELECTIONRADIUS[@]} * ${#PRUNINGRADIUS[@] * ${#N0[@]} * ${#XI[@]}))
