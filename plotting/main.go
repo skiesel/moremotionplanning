@@ -63,40 +63,51 @@ func Anytime() {
 		"3D" : []string{"forest.dae", "fifthelement.dae"},
 	}
 
+	meshes := map[string][]string {
+		"KinematicCar" : []string{"car2_planar_robot.dae", "car2_planar_robot_SCALED.dae"},
+		"DynamicCar" : []string{"car2_planar_robot.dae", "car2_planar_robot_SCALED.dae"},
+		"Hovercraft" : []string{"car2_planar_robot.dae", "car2_planar_robot_SCALED.dae"},
+		"Quadrotor" : []string{"quadrotor.dae"},
+		"Blimp" : []string{"blimp.dae"},
+	}
+
 	for domainType, domains := range domainTypes {
 		for _, domain := range domains {
 			for _, mmap := range maps[domainType] {
-				for key := range filters {
-					filters[key]["timeout"] = "60"
-					filters[key]["domain"] = domain
-					filters[key]["map"] = mmap
-				}
-
-				dss := rdb.GetDatasetsFromNonRDBFormat(dataRoot, filters, true, nonAnytimeRDBReader)
-
-				title := fmt.Sprintf("%s - %s", domain, strings.Replace(mmap, ".dae", "", -1))
-
-				fmt.Println(title)
-
-				solvedCounts := map[string]float64{}
-				for _, ds := range dss {
-					fmt.Printf("\t%s: %d\n", ds.GetName(), ds.GetSize())
-
-					dsValues := ds.GetColumnValuesWithKey("solution", "inst", "solution cost")
-
-					count := 0.
-					for _, dfValues := range dsValues {
-						if len(dfValues[0]) > 0 {
-							count++
-						}
+				for _, mesh := range meshes[domainType] {
+					for key := range filters {
+						filters[key]["timeout"] = "60"
+						filters[key]["domain"] = domain
+						filters[key]["map"] = mmap
+						filters[key]["agent"] = mesh
 					}
-					solvedCounts[ds.GetName()] = count / float64(len(dsValues))
+
+					dss := rdb.GetDatasetsFromNonRDBFormat(dataRoot, filters, true, nonAnytimeRDBReader)
+
+					title := fmt.Sprintf("%s - %s - %s", domain, strings.Replace(mmap, ".dae", "", -1), strings.Replace(mesh, ".dae", "", -1))
+
+					fmt.Println(title)
+
+					solvedCounts := map[string]float64{}
+					for _, ds := range dss {
+						fmt.Printf("\t%s: %d\n", ds.GetName(), ds.GetSize())
+
+						dsValues := ds.GetColumnValuesWithKey("solution", "inst", "solution cost")
+
+						count := 0.
+						for _, dfValues := range dsValues {
+							if len(dfValues[0]) > 0 {
+								count++
+							}
+						}
+						solvedCounts[ds.GetName()] = count / float64(len(dsValues))
+					}
+					fmt.Println()
+
+					makeBarPlot(solvedCounts, title, ".", "Percent Solved", plottype, plotWidth, plotHeight)
+
+					makeAnytimePlot(dss, title, ".", "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 60, 15, plotWidth, plotHeight)
 				}
-				fmt.Println()
-
-				makeBarPlot(solvedCounts, title, ".", "Percent Solved", plottype, plotWidth, plotHeight)
-
-				makeAnytimePlot(dss, title, ".", "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 60, 15, plotWidth, plotHeight)
 			}
 		}
 	}
