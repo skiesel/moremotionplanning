@@ -120,7 +120,7 @@ BenchmarkData quadrotorBenchmark(const FileMap &params) {
 	double goalRadius = params.doubleVal("GoalRadius");
 
 	// set the start & goal states
-	auto myGoal = new BlimpSpatialGoal(
+	auto myGoal = new QuadrotorSpatialGoal(
 		quadrotor->getSpaceInformation(),
 		quadrotor->getFullStateFromGeometricComponent(goal).get());
 	myGoal->setThreshold(goalRadius);
