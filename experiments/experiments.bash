@@ -11,13 +11,15 @@ pathattrs="$SEARCH/rdb/pathattrs"
 pathfor="$SEARCH/rdb/pathfor"
 withattrs="$SEARCH/rdb/withattrs"
 
-#EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${PROJECT_ROOT}/build; "
-EXPORT_CMD=""
+EXPORT_CMD="export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${PROJECT_ROOT}/build; "
+#EXPORT_CMD=""
 
 SEARCHTYPE="anytime"
 
 source generalsettings.inc
 moreGeneralSettings moreGen
+
+echo "sendSlackNotification.bash \"#experiments\" \"experiment_bot\" \"Scott just started running experiments.\""
 
 while [ "$moreGen" = true ];
 do
@@ -58,3 +60,5 @@ do
 		done
 	done
 done
+
+echo "sendSlackNotification.bash \"#experiments\" \"experiment_bot\" \"Scott's experiments just finished.\""
