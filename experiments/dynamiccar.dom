@@ -59,7 +59,12 @@ function moreDomainSettings() {
 					increment GOALRADIUS[@] GOALRADIUS_C
 					if [ "$old" -gt "$GOALRADIUS_C" ] || [ "$old" -eq "$GOALRADIUS_C" ]
 					then
-						increment STARTGOAL[@] STARTGOAL_C
+						old=$AGENT_MESH_C
+						increment AGENT_MESH[@] AGENT_MESH_C
+						if [ "$old" -gt "$AGENT_MESH_C" ] || [ "$old" -eq "$AGENT_MESH_C" ]
+						then
+							increment STARTGOAL[@] STARTGOAL_C
+						fi
 					fi
 				fi
 			fi
