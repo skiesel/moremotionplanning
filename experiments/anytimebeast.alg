@@ -25,8 +25,7 @@ ABSTRACTION_PARAM=(
 				  )
 ABSTRACTION_C=0
 
-#2 4 
-STATERADIUS=(6)
+STATERADIUS=(2 4 6)
 STATERADIUS_C=0
 
 WHICHSEARCH=("D*")
@@ -37,10 +36,11 @@ EDGEDISTRIBUTION_PATH[0]="validalpha=10 validbeta=1 invalidalpha=10 invalidbeta=
 EDGEDISTRIBUTION_PARAM[0]="ValidEdgeDistributionAlpha ? 10\nValidEdgeDistributionBeta ? 1\nInvalidEdgeDistributionAlpha ? 1\nInvalidEdgeDistributionBeta ? 10"
 EDGEDISTRIBUTION_C=0
 
-SELECTIONRADIUS=(0.005)
+#0.005
+SELECTIONRADIUS=(2.0)
 SELECTIONRADIUS_C=0
-
-PRUNINGRADIUS=(0.0025)
+#0.0025
+PRUNINGRADIUS=(1.0)
 PRUNINGRADIUS_C=0
 
 N0=(100)
