@@ -226,7 +226,7 @@ public:
 protected:
 
 	bool shouldExpand(const Edge* e) {
-		return true;//std::isinf(incumbentCost) || randomNumbers.uniform01() <= costDistributions[e->endID].getProbabilityFLessThanEqual(incumbentCost);
+		return std::isinf(incumbentCost) || randomNumbers.uniform01() <= costDistributions[e->endID].getProbabilityFLessThanEqual(incumbentCost);
 	}
 
 	double incumbentCost = std::numeric_limits<double>::infinity();
