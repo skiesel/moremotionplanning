@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"strconv"
 
 	"github.com/skiesel/plot"
 	"github.com/skiesel/plot/plotter"
@@ -171,34 +172,50 @@ func savePlot(title, directory string, plot *plot.Plot) {
 
 func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, yValues, xLabel, yLabel, format string, startTime, endTime, timeIncrement, width, height float64) {
 
-	bestSolutions := map[string]float64{}
+	bestSolutions := map[string]map[string]float64{}
 
 	anytimeData := map[string][][][]string{}
 
 	algorithms := []string{}
 
 	for _, ds := range dss {
-		anytimeData[ds.GetName()] = ds.GetColumnValuesWithKey(tableName, "inst", xValues, yValues)
-		algorithms = append(algorithms, ds.GetName())
+		dsName := ds.GetName()
 
-		for _, dfValues := range anytimeData[ds.GetName()] {
+		anytimeData[dsName] = ds.GetColumnValuesWithKeys(tableName, []string{"inst", "seed"}, xValues, yValues)
+		algorithms = append(algorithms, dsName)
+
+		for _, dfValues := range anytimeData[dsName] {
 
 			if len(dfValues[0]) == 0 {
 				continue
 			}
 
-			num := dfValues[2][0]
-			bestSolution := datautils.ParseFloatOrFail(dfValues[1][len(dfValues[1])-1])
-			val, ok := bestSolutions[num]
-			if !ok || val > bestSolution {
-				bestSolutions[num] = bestSolution
+			inst := dfValues[2][0]
+			seed := dfValues[3][0]
+
+			_, err := strconv.ParseFloat(dfValues[1][len(dfValues[1])-1], 64)
+			if err != nil {
+				fmt.Println(dsName)
+				fmt.Println(inst)
+				fmt.Println(seed)
+				errstr := fmt.Sprintf("could not parse %s\n", dfValues[1][len(dfValues[1])-1])
+				panic(errstr)
+			}
+
+
+			solution := datautils.ParseFloatOrFail(dfValues[1][len(dfValues[1])-1])
+			_, ok := bestSolutions[inst]
+			if !ok {
+				bestSolutions[inst] = map[string]float64{}
+			}
+			seedVal, ok := bestSolutions[inst][seed]
+			if !ok || solution < seedVal {
+				bestSolutions[inst][seed] = solution
 			}
 		}
 	}
 
 	sort.Strings(algorithms)
-
-	fmt.Println(algorithms)
 
 	var plottingPointArgs []interface{}
 	var plottingErrorArgs []interface{}
@@ -215,18 +232,22 @@ func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, y
 
 			for i, dfValues := range dsValues {
 
+				if len(dfValues[0]) == 0 {
+					continue
+				}
+
 				curPoint := 0
+
 				for ; curPoint < (len(dfValues[0])-1) && datautils.ParseFloatOrFail(dfValues[0][curPoint+1]) <= val; curPoint++ {
 				}
 				if curPoint >= len(dfValues[0]) {
 					curPoint = len(dfValues[0]) - 1
 				}
 
-				if len(dfValues[0]) == 0 {
-					continue
-				}
+				inst := dfValues[2][0]
+				seed := dfValues[3][0]
 
-				best := bestSolutions[dfValues[2][0]]
+				best := bestSolutions[inst][seed]
 
 				if curPoint == 0 && datautils.ParseFloatOrFail(dfValues[0][curPoint]) > val {
 					sampledPoints[i] = best / math.Inf(1)
@@ -284,7 +305,6 @@ func makeBarPlot(data map[string]float64, title, directory, yLabel, format strin
 	}
 
 	w := vg.Length(width / (float64(len(data)) + 2.))*vg.Inch
-
 	
 	algorithms := []string{}
 	for algorithmName, _ := range data {
@@ -292,7 +312,6 @@ func makeBarPlot(data map[string]float64, title, directory, yLabel, format strin
 	}
 
 	sort.Strings(algorithms)
-
 
 	algIndex := 0
 	for _, algorithmName := range algorithms {
