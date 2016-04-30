@@ -9,35 +9,6 @@ namespace ompl {
 namespace base {
 
 class AnytimeBeastSampler : public ompl::base::BeastSampler_dstar {
-protected:
-	class DistributionTriple {
-	public:
-		void addGValue(double value) {
-			g.addDataPoint(value);
-		}
-
-		void removeGValue(double value) {
-			g.removeDataPoint(value);
-		}
-		
-		void addHValue(double value) {
-			h.addDataPoint(value);
-		}
-
-		void removeHValue(double value) {
-			h.removeDataPoint(value);
-		}
-
-		double getProbabilityFLessThanEqual(double incumbent) {
-			f.add(g, h);
-			//really it's like (incumbent - epsilon) but it's not going to matter
-			return f.getCDF(incumbent);
-		}
-
-	protected:
-		GaussianDistribution g, h, f;
-	};
-
 public:
 	AnytimeBeastSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	            base::GoalSampleableRegion *gsr, const ompl::base::OptimizationObjectivePtr &optimizationObjective, const FileMap &params) :
@@ -51,7 +22,7 @@ public:
 		unsigned int abstractionSize = abstraction->getAbstractionSize();
 		vertices.reserve(abstractionSize);
 
-		costDistributions.resize(abstractionSize);
+		gCostDistributions.resize(abstractionSize);
 
 		ompl::base::ScopedState<> startStateSS(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
 		ompl::base::ScopedState<> endStateSS(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
@@ -70,8 +41,10 @@ public:
 		U.push(&vertices[goalID]);
 
 		{
-			Timer t("D* lite");
+			Timer t("Shortest Path Computation");
 			computeShortestPath();
+			dijkstra(startID, [](const Vertex* v){ return v->initG; }, [](Vertex* v, double val){ v->initG = val; });
+			dijkstra(goalID,  [](const Vertex* v){ return v->initH; }, [](Vertex* v, double val){ v->initH = val; });
 		}
 
 		for(auto eset : edges) {
@@ -169,7 +142,14 @@ public:
 		incomingState = state;
 		unsigned int cellId = abstraction->mapToAbstractRegion(incomingState);
 		vertices[cellId].removeUnsortedState(state);
-		costDistributions[cellId].removeGValue(g);
+		gCostDistributions[cellId].removeDataPoint(g);
+		errorDistribution.removeDataPoint(getError(vertices[cellId].initG, g));
+	}
+
+	double getError(double startG, double foundG) const {
+// TODO:
+// This is tracking error in a weird way, but it allows for easy multiplication later
+		return foundG / startG;
 	}
 
 	void foundSolution(const ompl::base::Cost &incumbent) {
@@ -195,7 +175,8 @@ public:
 		incomingState = end;
 		unsigned int endCellId = abstraction->mapToAbstractRegion(incomingState);
 
-		costDistributions[endCellId].addGValue(endG);
+		gCostDistributions[endCellId].addDataPoint(endG);
+		errorDistribution.addDataPoint(getError(vertices[endCellId].initG, endG));
 
 		vertices[endCellId].addUnsortedState(end);
 
@@ -212,8 +193,6 @@ public:
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = state;
 		unsigned int cellId = abstraction->mapToAbstractRegion(incomingState);
-
-		costDistributions[cellId].addHValue(h);
 	}
 
 protected:
@@ -245,7 +224,149 @@ protected:
 	}
 
 	bool shouldExpand(const Edge* e) {
-		return std::isinf(incumbentCost) || randomNumbers.uniform01() <= costDistributions[e->endID].getProbabilityFLessThanEqual(incumbentCost);
+		if(std::isinf(incumbentCost)) {
+			return true;
+		} else {
+			double r = randomNumbers.uniform01();
+// TODO:
+// Should this be gCostDistributions[e->startID] + ?e->cost? + (errorDistribution * vertices[e->endID].initH);
+			GaussianDistribution f = gCostDistributions[e->endID] + (errorDistribution * vertices[e->endID].initH);
+			double val = f.getCDF(incumbentCost);
+			return r <= val;
+		}
+	}
+
+	struct VertexWrapper {
+		static std::function<double(const Vertex*)> getVal;
+		static std::function<void(Vertex*, double)> setVal;
+
+		static bool pred(const VertexWrapper *a, const VertexWrapper *b) {
+			return getVal(a->v) < getVal(b->v);
+		}
+		static unsigned int getHeapIndex(const VertexWrapper *r) {
+			return r->heapIndex;
+		}
+		static void setHeapIndex(VertexWrapper *r, unsigned int i) {
+			r->heapIndex = i;
+		}
+		unsigned int getId() const {
+			return v->id;
+		}
+		unsigned int heapIndex = std::numeric_limits<unsigned int>::max();
+		Vertex *v = NULL;
+
+		struct Parent {
+			Parent(unsigned int parent, double cost) : parent(parent), cost(cost) {}
+			static bool HeapCompare(const Parent *r1, const Parent *r2) {
+				return r1->cost < r2->cost;
+			}
+			unsigned int parent;
+			double cost;
+		};
+
+		bool addParent(unsigned int parent, double cost) {
+			if(currentParent == NULL) {
+				currentParent = new Parent(parent, cost);
+				setVal(v, currentParent->cost);
+				return true;
+			} else {
+				if(cost < currentParent->cost) {
+					parents.push_back(currentParent);
+					std::push_heap(parents.begin(), parents.end(), Parent::HeapCompare);
+					currentParent = new Parent(parent, cost);
+					setVal(v, currentParent->cost);
+					return true;
+				} else {
+					parents.push_back(new Parent(parent, cost));
+					std::push_heap(parents.begin(), parents.end(), Parent::HeapCompare);
+					return false;
+				}
+			}
+		}
+
+		bool hasMoreParents() const {
+			return !parents.empty() || currentParent != NULL;
+		}
+
+		unsigned int getBestParentIndex() const {
+			assert(currentParent != NULL);
+			return currentParent->parent;
+		}
+
+		void popBestParent() {
+			assert(currentParent != NULL);
+
+			delete currentParent;
+
+			if(parents.size() == 0) {
+				currentParent = NULL;
+				setVal(v, std::numeric_limits<double>::infinity());
+			} else {
+				currentParent = parents.front();
+				std::pop_heap(parents.begin(), parents.end(), Parent::HeapCompare);
+				parents.pop_back();
+				setVal(v, currentParent->cost);
+			}
+		}
+
+		std::vector<Parent *> parents;
+		Parent *currentParent;
+	};
+
+	void dijkstra(unsigned int start, std::function<double(const Vertex*)> getVal, std::function<void(Vertex*, double)> setVal) {
+
+		VertexWrapper::getVal = getVal;
+		VertexWrapper::setVal = setVal;
+
+		std::vector<VertexWrapper> wrappers(vertices.size());
+		for(unsigned int i = 0; i < wrappers.size(); i++) {
+			wrappers[i].v = &vertices[i];
+		}
+
+		InPlaceBinaryHeap<VertexWrapper, VertexWrapper> open;
+		std::unordered_set<unsigned int> closed;
+		setVal(wrappers[start].v, 0);
+		open.push(&wrappers[start]);
+		closed.insert(wrappers[start].getId());
+
+		while(!open.isEmpty()) {
+			VertexWrapper *current = open.pop();
+
+			if(current->getId() != wrappers[start].getId()) {
+				unsigned int parentIndex = current->getBestParentIndex();
+				if(!abstraction->isValidEdge(parentIndex, current->getId())) {
+					//this will update the value of the vertex if needed
+					current->popBestParent();
+					if(current->hasMoreParents()) {
+						open.push(current);
+					}
+					continue;
+				}
+			}
+
+			closed.insert(current->getId());
+
+			if(closed.size() == wrappers.size()) break;
+
+			std::vector<unsigned int> kids = abstraction->getNeighboringCells(current->getId());
+			for(unsigned int kidIndex : kids) {
+				if(closed.find(kidIndex) != closed.end()) continue;
+
+				double newValue = current->v->initG + abstraction->abstractDistanceFunctionByIndex(current->getId(), kidIndex);
+				VertexWrapper *kid = &wrappers[kidIndex];
+
+				//this will update the value of the vertex if needed
+				bool addedBetterParent = kid->addParent(current->getId(), newValue);
+
+				if(open.inHeap(kid)) {
+					if(addedBetterParent) {
+						open.siftFromItem(kid);
+					}
+				} else {
+					open.push(kid);
+				}
+			}
+		}
 	}
 
 	class EdgeComparator {
@@ -264,11 +385,15 @@ protected:
 
 	double incumbentCost = std::numeric_limits<double>::infinity();
 	const ompl::base::OptimizationObjectivePtr &optimizationObjective;
-	std::vector<DistributionTriple> costDistributions;
+	std::vector<GaussianDistribution> gCostDistributions;
+	GaussianDistribution errorDistribution;
 	const ompl::base::GoalPtr &goalPtr; 
 
 	std::set<Edge*, EdgeComparator> iterableOpen;
 };
+
+std::function<double(const ompl::base::BeastSamplerBase::Vertex*)> AnytimeBeastSampler::VertexWrapper::getVal;
+std::function<void(ompl::base::BeastSamplerBase::Vertex*, double)> AnytimeBeastSampler::VertexWrapper::setVal;
 
 }
 

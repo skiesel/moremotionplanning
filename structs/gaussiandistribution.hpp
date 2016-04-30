@@ -36,9 +36,18 @@ public:
 		return 0.5 * (1 + std::erf((value - mu) / (sqrt(2 * getSigma()))));
 	}
 
-	void add(GaussianDistribution &a, GaussianDistribution &b) {
-		mu = a.mu + b.mu;
-		sigma = a.getSigma() + b.getSigma();
+	GaussianDistribution operator+(GaussianDistribution a) {
+		GaussianDistribution gd;
+		gd.mu = mu + a.mu;
+		gd.sigma = getSigma() + getSigma();
+		return gd;
+	}
+
+	GaussianDistribution operator*(double v) {
+		GaussianDistribution gd;
+		gd.mu = v * mu;
+		gd.sigma = getSigma();
+		return gd;
 	}
 
 protected:

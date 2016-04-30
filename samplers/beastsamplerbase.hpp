@@ -105,6 +105,9 @@ protected:
 		unsigned int id;
 		Key key;
 
+		double initG = std::numeric_limits<double>::infinity();
+		double initH = std::numeric_limits<double>::infinity();
+
 		unsigned int heapIndex = std::numeric_limits<unsigned int>::max();
 		double g = std::numeric_limits<double>::infinity();
 		double rhs = std::numeric_limits<double>::infinity();
