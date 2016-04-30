@@ -1,6 +1,8 @@
 #pragma once
 
 #include "beastsampler_dstar.hpp"
+#include "../structs/gaussiandistribution.hpp"
+#include <set>
 
 namespace ompl {
 
@@ -9,44 +11,21 @@ namespace base {
 class AnytimeBeastSampler : public ompl::base::BeastSampler_dstar {
 protected:
 	class DistributionTriple {
-		class NormalDistribution {
-		public:
-			void addDataPoint(double value) {
-				double oldMu = mu;
-				mu += (value - oldMu) / (double)n;
-				sigma = (n - 1) * sigma * sigma + (value - oldMu) * (value - mu);
-				n++;
-			}
-
-			inline double getMu() const {
-				return mu;
-			}
-
-			inline double getSigma() const {
-				return sigma;
-			}
-
-			double getCDF(double value) const {
-				return 0.5 * (1 + std::erf((value - mu) / (sqrt(2 * sigma))));
-			}
-
-			void add(const NormalDistribution &a, const NormalDistribution &b) {
-				mu = a.mu + b.mu;
-				sigma = a.sigma + b.sigma;
-			}
-
-		protected:
-			double mu = 0, sigma = 0;
-			unsigned int n = 1;
-		};
-
 	public:
 		void addGValue(double value) {
 			g.addDataPoint(value);
 		}
+
+		void removeGValue(double value) {
+			g.removeDataPoint(value);
+		}
 		
 		void addHValue(double value) {
 			h.addDataPoint(value);
+		}
+
+		void removeHValue(double value) {
+			h.removeDataPoint(value);
 		}
 
 		double getProbabilityFLessThanEqual(double incumbent) {
@@ -56,7 +35,7 @@ protected:
 		}
 
 	protected:
-		NormalDistribution g, h, f;
+		GaussianDistribution g, h, f;
 	};
 
 public:
@@ -101,11 +80,13 @@ public:
 			}
 		}
 
-		vertices[startID].addState(startState);
+		vertices[startID].addUnsortedState(startState);
+
+
 		addOutgoingEdgesToOpen(startID);
 	}
 
-	virtual bool sample(ompl::base::State *from, ompl::base::State *to) {
+	virtual bool sample(ompl::base::State *to) {
 		if(targetEdge != NULL) { //only will fail the first time through
 
 			if(targetSuccess) {
@@ -113,7 +94,7 @@ public:
 					Edge *goalEdge = new Edge(goalID, goalID);
 					goalEdge->updateEdgeStatusKnowledge(Abstraction::Edge::VALID);
 					goalEdge->effort = 1;
-					open.push(goalEdge);
+					iterableOpen.insert(goalEdge);
 					addedGoalEdge = true;
 				}
 
@@ -139,21 +120,27 @@ public:
 			}
 		}
 
-		while(true) {
-			assert(!open.isEmpty());
+		assert(iterableOpen.size() > 0);
+		bool shouldReset = false;
+		for(auto iter = iterableOpen.begin(); ; ++iter) {
+			if(iter == iterableOpen.end() || shouldReset) {
+				iter = iterableOpen.begin();
+				shouldReset = false;
+			}
 
-			targetEdge = open.peek();
+			targetEdge = *iter;
 
-			if(vertices[targetEdge->startID].states.size() <= 0 || !shouldExpand(targetEdge)) {
-				open.pop();
-			} else if(targetEdge->status == Abstraction::Edge::UNKNOWN) {
+			if(targetEdge->status == Abstraction::Edge::UNKNOWN) {
 				Abstraction::Edge::CollisionCheckingStatus status = abstraction->isValidEdge(targetEdge->startID, targetEdge->endID) ? Abstraction::Edge::VALID :
 																																		Abstraction::Edge::INVALID;
 				targetEdge->updateEdgeStatusKnowledge(status);
 
 				updateVertex(targetEdge->startID);
 				computeShortestPath();
-			} else {
+
+				//according to the docs, we shouldn't need to, but for the safety of the iterator, reset it :-(
+				shouldReset = true;
+			} else if(vertices[targetEdge->startID].states.size() > 0 && shouldExpand(targetEdge)) {
 				break;
 			}
 		}
@@ -161,10 +148,10 @@ public:
 		targetSuccess = false;
 
 		if(targetEdge->startID == targetEdge->endID && targetEdge->startID == goalID) {
-			si_->copyState(from, vertices[targetEdge->startID].sampleState());
+			// si_->copyState(from, vertices[targetEdge->startID].sampleState());
 			goalSampler->sampleGoal(to);
 		} else {
-			si_->copyState(from, vertices[targetEdge->startID].sampleState());
+			// si_->copyState(from, vertices[targetEdge->startID].sampleState());
 			ompl::base::ScopedState<> vertexState(globalParameters.globalAppBaseControl->getGeometricComponentStateSpace());
 			if(abstraction->supportsSampling()) {
 				vertexState = abstraction->sampleAbstractState(targetEdge->endID);
@@ -177,24 +164,25 @@ public:
 		return true;
 	}
 
-	void remove(ompl::base::State *state) {
+	void remove(ompl::base::State *state, double g) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = state;
-		unsigned int newCellId = abstraction->mapToAbstractRegion(incomingState);
-		vertices[newCellId].removeState(state);
+		unsigned int cellId = abstraction->mapToAbstractRegion(incomingState);
+		vertices[cellId].removeUnsortedState(state);
+		costDistributions[cellId].removeGValue(g);
 	}
 
 	void foundSolution(const ompl::base::Cost &incumbent) {
 		incumbentCost = incumbent.value();
 		targetEdge = NULL;
 		addedGoalEdge = false;
-		open.clear();
+		iterableOpen.clear();
 
 		for(auto &v : vertices) {
 			v.clearStates();
 		}
 
-		vertices[startID].addState(startState);
+		vertices[startID].addUnsortedState(startState);
 
 		addOutgoingEdgesToOpen(startID);
 	}
@@ -209,10 +197,7 @@ public:
 
 		costDistributions[endCellId].addGValue(endG);
 
-		//pass this value back up through the tree branch?
-		costDistributions[endCellId].addHValue(optimizationObjective->costToGo(end, goalPtr.get()).value());
-
-		vertices[endCellId].addState(end);
+		vertices[endCellId].addUnsortedState(end);
 
 		//if the planner chose the goal region first be careful not to dereference a null pointer
 		if(targetEdge != NULL && endCellId == targetEdge->endID) {
@@ -223,17 +208,66 @@ public:
 		}
 	}
 
+	void hValueUpdate(ompl::base::State *state, double h) {
+		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
+		incomingState = state;
+		unsigned int cellId = abstraction->mapToAbstractRegion(incomingState);
+
+		costDistributions[cellId].addHValue(h);
+	}
+
 protected:
+
+	virtual void addOutgoingEdgesToOpen(unsigned int source) {
+		auto neighbors = abstraction->getNeighboringCells(source);
+		for(auto n : neighbors) {
+			Edge *e = getEdge(source, n);
+			if(std::isinf(vertices[n].g)) {
+				vertexHasInfiniteValue(n);
+			}
+			updateEdgeEffort(e, e->getEstimatedRequiredSamples() + vertices[n].g);
+		}
+	}
+
+	virtual void updateEdgeEffort(Edge *e, double effort, bool addToOpen = true) {
+		auto iter = iterableOpen.find(e);
+		bool onOpen = iter != iterableOpen.end();
+
+		if(onOpen) {
+			iterableOpen.erase(iter);
+		}
+
+		e->effort = effort;
+
+		if(addToOpen || onOpen) {
+			iterableOpen.insert(e);
+		}
+	}
 
 	bool shouldExpand(const Edge* e) {
 		return std::isinf(incumbentCost) || randomNumbers.uniform01() <= costDistributions[e->endID].getProbabilityFLessThanEqual(incumbentCost);
 	}
+
+	class EdgeComparator {
+	public:
+		bool operator()(const Edge *lhs, const Edge *rhs) const {
+			// This is so WILDLY unlikely, but the way we're abusing std::set
+			// we need to make sure that we never give the impression of equality
+			// otherwise we won't actually add the Edge, however, this will maintain
+			// that we only add each Edge once which is also what we want
+			if(lhs->effort == rhs->effort) {
+				return lhs < rhs;
+			}
+			return lhs->effort < rhs->effort;
+		}
+	};
 
 	double incumbentCost = std::numeric_limits<double>::infinity();
 	const ompl::base::OptimizationObjectivePtr &optimizationObjective;
 	std::vector<DistributionTriple> costDistributions;
 	const ompl::base::GoalPtr &goalPtr; 
 
+	std::set<Edge*, EdgeComparator> iterableOpen;
 };
 
 }

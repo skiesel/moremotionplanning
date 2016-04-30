@@ -8,6 +8,8 @@
 
 #include "../samplers/beastsampler_dstar.hpp"
 
+int globalCounter = 0;
+
 namespace ompl {
 
 namespace control {
@@ -84,6 +86,15 @@ public:
 		witnesses->setDistanceFunction(boost::bind(&AnytimeBeastPlanner::distanceFunction, this, _1, _2));
 	}
 
+	virtual void clear() {
+		RRT::clear();
+		if(witnesses != NULL) {
+			witnesses->clear();
+		}
+	}
+
+	Witness *startWitness = NULL;
+
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
 		start = clock();
 
@@ -91,16 +102,18 @@ public:
 		base::Goal                   *goal = pdef_->getGoal().get();
 		base::GoalSampleableRegion *goal_s = dynamic_cast<base::GoalSampleableRegion *>(goal);
 
-		while(const base::State *st = pis_.nextStart()) {
-			Motion *motion = new MotionWithCost(siC_);
-			si_->copyState(motion->state, st);
-			siC_->nullControl(motion->control);
-			nn_->add(motion);
+		if(nn_->size() == 0) {
+			while(const base::State *st = pis_.nextStart()) {
+				Motion *motion = new MotionWithCost(siC_);
+				si_->copyState(motion->state, st);
+				siC_->nullControl(motion->control);
+				nn_->add(motion);
 
-			auto witness = new Witness(siC_);
-			si_->copyState(witness->state, motion->state);
-			witness->rep = motion;
-			witnesses->add(witness);
+				Witness *witness = startWitness = new Witness(siC_);
+				si_->copyState(witness->state, motion->state);
+				witness->linkRep(motion);
+				witnesses->add(witness);
+			}
 		}
 
 		if(nn_->size() == 0) {
@@ -151,8 +164,6 @@ protected:
 		base::State  *rstate = rmotion->state;
 		Control       *rctrl = rmotion->control;
 
-		Motion *resusableMotion = new MotionWithCost(siC_);
-
 		unsigned int iterations = 0;
 
 		while(ptc == false && iterations < iterationBound) {
@@ -160,8 +171,8 @@ protected:
 
 			Motion *nmotion = NULL;
 
-			newsampler->sample(resusableMotion->state, rstate);
-
+			newsampler->sample(rstate);
+			
 			// nmotion = nn_->nearest(resusableMotion);
 			// nmotion = nn_->nearest(rmotion);
 			nmotion = selectNode(rmotion);
@@ -212,18 +223,28 @@ protected:
 					}
 
 					// post process the branch just added for SST* like pruning from leaf to root
-					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {
+					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {						
+
 						Motion *motion = *addedMotionsIterator;
 						Witness *closestWitness = findClosestWitness(motion);
 						if(closestWitness->rep == motion ||
 							optimizationObjective->isCostBetterThan(((MotionWithCost*)motion)->g, ((MotionWithCost*)closestWitness->rep)->g)) {
 
 							Motion *oldRep = closestWitness->rep;
+
 							closestWitness->linkRep(motion);
+
 							if(oldRep != motion) {
 								cleanupTree(oldRep);
+							} else {
+								double h = optimizationObjective->costToGo(motion->state, goal).value();
+								double g = ((MotionWithCost*)motion)->g.value();
+								while(motion->parent != NULL) {
+									double newH = g - ((MotionWithCost*)motion)->g.value() + h;
+									newsampler->hValueUpdate(motion->state, newH);
+									motion = motion->parent;
+								}
 							}
-
 						} else {
 							cleanupTree(motion);
 						}
@@ -271,6 +292,15 @@ protected:
 							((MotionWithCost*)nmotion)->numChildren++;
 
 							newsampler->reached(nmotion->state, ((MotionWithCost*)nmotion)->g.value(), motion->state, ((MotionWithCost*)motion)->g.value());
+
+							Motion *branchMotion = motion;
+							double h = optimizationObjective->costToGo(branchMotion->state, goal).value();
+							double g = ((MotionWithCost*)branchMotion)->g.value();
+							while(branchMotion->parent != NULL) {
+								double newH = g - ((MotionWithCost*)branchMotion)->g.value() + h;
+								newsampler->hValueUpdate(branchMotion->state, newH);
+								branchMotion = branchMotion->parent;
+							}
 
 							((MotionWithCost*)nmotion)->numChildren++;
 							nn_->add(motion);
@@ -321,10 +351,10 @@ protected:
 		return selected;
 	}
 
-	Witness *findClosestWitness(Motion *node) {
+	Witness* findClosestWitness(Motion *node) {
 		if(witnesses->size() > 0) {
-			Witness *closest = (Witness *)witnesses->nearest(node);
-			if(distanceFunction(closest,node) > pruningRadius) {
+			Witness *closest = (Witness*)witnesses->nearest(node);
+			if(distanceFunction(closest, node) > pruningRadius) {
 				closest = new Witness(siC_);
 				closest->linkRep(node);
 				si_->copyState(closest->state, node->state);
@@ -344,9 +374,9 @@ protected:
 		((MotionWithCost*)oldRep)->inactive = true;
 
 		nn_->remove(oldRep);
-		while(((MotionWithCost*)oldRep)->inactive && ((MotionWithCost*)oldRep)->numChildren == 0) {
-			newsampler->remove(oldRep->state);
+		newsampler->remove(oldRep->state, ((MotionWithCost*)oldRep)->g.value());
 
+		while(((MotionWithCost*)oldRep)->inactive && ((MotionWithCost*)oldRep)->numChildren == 0) {
 			if(oldRep->state)
 				si_->freeState(oldRep->state);
 			if(oldRep->control)
@@ -354,7 +384,8 @@ protected:
 
 			oldRep->state = nullptr;
 			oldRep->control = nullptr;
-			((MotionWithCost*)oldRep->parent)->numChildren--;
+			if(((MotionWithCost*)oldRep->parent)->numChildren > 0)
+				((MotionWithCost*)oldRep->parent)->numChildren--;
 			Motion *oldRepParent = oldRep->parent;
 			delete oldRep;
 			oldRep = oldRepParent;
@@ -363,7 +394,7 @@ protected:
 
 	class MotionWithCost : public Motion {
 	public:
-		MotionWithCost() {}
+		MotionWithCost() : Motion() {}
 
 		MotionWithCost(const SpaceInformation *si) : Motion(si) {}
 
@@ -379,9 +410,9 @@ protected:
 	class Witness : public Motion {
 	public:
 
-		Witness() : Motion(), rep(nullptr) {}
+		Witness() {}
 
-		Witness(const SpaceInformation *si) : Motion(si), rep(nullptr) {}
+		Witness(const SpaceInformation *si) : Motion(si) {}
 
 		virtual base::State *getState() const {
 			return rep->state;
@@ -395,7 +426,7 @@ protected:
 			rep = lRep;
 		}
 
-		Motion *rep;
+		Motion *rep = nullptr;
 	};
 
 	ompl::base::AnytimeBeastSampler *newsampler = NULL;
@@ -404,7 +435,6 @@ protected:
 	base::OptimizationObjectivePtr optimizationObjective;
 	double propagationStepSize, selectionRadius, pruningRadius, xi, n0, samplerInitializationTime = 0;
 	clock_t start;
-	unsigned int globalIterations = 0;
 
 	const FileMap &params;
 
@@ -413,3 +443,5 @@ protected:
 }
 
 }
+
+

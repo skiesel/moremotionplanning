@@ -41,11 +41,11 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 
 	ompl::base::PlannerPtr plannerPointer;
 	if(planner.compare("RRT") == 0) {
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRT(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::RRTLocal(benchmarkData.simplesetup->getSpaceInformation()));
 	} else if(planner.compare("KPIECE") == 0) {
-		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
-		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
+		plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECE1(benchmarkData.simplesetup->getSpaceInformation()));
+		// plannerPointer = ompl::base::PlannerPtr(new ompl::control::KPIECELocal(benchmarkData.simplesetup->getSpaceInformation()));
 	} else if(planner.compare("EST") == 0) {
 		plannerPointer = ompl::base::PlannerPtr(new ompl::control::EST(benchmarkData.simplesetup->getSpaceInformation()));
 	} else if(planner.compare("SyclopRRT") == 0) {
@@ -110,8 +110,7 @@ void doBenchmarkRun(BenchmarkData &benchmarkData, const FileMap &params) {
 			outfile << solution.second << " " << solution.first.value() << "\n";
 		}
 		outfile.close();
-	}
-	
+	}	
 }
 
 int main(int argc, char *argv[]) {
@@ -122,6 +121,7 @@ int main(int argc, char *argv[]) {
 		params.append(std::cin);
 	}
 
+	srand(params.integerVal("Seed"));
 	ompl::RNG::setSeed(params.integerVal("Seed"));
 
 	if(params.exists("NumControls"))
