@@ -59,7 +59,7 @@ public:
 		addOutgoingEdgesToOpen(startID);
 	}
 
-	virtual bool sample(ompl::base::State *to) {
+	virtual bool sample(ompl::base::State *to, const base::PlannerTerminationCondition &ptc) {
 		if(targetEdge != NULL) { //only will fail the first time through
 
 			if(targetSuccess) {
@@ -67,7 +67,7 @@ public:
 					Edge *goalEdge = new Edge(goalID, goalID);
 					goalEdge->updateEdgeStatusKnowledge(Abstraction::Edge::VALID);
 					goalEdge->effort = 1;
-					iterableOpen.insert(goalEdge);
+					focal.insert(goalEdge);
 					addedGoalEdge = true;
 				}
 
@@ -93,12 +93,18 @@ public:
 			}
 		}
 
-		assert(iterableOpen.size() > 0);
+		assert(focal.size() > 0);
 		bool shouldReset = false;
-		for(auto iter = iterableOpen.begin(); ; ++iter) {
-			if(iter == iterableOpen.end() || shouldReset) {
-				iter = iterableOpen.begin();
+		unsigned int loops = 0;
+		for(auto iter = focal.begin(); ; ++iter) {
+			if(iter == focal.end() || shouldReset) {
+				iter = focal.begin();
 				shouldReset = false;
+
+				if(loops++ > 10) {
+					targetEdge = *iter;
+					break;
+				}
 			}
 
 			targetEdge = *iter;
@@ -116,9 +122,14 @@ public:
 			} else if(vertices[targetEdge->startID].states.size() > 0 && shouldExpand(targetEdge)) {
 				break;
 			}
+
+			if(ptc != false) {
+				return false;
+			}
 		}
 
 		targetSuccess = false;
+		firstTargetSuccessState = nullptr;
 
 		if(targetEdge->startID == targetEdge->endID && targetEdge->startID == goalID) {
 			// si_->copyState(from, vertices[targetEdge->startID].sampleState());
@@ -142,13 +153,24 @@ public:
 		incomingState = state;
 		unsigned int cellId = abstraction->mapToAbstractRegion(incomingState);
 		vertices[cellId].removeUnsortedState(state);
+
+		if(firstTargetSuccessState == state) {
+			targetSuccess = false;
+		}
+
+		if(vertices[cellId].states.size() == 0) {
+			for(auto e : reverseEdges[cellId]) {
+				e.second->interior = false;
+			}
+		}
+
 		gCostDistributions[cellId].removeDataPoint(g);
-		errorDistribution.removeDataPoint(getError(vertices[cellId].initG, g));
+		if(cellId != startID) {
+			errorDistribution.removeDataPoint(getError(vertices[cellId].initG, g));
+		}
 	}
 
 	double getError(double startG, double foundG) const {
-// TODO:
-// This is tracking error in a weird way, but it allows for easy multiplication later
 		return foundG / startG;
 	}
 
@@ -156,10 +178,15 @@ public:
 		incumbentCost = incumbent.value();
 		targetEdge = NULL;
 		addedGoalEdge = false;
-		iterableOpen.clear();
+		focal.clear();
 
-		for(auto &v : vertices) {
-			v.clearStates();
+		for(unsigned int i = 0; i < abstraction->getAbstractionSize(); ++i) {
+			vertices[i].clearStates();
+			auto neighbors = abstraction->getNeighboringCells(i);
+			for(auto n : neighbors) {
+				getEdge(i, n)->interior = false;
+				getEdge(n, i)->interior = false;;
+			}
 		}
 
 		vertices[startID].addUnsortedState(startState);
@@ -176,13 +203,19 @@ public:
 		unsigned int endCellId = abstraction->mapToAbstractRegion(incomingState);
 
 		gCostDistributions[endCellId].addDataPoint(endG);
-		errorDistribution.addDataPoint(getError(vertices[endCellId].initG, endG));
+		
+		if(endCellId != startID) {
+			errorDistribution.addDataPoint(getError(vertices[endCellId].initG, endG));
+		}
 
 		vertices[endCellId].addUnsortedState(end);
 
 		//if the planner chose the goal region first be careful not to dereference a null pointer
 		if(targetEdge != NULL && endCellId == targetEdge->endID) {
 			//this region will be added to open when sample is called again
+			if(firstTargetSuccessState == nullptr) {
+				firstTargetSuccessState = end;
+			}
 			targetSuccess = true;
 		} else  {
 			addOutgoingEdgesToOpen(endCellId);
@@ -209,17 +242,17 @@ protected:
 	}
 
 	virtual void updateEdgeEffort(Edge *e, double effort, bool addToOpen = true) {
-		auto iter = iterableOpen.find(e);
-		bool onOpen = iter != iterableOpen.end();
+		auto iter = focal.find(e);
+		bool onOpen = iter != focal.end();
 
 		if(onOpen) {
-			iterableOpen.erase(iter);
+			focal.erase(iter);
 		}
 
 		e->effort = effort;
 
 		if(addToOpen || onOpen) {
-			iterableOpen.insert(e);
+			focal.insert(e);
 		}
 	}
 
@@ -231,6 +264,7 @@ protected:
 // TODO:
 // Should this be gCostDistributions[e->startID] + ?e->cost? + (errorDistribution * vertices[e->endID].initH);
 			GaussianDistribution f = gCostDistributions[e->endID] + (errorDistribution * vertices[e->endID].initH);
+
 			double val = f.getCDF(incumbentCost);
 			return r <= val;
 		}
@@ -389,7 +423,9 @@ protected:
 	GaussianDistribution errorDistribution;
 	const ompl::base::GoalPtr &goalPtr; 
 
-	std::set<Edge*, EdgeComparator> iterableOpen;
+	ompl::base::State *firstTargetSuccessState = nullptr;
+
+	std::set<Edge*, EdgeComparator> focal;
 };
 
 std::function<double(const ompl::base::BeastSamplerBase::Vertex*)> AnytimeBeastSampler::VertexWrapper::getVal;

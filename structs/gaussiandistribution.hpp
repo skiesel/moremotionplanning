@@ -22,14 +22,22 @@ public:
 		mu += (value - mu) / datapoints;
 		sn += (value - oldMu) * (value - mu);
 		needUpdate = true;
+		assert(!std::isnan(mu) && !std::isinf(mu) && !std::isnan(sn) && !std::isinf(sn));
 	}
 
 	void removeDataPoint(double value) {
 		datapoints--;
+		if(datapoints == 0) {
+			mu = 0;
+			sn = 0;
+			sigma = 0;
+			return;
+		}
 		double oldMu = mu;
 		mu -= (value - mu) / datapoints;
 		sn -= (value - oldMu) * (value - mu);
 		needUpdate = true;
+		assert(!std::isnan(mu) && !std::isinf(mu) && !std::isnan(sn) && !std::isinf(sn));
 	}
 
 	double getCDF(double value) {

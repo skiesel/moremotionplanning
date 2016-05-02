@@ -49,7 +49,13 @@ N0_C=0
 XI=(0.5)
 XI_C=0
 
-ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]} * ${#SELECTIONRADIUS[@]} * ${#PRUNINGRADIUS[@] * ${#N0[@]} * ${#XI[@]}))
+SSTPRUNING=(SST SSTStar)
+SSTSSTPRUNING_C=0
+
+COSTPRUNING=(F)
+COSTPRUNING_C=0
+
+ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]} * ${#SELECTIONRADIUS[@]} * ${#PRUNINGRADIUS[@] * ${#N0[@]} * ${#XI[@]} * ${#SSTPRUNING[@]} * ${#COSTPRUNING[@]}))
 ALG_TOTAL_C=0
 
 function morePlannerSettings() {
@@ -93,7 +99,17 @@ function morePlannerSettings() {
 								increment N0[@] N0_C
 								if [ "$old" -gt "$N0_C" ] || [ "$old" -eq "$N0_C" ]
 								then
+									old=$XI_C
 									increment XI[@] XI_C
+									if [ "$old" -gt "$XI_C" ] || [ "$old" -eq "$XI_C" ]
+									then
+										old=$SSTPRUNING_C
+										increment SSTPRUNING[@] SSTPRUNING_C
+										if [ "$old" -gt "$SSTPRUNING_C" ] || [ "$old" -eq "$SSTPRUNING_C" ]
+										then
+											increment COSTPRUNING[@] COSTPRUNING_C
+										fi
+									fi
 								fi
 							fi
 						fi
@@ -119,6 +135,8 @@ function getPlannerPathAttrs() {
 	path="$path pruningradius=${PRUNINGRADIUS[$PRUNINGRADIUS_C]}"
 	path="$path n0=${N0[$N0_C]}"
 	path="$path xi=${XI[$XI_C]}"
+	path="$path sstpruning=${SSTPRUNING[$SSTPRUNING_C]}"
+	path="$path costpruning=${COSTPRUNING[$COSTPRUNING_C]}"
 
 	eval $__resultvar="'$path'" 
 }
@@ -136,6 +154,8 @@ function getPlannerParamFile() {
 	param="${param}PruningRadius ? ${PRUNINGRADIUS[$PRUNINGRADIUS_C]}\n"
 	param="${param}N0 ? ${N0[$N0_C]}\n"
 	param="${param}Xi ? ${XI[$XI_C]}\n"
+	param="${param}SSTStyle ? ${SSTPRUNING[$SSTPRUNING_C]}\n"
+	param="${param}CostPruningStyle ? ${COSTPRUNING[$COSTPRUNING_C]}\n"
 
 	eval $__resultvar="'$param'" 
 }

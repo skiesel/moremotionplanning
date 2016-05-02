@@ -187,6 +187,7 @@ protected:
 		double effort = std::numeric_limits<double>::infinity();
 		double initialEffort = std::numeric_limits<double>::infinity();
 		bool interior = false;
+		bool inRBTree = false;
 	};
 
 public:
@@ -389,6 +390,8 @@ protected:
 	}
 
 	virtual void updateEdgeEffort(Edge *e, double effort, bool addToOpen = true) {
+		assert(effort >= 0);
+		
 		e->effort = effort;
 		if(!open.inHeap(e) && addToOpen) {
 			open.push(e);

@@ -8,7 +8,8 @@
 
 #include "../samplers/beastsampler_dstar.hpp"
 
-int globalCounter = 0;
+#include "modules/costpruningmodule.hpp"
+#include "modules/sstpruningmodule.hpp"
 
 namespace ompl {
 
@@ -28,26 +29,7 @@ public:
 
 		propagationStepSize = siC_->getPropagationStepSize();
 
-		selectionRadius = params.doubleVal("SelectionRadius");
-		pruningRadius = params.doubleVal("PruningRadius");
-		n0 = params.doubleVal("N0");
-		xi = params.doubleVal("Xi");
-
 		Planner::declareParam<bool>("intermediate_states", this, &AnytimeBeastPlanner::setIntermediateStates, &AnytimeBeastPlanner::getIntermediateStates);
-
-		Planner::declareParam<double>("stateradius", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getStateRadius);
-		Planner::declareParam<unsigned int>("prmsize", this, &AnytimeBeastPlanner::ignoreSetterUnsigedInt, &AnytimeBeastPlanner::getPRMSize);
-		Planner::declareParam<unsigned int>("numprmedges", this, &AnytimeBeastPlanner::ignoreSetterUnsigedInt, &AnytimeBeastPlanner::getNumPRMEdges);
-
-		Planner::declareParam<double>("validedgedistributionalpha", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getValidEdgeDistributionAlpha);
-		Planner::declareParam<double>("validedgedistributionbeta", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getValidEdgeDistributionBeta);
-		Planner::declareParam<double>("invalidedgedistributionalpha", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getInvalidEdgeDistributionAlpha);
-		Planner::declareParam<double>("invalidedgedistributionbeta", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getInvalidEdgeDistributionBeta);
-
-		Planner::declareParam<double>("selectionradius", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getSelectionRadius);
-		Planner::declareParam<double>("pruningradius", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getPruningRadius);
-		Planner::declareParam<double>("xi", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getXi);
-		Planner::declareParam<double>("n0", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getN0);
 
 		//Obviously this isn't really a parameter but I have no idea how else to get it into the output file through the benchmarker
 		Planner::declareParam<double>("samplerinitializationtime", this, &AnytimeBeastPlanner::ignoreSetterDouble, &AnytimeBeastPlanner::getSamplerInitializationTime);
@@ -59,21 +41,7 @@ public:
 
 	void ignoreSetterDouble(double) const {}
 	void ignoreSetterUnsigedInt(unsigned int) const {}
-	void ignoreSetterBool(bool) const {}
-
-	double getStateRadius() const { return params.doubleVal("StateRadius"); }
-	unsigned int getPRMSize() const { return params.integerVal("PRMSize"); }
-	unsigned int getNumPRMEdges() const { return params.integerVal("NumEdges"); }
-	double getValidEdgeDistributionAlpha() const { return params.doubleVal("ValidEdgeDistributionAlpha"); }
-	double getValidEdgeDistributionBeta() const { return params.doubleVal("ValidEdgeDistributionBeta"); }
-	double getInvalidEdgeDistributionAlpha() const { return params.doubleVal("InvalidEdgeDistributionAlpha"); }
-	double getInvalidEdgeDistributionBeta() const { return params.doubleVal("InvalidEdgeDistributionBeta"); }
-
-	double getSelectionRadius() const { return params.doubleVal("SelectionRadius"); }
-	double getPruningRadius() const { return params.doubleVal("PruningRadius"); }
-	double getXi() const { return params.doubleVal("Xi"); }
-	unsigned int getN0() const { return params.doubleVal("N0"); }
-	
+	void ignoreSetterBool(bool) const {}	
 	double getSamplerInitializationTime() const { return samplerInitializationTime; }
 
 	bool getIntermediateStates() const { return addIntermediateStates_; }
@@ -81,19 +49,15 @@ public:
 
 	virtual void setup() {
 		ompl::control::RRT::setup();
-		if(!witnesses)
-			witnesses.reset(tools::SelfConfig::getDefaultNearestNeighbors<Motion *>(this));
-		witnesses->setDistanceFunction(boost::bind(&AnytimeBeastPlanner::distanceFunction, this, _1, _2));
+
 	}
 
 	virtual void clear() {
 		RRT::clear();
-		if(witnesses != NULL) {
-			witnesses->clear();
+		if(sstPruningModule != nullptr) {
+			sstPruningModule->clear();
 		}
 	}
-
-	Witness *startWitness = NULL;
 
 	virtual base::PlannerStatus solve(const base::PlannerTerminationCondition &ptc) {
 		start = clock();
@@ -102,17 +66,43 @@ public:
 		base::Goal                   *goal = pdef_->getGoal().get();
 		base::GoalSampleableRegion *goal_s = dynamic_cast<base::GoalSampleableRegion *>(goal);
 
+		optimizationObjective = globalParameters.optimizationObjective;
+		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
+
+		if(sstPruningModule != nullptr) {}
+		else if(params.stringVal("SSTStyle").compare("None") == 0) {
+			sstPruningModule = new NoSSTPruningModule<MotionWithCost, Motion>();
+		} else if(params.stringVal("SSTStyle").compare("SST") == 0) {
+			sstPruningModule = new SSTPruningModule<MotionWithCost, Motion>(this, siC_, optimizationObjective,
+				params.doubleVal("SelectionRadius"), params.doubleVal("PruningRadius"));
+		} else if(params.stringVal("SSTStyle").compare("SST*") == 0) {
+			sstPruningModule = new SSTStarPruningModule<MotionWithCost, Motion>(this, siC_, optimizationObjective,
+				params.doubleVal("SelectionRadius"), params.doubleVal("PruningRadius"),
+				params.doubleVal("Xi"), params.doubleVal("N0"),
+				siC_->getStateSpace()->getDimension(),
+				siC_->getControlSpace()->getDimension());
+		}
+
+		if(costPruningModule != nullptr) {}
+		else if(params.stringVal("CostPruningStyle").compare("None") == 0) {
+			costPruningModule = new NoCostPruningModule<MotionWithCost>(optimizationObjective);
+		} else if(params.stringVal("CostPruningStyle").compare("G") == 0) {
+			costPruningModule = new GCostPruningModule<MotionWithCost>(optimizationObjective);
+		} else if(params.stringVal("CostPruningStyle").compare("F") == 0) {
+			costPruningModule = new FCostPruningModule<MotionWithCost>(optimizationObjective, goal);
+		}
+
+
+
+
 		if(nn_->size() == 0) {
 			while(const base::State *st = pis_.nextStart()) {
-				Motion *motion = new MotionWithCost(siC_);
+				MotionWithCost *motion = startState = new MotionWithCost(siC_);
 				si_->copyState(motion->state, st);
 				siC_->nullControl(motion->control);
 				nn_->add(motion);
 
-				Witness *witness = startWitness = new Witness(siC_);
-				si_->copyState(witness->state, motion->state);
-				witness->linkRep(motion);
-				witnesses->add(witness);
+				sstPruningModule->addStartState(motion);
 			}
 		}
 
@@ -120,16 +110,6 @@ public:
 			OMPL_ERROR("%s: There are no valid initial states!", getName().c_str());
 			return base::PlannerStatus::INVALID_START;
 		}
-
-		optimizationObjective = globalParameters.optimizationObjective;
-		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
-
-		unsigned int iterations = 0;
-		double j = 0;
-		double d = siC_->getStateSpace()->getDimension();
-		double l = siC_->getControlSpace()->getDimension();
-		double SSTStarIteration = 0;
-		unsigned int iterationBound = n0;
 
 		if(!newsampler) {
 			auto start = clock();
@@ -140,42 +120,29 @@ public:
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
 		}
-		if(!controlSampler_)
+
+		if(!controlSampler_) {
 			controlSampler_ = siC_->allocDirectedControlSampler();
+		}
 
 		OMPL_INFORM("%s: Starting planning with %u states already in datastructure", getName().c_str(), nn_->size());
 
+		MotionWithCost *rmotion = new MotionWithCost(siC_);
+		base::State *rstate = rmotion->state;
+		Control *rctrl = rmotion->control;
+
 		while(ptc == false) {
-			subSolve(ptc, goal, iterationBound);
+			MotionWithCost *nmotion = NULL;
 
-			SSTStarIteration++;
-			selectionRadius *= xi;
-			pruningRadius *= xi;
-			iterationBound += (1 + log(SSTStarIteration)) * pow(xi, -(d + l + 1) * SSTStarIteration) * n0;
-		}
-
-		return ompl::base::PlannerStatus(false, false);
-	}
-
-protected:
-
-	void subSolve(const base::PlannerTerminationCondition &ptc, base::Goal* goal, unsigned int iterationBound) {
-		Motion      *rmotion = new MotionWithCost(siC_);
-		base::State  *rstate = rmotion->state;
-		Control       *rctrl = rmotion->control;
-
-		unsigned int iterations = 0;
-
-		while(ptc == false && iterations < iterationBound) {
-			iterations++;
-
-			Motion *nmotion = NULL;
-
-			newsampler->sample(rstate);
+			if(!newsampler->sample(rstate, ptc)) {
+				return ompl::base::PlannerStatus(false, false);
+			}
 			
-			// nmotion = nn_->nearest(resusableMotion);
-			// nmotion = nn_->nearest(rmotion);
-			nmotion = selectNode(rmotion);
+			if(sstPruningModule->canSelectNode()) {
+				nmotion = sstPruningModule->selectNode(rmotion, nn_);
+			} else {
+				nmotion = (MotionWithCost*)nn_->nearest(rmotion);
+			}
 
 			unsigned int cd = controlSampler_->sampleTo(rctrl, nmotion->control, nmotion->state, rmotion->state);
 
@@ -183,30 +150,34 @@ protected:
 				std::vector<base::State *> pstates;
 				cd = siC_->propagateWhileValid(nmotion->state, rctrl, cd, pstates, true);
 
+				int p = -1;
 				if(cd >= siC_->getMinControlDuration()) {
-					Motion *lastmotion = nmotion;
+					MotionWithCost *lastmotion = nmotion;
+
+					assert(lastmotion != nullptr);
+
 					bool solved = false;
-					size_t p = 0;
-					std::vector<Motion*> addedMotions;
+					
+					std::vector<MotionWithCost*> addedMotions;
+					++p;
 					for(; p < pstates.size(); ++p) {
-						Motion *motion = new MotionWithCost();
+						MotionWithCost *motion = new MotionWithCost();
+
 						motion->state = pstates[p];
 
 						motion->control = siC_->allocControl();
 						siC_->copyControl(motion->control, rctrl);
 						motion->steps = 1;
+						lastmotion->numChildren++;
 						motion->parent = lastmotion;
-						((MotionWithCost*)motion)->updateGValue(propagationStepSize);
+						motion->updateGValue(propagationStepSize);
 
-						ompl::base::Cost h = optimizationObjective->costToGo(motion->state, goal);
-						ompl::base::Cost f = optimizationObjective->combineCosts(((MotionWithCost*)motion)->g, h);
-						if(!optimizationObjective->isSatisfied(f)) {
+						if(costPruningModule->shouldPrune(motion)) {
 							break;
 						}
 
-						newsampler->reached(lastmotion->state, ((MotionWithCost*)lastmotion)->g.value(), pstates[p], ((MotionWithCost*)motion)->g.value());
+						newsampler->reached(lastmotion->state, lastmotion->g.value(), pstates[p], motion->g.value());
 
-						((MotionWithCost*)lastmotion)->numChildren++;
 						addedMotions.emplace_back(motion);
 						nn_->add(motion);
 
@@ -214,183 +185,78 @@ protected:
 
 						double dist = 0.0;
 						solved = goal->isSatisfied(motion->state, &dist);
-						if(solved && optimizationObjective->isSatisfied(((MotionWithCost*)motion)->g)) {
-							globalParameters.solutionStream.addSolution(((MotionWithCost*)motion)->g, start);
-							newsampler->foundSolution(((MotionWithCost*)motion)->g);
-							optimizationObjective->setCostThreshold(((MotionWithCost*)motion)->g);
+						if(solved && optimizationObjective->isSatisfied(motion->g)) {
+							globalParameters.solutionStream.addSolution(motion->g, start);
+							newsampler->foundSolution(motion->g);
+							optimizationObjective->setCostThreshold(motion->g);
 							break;
 						}
 					}
 
 					// post process the branch just added for SST* like pruning from leaf to root
-					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {						
-
-						Motion *motion = *addedMotionsIterator;
-						Witness *closestWitness = findClosestWitness(motion);
-						if(closestWitness->rep == motion ||
-							optimizationObjective->isCostBetterThan(((MotionWithCost*)motion)->g, ((MotionWithCost*)closestWitness->rep)->g)) {
-
-							Motion *oldRep = closestWitness->rep;
-
-							closestWitness->linkRep(motion);
-
-							if(oldRep != motion) {
-								cleanupTree(oldRep);
-							} else {
-								double h = optimizationObjective->costToGo(motion->state, goal).value();
-								double g = ((MotionWithCost*)motion)->g.value();
-								while(motion->parent != NULL) {
-									double newH = g - ((MotionWithCost*)motion)->g.value() + h;
-									newsampler->hValueUpdate(motion->state, newH);
-									motion = motion->parent;
-								}
-							}
-						} else {
-							cleanupTree(motion);
+					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {
+						MotionWithCost *motion = *addedMotionsIterator;
+						MotionWithCost *pruned = sstPruningModule->shouldPrune(motion);
+						if(pruned != nullptr) {
+							nn_->remove(pruned);
+							newsampler->remove(pruned->state, pruned->g.value());
+							sstPruningModule->cleanupTree(pruned);
 						}
 					}
-
-					//free any states after we hit the goal
-					while(++p < pstates.size())
-						si_->freeState(pstates[p]);
-					if(solved)
-						break;
-				} else {
-					for(size_t p = 0 ; p < pstates.size(); ++p)
-						si_->freeState(pstates[p]);
 				}
+
+				//free any states after we hit the goal
+				//or all the states if we're not able to use
+				//this propagation
+				++p;
+				for(; p < pstates.size(); ++p)
+					si_->freeState(pstates[p]);
+
 			} else {
+				assert(false);
 				if(cd >= siC_->getMinControlDuration()) {
 					/* create a motion */
-					Motion *motion = new MotionWithCost(siC_);
+					MotionWithCost *motion = new MotionWithCost(siC_);
 
 					si_->copyState(motion->state, rmotion->state);
 					siC_->copyControl(motion->control, rctrl);
 					motion->steps = cd;
+					nmotion->numChildren++;
 					motion->parent = nmotion;
-					((MotionWithCost*)motion)->updateGValue(propagationStepSize);
+					motion->updateGValue(propagationStepSize);
 
 					ompl::base::Cost h = optimizationObjective->costToGo(motion->state, goal);
-					ompl::base::Cost f = optimizationObjective->combineCosts(((MotionWithCost*)motion)->g, h);
-					if(optimizationObjective->isSatisfied(f)) {
-
+					if(!costPruningModule->shouldPrune(motion)) {
 						double dist = 0.0;
 						bool solv = goal->isSatisfied(motion->state, &dist);
-						if(solv && optimizationObjective->isSatisfied(((MotionWithCost*)motion)->g)) {
-							globalParameters.solutionStream.addSolution(((MotionWithCost*)motion)->g, start);
-							newsampler->foundSolution(((MotionWithCost*)motion)->g);
-							optimizationObjective->setCostThreshold(((MotionWithCost*)motion)->g);
+						if(solv && optimizationObjective->isSatisfied(motion->g)) {
+							globalParameters.solutionStream.addSolution(motion->g, start);
+							newsampler->foundSolution(motion->g);
+							optimizationObjective->setCostThreshold(motion->g);
 							break;
 						}
 
-						Witness *closestWitness = findClosestWitness(motion);
-
-						if(closestWitness->rep == motion || optimizationObjective->isCostBetterThan(((MotionWithCost*)nmotion)->g, ((MotionWithCost*)closestWitness->rep)->g)) {
-
-							Motion *oldRep = closestWitness->rep;
-							closestWitness->linkRep(motion);
-							((MotionWithCost*)nmotion)->numChildren++;
-
-							newsampler->reached(nmotion->state, ((MotionWithCost*)nmotion)->g.value(), motion->state, ((MotionWithCost*)motion)->g.value());
-
-							Motion *branchMotion = motion;
-							double h = optimizationObjective->costToGo(branchMotion->state, goal).value();
-							double g = ((MotionWithCost*)branchMotion)->g.value();
-							while(branchMotion->parent != NULL) {
-								double newH = g - ((MotionWithCost*)branchMotion)->g.value() + h;
-								newsampler->hValueUpdate(branchMotion->state, newH);
-								branchMotion = branchMotion->parent;
-							}
-
-							((MotionWithCost*)nmotion)->numChildren++;
+						MotionWithCost *pruned = sstPruningModule->shouldPrune(motion);
+						if(pruned != nullptr) {
+							nn_->remove(pruned);
+							newsampler->remove(pruned->state, pruned->g.value());
+							sstPruningModule->cleanupTree(pruned);
+						} else {
+							newsampler->reached(nmotion->state, nmotion->g.value(),
+												motion->state, motion->g.value());
 							nn_->add(motion);
-
-							if(oldRep != motion) {
-								cleanupTree(oldRep);
-							}
 						}
 					}
 				}
 			}
 		}
 
-		if(rmotion->state)
-			si_->freeState(rmotion->state);
-		if(rmotion->control)
-			siC_->freeControl(rmotion->control);
-		delete rmotion;
-
 		OMPL_INFORM("%s: Created %u states", getName().c_str(), nn_->size());
+
+		return ompl::base::PlannerStatus(false, false);
 	}
 
-	double distanceFunction(const Motion *a, const Motion *b) const {
-		return si_->distance(a->state, b->state);
-	}
-
-	Motion *selectNode(Motion *sample) {
-		std::vector<Motion *> ret;
-		Motion *selected = nullptr;
-		base::Cost bestCost = optimizationObjective->infiniteCost();
-		nn_->nearestR(sample, selectionRadius, ret);
-		for(unsigned int i = 0; i < ret.size(); i++) {
-			if(!((MotionWithCost*)ret[i])->inactive && optimizationObjective->isCostBetterThan(((MotionWithCost*)ret[i])->g, bestCost)) {
-				bestCost = ((MotionWithCost*)ret[i])->g;
-				selected = ret[i];
-			}
-		}
-		if(selected == nullptr) {
-			int k = 1;
-			while(selected == nullptr) {
-				nn_->nearestK(sample, k, ret);
-				for(unsigned int i=0; i < ret.size() && selected == nullptr; i++)
-					if(!((MotionWithCost*)ret[i])->inactive)
-						selected = ret[i];
-				k += 5;
-			}
-		}
-		return selected;
-	}
-
-	Witness* findClosestWitness(Motion *node) {
-		if(witnesses->size() > 0) {
-			Witness *closest = (Witness*)witnesses->nearest(node);
-			if(distanceFunction(closest, node) > pruningRadius) {
-				closest = new Witness(siC_);
-				closest->linkRep(node);
-				si_->copyState(closest->state, node->state);
-				witnesses->add(closest);
-			}
-			return closest;
-		} else {
-			Witness *closest = new Witness(siC_);
-			closest->linkRep(node);
-			si_->copyState(closest->state, node->state);
-			witnesses->add(closest);
-			return closest;
-		}
-	}
-
-	void cleanupTree(Motion *oldRep) {
-		((MotionWithCost*)oldRep)->inactive = true;
-
-		nn_->remove(oldRep);
-		newsampler->remove(oldRep->state, ((MotionWithCost*)oldRep)->g.value());
-
-		while(((MotionWithCost*)oldRep)->inactive && ((MotionWithCost*)oldRep)->numChildren == 0) {
-			if(oldRep->state)
-				si_->freeState(oldRep->state);
-			if(oldRep->control)
-				siC_->freeControl(oldRep->control);
-
-			oldRep->state = nullptr;
-			oldRep->control = nullptr;
-			if(((MotionWithCost*)oldRep->parent)->numChildren > 0)
-				((MotionWithCost*)oldRep->parent)->numChildren--;
-			Motion *oldRepParent = oldRep->parent;
-			delete oldRep;
-			oldRep = oldRepParent;
-		}
-	}
+protected:
 
 	class MotionWithCost : public Motion {
 	public:
@@ -407,37 +273,19 @@ protected:
 		bool inactive = false;
 	};
 
-	class Witness : public Motion {
-	public:
-
-		Witness() {}
-
-		Witness(const SpaceInformation *si) : Motion(si) {}
-
-		virtual base::State *getState() const {
-			return rep->state;
-		}
-
-		virtual Motion *getParent() const {
-			return rep->parent;
-		}
-
-		void linkRep(Motion *lRep) {
-			rep = lRep;
-		}
-
-		Motion *rep = nullptr;
-	};
-
 	ompl::base::AnytimeBeastSampler *newsampler = NULL;
 
-	std::shared_ptr< NearestNeighbors<Motion *> > witnesses;
+	
 	base::OptimizationObjectivePtr optimizationObjective;
 	double propagationStepSize, selectionRadius, pruningRadius, xi, n0, samplerInitializationTime = 0;
 	clock_t start;
 
 	const FileMap &params;
+	CostPruningModule<MotionWithCost> *costPruningModule = NULL;
+	SSTPruningModuleBase<MotionWithCost, Motion> *sstPruningModule = NULL;
 
+	
+	MotionWithCost *startState;
 };
 
 }
