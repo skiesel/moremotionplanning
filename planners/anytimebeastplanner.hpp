@@ -75,12 +75,14 @@ public:
 		} else if(params.stringVal("SSTStyle").compare("SST") == 0) {
 			sstPruningModule = new SSTPruningModule<MotionWithCost, Motion>(this, siC_, optimizationObjective,
 				params.doubleVal("SelectionRadius"), params.doubleVal("PruningRadius"));
-		} else if(params.stringVal("SSTStyle").compare("SST*") == 0) {
+		} else if(params.stringVal("SSTStyle").compare("SSTStar") == 0) {
 			sstPruningModule = new SSTStarPruningModule<MotionWithCost, Motion>(this, siC_, optimizationObjective,
 				params.doubleVal("SelectionRadius"), params.doubleVal("PruningRadius"),
 				params.doubleVal("Xi"), params.doubleVal("N0"),
 				siC_->getStateSpace()->getDimension(),
 				siC_->getControlSpace()->getDimension());
+		} else {
+			throw ompl::Exception("Unrecognized SSTStyle: %s", params.stringVal("SSTStyle"));
 		}
 
 		if(costPruningModule != nullptr) {}
@@ -90,6 +92,8 @@ public:
 			costPruningModule = new GCostPruningModule<MotionWithCost>(optimizationObjective);
 		} else if(params.stringVal("CostPruningStyle").compare("F") == 0) {
 			costPruningModule = new FCostPruningModule<MotionWithCost>(optimizationObjective, goal);
+		} else {
+			throw ompl::Exception("Unrecognized CostPruningStyle: %s", params.stringVal("CostPruningStyle"));
 		}
 
 
