@@ -148,7 +148,7 @@ public:
 		return true;
 	}
 
-	void remove(ompl::base::State *state, double g) {
+	virtual void remove(ompl::base::State *state, double g) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = state;
 		unsigned int cellId = abstraction->mapToAbstractRegion(incomingState);
@@ -174,7 +174,7 @@ public:
 		return foundG / startG;
 	}
 
-	void foundSolution(const ompl::base::Cost &incumbent) {
+	virtual void foundSolution(const ompl::base::Cost &incumbent) {
 		incumbentCost = incumbent.value();
 		targetEdge = NULL;
 		addedGoalEdge = false;
@@ -194,7 +194,7 @@ public:
 		addOutgoingEdgesToOpen(startID);
 	}
 
-	void reached(ompl::base::State *start, double startG, ompl::base::State *end, double endG) {
+	virtual void reached(ompl::base::State *start, double startG, ompl::base::State *end, double endG) {
 		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
 		incomingState = start;
 		unsigned int startCellId = abstraction->mapToAbstractRegion(incomingState);

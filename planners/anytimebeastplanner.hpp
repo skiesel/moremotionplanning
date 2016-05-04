@@ -5,8 +5,7 @@
 
 #include "../structs/filemap.hpp"
 #include "../samplers/anytimebeastsampler.hpp"
-
-#include "../samplers/beastsampler_dstar.hpp"
+#include "../samplers/anytimebeastsamplershim.hpp"
 
 #include "modules/costpruningmodule.hpp"
 #include "modules/sstpruningmodule.hpp"
@@ -20,7 +19,6 @@ protected:
 	class Witness;
 
 public:
-	
 	/** \brief Constructor */
 	AnytimeBeastPlanner(const SpaceInformationPtr &si, const FileMap &params) :
 		ompl::control::RRT(si), params(params) {
@@ -69,6 +67,8 @@ public:
 		optimizationObjective = globalParameters.optimizationObjective;
 		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
 
+
+
 		if(sstPruningModule != nullptr) {}
 		else if(params.stringVal("SSTStyle").compare("None") == 0) {
 			sstPruningModule = new NoSSTPruningModule<MotionWithCost, Motion>();
@@ -96,9 +96,6 @@ public:
 			throw ompl::Exception("Unrecognized CostPruningStyle: %s", params.stringVal("CostPruningStyle"));
 		}
 
-
-
-
 		if(nn_->size() == 0) {
 			while(const base::State *st = pis_.nextStart()) {
 				MotionWithCost *motion = startState = new MotionWithCost(siC_);
@@ -118,9 +115,12 @@ public:
 		if(!newsampler) {
 			auto start = clock();
 
-			newsampler = new ompl::base::AnytimeBeastSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params);
-
-			newsampler->initialize();
+			if(params.stringVal("Sampler").compare("BEAST") == 0) {
+				newsampler = new ompl::base::AnytimeBeastSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params);
+				newsampler->initialize();
+			} else {
+				newsampler = new ompl::base::AnytimeBeastSamplerShim((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params, rng_);
+			}
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
 		}
@@ -141,7 +141,7 @@ public:
 			if(!newsampler->sample(rstate, ptc)) {
 				return ompl::base::PlannerStatus(false, false);
 			}
-			
+
 			if(sstPruningModule->canSelectNode()) {
 				nmotion = sstPruningModule->selectNode(rmotion, nn_);
 			} else {
@@ -157,8 +157,6 @@ public:
 				int p = -1;
 				if(cd >= siC_->getMinControlDuration()) {
 					MotionWithCost *lastmotion = nmotion;
-
-					assert(lastmotion != nullptr);
 
 					bool solved = false;
 					
@@ -217,7 +215,6 @@ public:
 					si_->freeState(pstates[p]);
 
 			} else {
-				assert(false);
 				if(cd >= siC_->getMinControlDuration()) {
 					/* create a motion */
 					MotionWithCost *motion = new MotionWithCost(siC_);
