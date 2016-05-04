@@ -15,7 +15,8 @@ MAXCTRLDUR_C=0
 GOALRADIUS=(0.1)
 GOALRADIUS_C=0
 
-AGENT_MESH=("car2_planar_robot.dae" "car2_planar_robot_SCALED.dae")
+# "car2_planar_robot_SCALED.dae"
+AGENT_MESH=("car2_planar_robot.dae")
 AGENT_MESH_C=0
 
 STARTGOAL_C=0

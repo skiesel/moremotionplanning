@@ -3,6 +3,8 @@
 PLANNER=(AnytimeBEAST)
 PLANNER_C=-1
 
+BEASTVERSION="_4"
+
 ABSTRACTION_PATH=(
 #				  "abstractiontype=prm numprmedges=10 prmsize=100" #
 #				  "abstractiontype=prm numprmedges=10 prmsize=1000" #
@@ -25,7 +27,8 @@ ABSTRACTION_PARAM=(
 				  )
 ABSTRACTION_C=0
 
-STATERADIUS=(2 4 6)
+#2 4 
+STATERADIUS=(6)
 STATERADIUS_C=0
 
 WHICHSEARCH=("D*")
@@ -49,13 +52,16 @@ N0_C=0
 XI=(0.5)
 XI_C=0
 
-SSTPRUNING=(SST SSTStar)
+SSTPRUNING=(SST SSTStar None)
 SSTPRUNING_C=0
 
-COSTPRUNING=(F)
+COSTPRUNING=(G F None)
 COSTPRUNING_C=0
 
-ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]} * ${#SELECTIONRADIUS[@]} * ${#PRUNINGRADIUS[@] * ${#N0[@]} * ${#XI[@]} * ${#SSTPRUNING[@]} * ${#COSTPRUNING[@]}))
+SAMPLER=(BEAST Uniform)
+SAMPLER_C=0
+
+ALG_TOTAL=$((${#PLANNER[@]} * ${#ABSTRACTION_PATH[@]} * ${#STATERADIUS[@]} * ${#WHICHSEARCH[@]} * ${#EDGEDISTRIBUTION_PATH[@]} * ${#SELECTIONRADIUS[@]} * ${#PRUNINGRADIUS[@] * ${#N0[@]} * ${#XI[@]} * ${#SSTPRUNING[@]} * ${#COSTPRUNING[@]} * ${#SAMPLER[@]}))
 ALG_TOTAL_C=0
 
 function morePlannerSettings() {
@@ -107,7 +113,12 @@ function morePlannerSettings() {
 										increment SSTPRUNING[@] SSTPRUNING_C
 										if [ "$old" -gt "$SSTPRUNING_C" ] || [ "$old" -eq "$SSTPRUNING_C" ]
 										then
+											old=$COSTPRUNING_C
 											increment COSTPRUNING[@] COSTPRUNING_C
+											if [ "$old" -gt "$COSTPRUNING_C" ] || [ "$old" -eq "$COSTPRUNING_C" ]
+											then
+												increment SAMPLER[@] SAMPLER_C
+											fi
 										fi
 									fi
 								fi
@@ -126,7 +137,7 @@ function getPlannerPathAttrs() {
 	local  __resultvar=$1
 	local path=""
 	
-	path="$path planner=${PLANNER[$PLANNER_C]}"
+	path="$path planner=${PLANNER[$PLANNER_C]}$BEASTVERSION"
 	path="$path ${ABSTRACTION_PATH[$ABSTRACTION_C]}"
 	path="$path stateradius=${STATERADIUS[$STATERADIUS_C]}"
 	path="$path whichsearch=${WHICHSEARCH[$WHICHSEARCH_C]}"
@@ -137,6 +148,7 @@ function getPlannerPathAttrs() {
 	path="$path xi=${XI[$XI_C]}"
 	path="$path sstpruning=${SSTPRUNING[$SSTPRUNING_C]}"
 	path="$path costpruning=${COSTPRUNING[$COSTPRUNING_C]}"
+	path="$path sampler=${SAMPLER[$SAMPLER_C]}"
 
 	eval $__resultvar="'$path'" 
 }
@@ -156,6 +168,7 @@ function getPlannerParamFile() {
 	param="${param}Xi ? ${XI[$XI_C]}\n"
 	param="${param}SSTStyle ? ${SSTPRUNING[$SSTPRUNING_C]}\n"
 	param="${param}CostPruningStyle ? ${COSTPRUNING[$COSTPRUNING_C]}\n"
+	param="${param}Sampler ? ${SAMPLER[$SAMPLER_C]}\n"
 
 	eval $__resultvar="'$param'" 
 }
