@@ -7,10 +7,12 @@ public:
 	virtual ~SSTPruningModuleBase() {}
 
 	virtual void addStartState(MotionWithCost* m) = 0;
-	virtual MotionWithCost* shouldPrune(MotionWithCost *m) = 0;
+	virtual std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) = 0;
 	virtual bool canSelectNode() const = 0;
 	virtual MotionWithCost* selectNode(MotionWithCost *sample, const boost::shared_ptr<ompl::NearestNeighbors<Motion*>> &nn) const = 0;
+	virtual std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) = 0;
 	virtual void cleanupTree(MotionWithCost* m) = 0;
+	virtual void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) = 0;
 	virtual void clear() = 0;
 };
 
@@ -20,10 +22,12 @@ public:
 	NoSSTPruningModule() : SSTPruningModuleBase<MotionWithCost, Motion>() {}
 
 	void addStartState(MotionWithCost* m) {}
-	MotionWithCost* shouldPrune(MotionWithCost *m) { return nullptr; }
+	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) { return std::make_pair(nullptr, false); }
 	bool canSelectNode() const { return false; }
 	MotionWithCost* selectNode(MotionWithCost *sample, const boost::shared_ptr<ompl::NearestNeighbors<Motion*>> &nn) const { return nullptr; }
+	std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) { return std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>>(); }
 	void cleanupTree(MotionWithCost* m) {}
+	void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) {};
 	void clear() {}
 };
 
@@ -46,7 +50,9 @@ protected:
 
 public:
 
-	SSTPruningModule(const ompl::base::Planner *planner, const ompl::control::SpaceInformation *si, const ompl::base::OptimizationObjectivePtr& optimizationObjective, double selectionRadius, double pruningRadius) : SSTPruningModuleBase<MotionWithCost, Motion>(),
+	SSTPruningModule(const ompl::base::Planner *planner, const ompl::control::SpaceInformation *si, 
+		const ompl::base::OptimizationObjectivePtr& optimizationObjective, double selectionRadius,
+		double pruningRadius) : SSTPruningModuleBase<MotionWithCost, Motion>(),
 		si(si), optimizationObjective(optimizationObjective), selectionRadius(selectionRadius), pruningRadius(pruningRadius) {
 		witnesses.reset(ompl::tools::SelfConfig::getDefaultNearestNeighbors<MotionWithCost *>(planner));
 		witnesses->setDistanceFunction(boost::bind(&SSTPruningModule::distanceFunction, this, _1, _2));
@@ -67,7 +73,7 @@ public:
 		witnesses->add(witness);
 	}
 
-	MotionWithCost* shouldPrune(MotionWithCost *m) {
+	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) {
 		Witness *closestWitness = findClosestWitness(m);
 
 		if(closestWitness->rep == m || optimizationObjective->isCostBetterThan(m->g, closestWitness->rep->g)) {
@@ -76,13 +82,13 @@ public:
 			closestWitness->linkRep(m);
 
 			if(oldRep != m) {
-				return oldRep;
+				return std::make_pair(oldRep, true);
 			}
 
-			return nullptr;
+			return std::make_pair(nullptr, false);
 		}
 
-		return m;
+		return std::make_pair(m, false);
 	}
 
 	bool canSelectNode() const {
@@ -135,6 +141,7 @@ public:
 	void cleanupTree(MotionWithCost *oldRep) {
 		oldRep->inactive = true;
 		while(oldRep != nullptr && oldRep->inactive && oldRep->numChildren == 0) {
+			oldRep->deleted = true;
 			si->freeState(oldRep->state);
 			si->freeControl(oldRep->control);
 			MotionWithCost *oldRepParent = (MotionWithCost*)oldRep->parent;
@@ -147,9 +154,61 @@ public:
 		}
 	}
 
+	void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) {
+		const std::unordered_set<MotionWithCost*> &removedWitnesses = removed.second;
+		std::unordered_set<MotionWithCost*> removedReps;
+		for(auto r : removedWitnesses) {
+			Witness* w = (Witness*)r;
+			auto reps = cleanupTreeNoDelete(w->rep);
+			removedReps.insert(reps.begin(), reps.end());
+		}
 
+		for(auto r : removedReps) {
+			r->deleted = true;
+			si->freeState(r->state);
+			si->freeControl(r->control);
+			delete r;
+		}
+
+		for(auto r : removedWitnesses) {
+			Witness *w = (Witness*)r;
+			witnesses->remove(w);
+			si->freeState(w->state);
+			delete w;
+		}
+
+	}
+
+	std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) {
+		std::unordered_set<MotionWithCost*> removedWitnesses, removedReps;
+		std::vector<MotionWithCost*> list;
+		witnesses->list(list);
+		for(const auto w : list) {
+			Witness *witness = (Witness*)w;
+			if(!optimizationObjective->isSatisfied(witness->rep->g)) {
+				removedWitnesses.insert(w);
+				removedReps.insert(witness->rep);
+			}
+		}
+		return std::make_pair(removedReps, removedWitnesses);
+	}
 
 protected:
+
+	std::unordered_set<MotionWithCost*> cleanupTreeNoDelete(MotionWithCost *oldRep) {
+		std::unordered_set<MotionWithCost*> removed;
+		oldRep->inactive = true;
+		while(oldRep != nullptr && oldRep->inactive && oldRep->numChildren == 0) {
+			removed.insert(oldRep);
+			MotionWithCost *oldRepParent = (MotionWithCost*)oldRep->parent;
+			if(oldRepParent != nullptr && oldRepParent->numChildren > 0) {
+				oldRepParent->numChildren--;
+			}
+			oldRep = oldRepParent;
+		}
+		return removed;
+	}
+
 	const ompl::control::SpaceInformation *si = NULL;
 	const ompl::base::OptimizationObjectivePtr &optimizationObjective;
 	double selectionRadius, pruningRadius;
@@ -166,7 +225,7 @@ public:
 		reductions = 0;
 	}
 
-	MotionWithCost* shouldPrune(const MotionWithCost *m) {
+	std::pair<MotionWithCost*, bool> shouldPrune(const MotionWithCost *m) {
 		iterations++;
 
 		if(iterations >= iterationBound) {

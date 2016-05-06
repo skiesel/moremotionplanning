@@ -67,8 +67,6 @@ public:
 		optimizationObjective = globalParameters.optimizationObjective;
 		optimizationObjective->setCostThreshold(optimizationObjective->infiniteCost());
 
-
-
 		if(sstPruningModule != nullptr) {}
 		else if(params.stringVal("SSTStyle").compare("None") == 0) {
 			sstPruningModule = new NoSSTPruningModule<MotionWithCost, Motion>();
@@ -189,6 +187,14 @@ public:
 						solved = goal->isSatisfied(motion->state, &dist);
 						if(solved && optimizationObjective->isSatisfied(motion->g)) {
 							globalParameters.solutionStream.addSolution(motion->g, start);
+
+							auto removed = sstPruningModule->foundSolution(motion->g);
+							for(auto r : removed.first) {
+								nn_->remove(r);
+								newsampler->remove(r->state, r->g.value());
+							}
+							sstPruningModule->cleanupWitnesses(removed);
+
 							newsampler->foundSolution(motion->g);
 							optimizationObjective->setCostThreshold(motion->g);
 							break;
@@ -198,11 +204,11 @@ public:
 					// post process the branch just added for SST* like pruning from leaf to root
 					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {
 						MotionWithCost *motion = *addedMotionsIterator;
-						MotionWithCost *pruned = sstPruningModule->shouldPrune(motion);
-						if(pruned != nullptr) {
-							nn_->remove(pruned);
-							newsampler->remove(pruned->state, pruned->g.value());
-							sstPruningModule->cleanupTree(pruned);
+						auto prunedAndWasWitness = sstPruningModule->shouldPrune(motion);
+						if(prunedAndWasWitness.first != nullptr) {
+							nn_->remove(prunedAndWasWitness.first);
+							newsampler->remove(prunedAndWasWitness.first->state, prunedAndWasWitness.first->g.value());
+							sstPruningModule->cleanupTree(prunedAndWasWitness.first);
 						}
 					}
 				}
@@ -232,17 +238,25 @@ public:
 						bool solv = goal->isSatisfied(motion->state, &dist);
 						if(solv && optimizationObjective->isSatisfied(motion->g)) {
 							globalParameters.solutionStream.addSolution(motion->g, start);
+
+							auto removed = sstPruningModule->foundSolution(motion->g);
+							for(auto r : removed.first) {
+								nn_->remove(r);
+								newsampler->remove(r->state, r->g.value());
+							}
+							sstPruningModule->cleanupWitnesses(removed);
+
 							newsampler->foundSolution(motion->g);
 							optimizationObjective->setCostThreshold(motion->g);
-							break;
 						}
 
-						MotionWithCost *pruned = sstPruningModule->shouldPrune(motion);
-						if(pruned != nullptr) {
-							nn_->remove(pruned);
-							newsampler->remove(pruned->state, pruned->g.value());
-							sstPruningModule->cleanupTree(pruned);
-						} else {
+						auto prunedAndWasWitness = sstPruningModule->shouldPrune(motion);
+						if(prunedAndWasWitness.second) {
+							nn_->remove(prunedAndWasWitness.first);
+							newsampler->remove(prunedAndWasWitness.first->state, prunedAndWasWitness.first->g.value());
+							sstPruningModule->cleanupTree(prunedAndWasWitness.first);
+						}
+						if(prunedAndWasWitness.second || prunedAndWasWitness.first == nullptr){
 							newsampler->reached(nmotion->state, nmotion->g.value(),
 												motion->state, motion->g.value());
 							nn_->add(motion);
@@ -272,6 +286,7 @@ protected:
 		ompl::base::Cost g = ompl::base::Cost(0);
 		unsigned int numChildren = 0;
 		bool inactive = false;
+		bool deleted = false;
 	};
 
 	ompl::base::AnytimeBeastSampler *newsampler = NULL;
