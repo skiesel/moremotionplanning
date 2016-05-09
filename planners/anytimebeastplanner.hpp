@@ -176,10 +176,7 @@ public:
 							break;
 						}
 
-						newsampler->reached(lastmotion->state, lastmotion->g.value(), pstates[p], motion->g.value());
-
 						addedMotions.emplace_back(motion);
-						nn_->add(motion);
 
 						lastmotion = motion;
 
@@ -205,10 +202,15 @@ public:
 					for (auto addedMotionsIterator = addedMotions.rbegin(); addedMotionsIterator != addedMotions.rend(); ++addedMotionsIterator) {
 						MotionWithCost *motion = *addedMotionsIterator;
 						auto prunedAndWasWitness = sstPruningModule->shouldPrune(motion);
-						if(prunedAndWasWitness.first != nullptr) {
+						if(prunedAndWasWitness.second) {
 							nn_->remove(prunedAndWasWitness.first);
 							newsampler->remove(prunedAndWasWitness.first->state, prunedAndWasWitness.first->g.value());
 							sstPruningModule->cleanupTree(prunedAndWasWitness.first);
+						}
+						if(prunedAndWasWitness.second || prunedAndWasWitness.first == nullptr) {
+							newsampler->reached(motion->parent->state, ((MotionWithCost*)motion->parent)->g.value(),
+												motion->state, motion->g.value());
+							nn_->add(motion);
 						}
 					}
 				}
