@@ -2,6 +2,8 @@
 
 GlobalParameters globalParameters;
 
+#include <flann/flann.h>
+
 #include <ompl/control/planners/rrt/RRT.h>
 #include <ompl/control/planners/est/EST.h>
 #include <ompl/control/planners/kpiece/KPIECE1.h>
@@ -122,7 +124,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	srand(params.integerVal("Seed"));
+	flann::seed_random(params.integerVal("Seed"));
 	ompl::RNG::setSeed(params.integerVal("Seed"));
+
 
 	if(params.exists("NumControls"))
 		howManyControls = params.integerVal("NumControls");

@@ -12,7 +12,10 @@ class AnytimeBeastSampler : public ompl::base::BeastSampler_dstar {
 public:
 	AnytimeBeastSampler(ompl::base::SpaceInformation *base, ompl::base::State *start, const ompl::base::GoalPtr &goal,
 	            base::GoalSampleableRegion *gsr, const ompl::base::OptimizationObjectivePtr &optimizationObjective, const FileMap &params) :
-					BeastSampler_dstar(base, start, goal, gsr, params), optimizationObjective(optimizationObjective), goalPtr(goal) {}
+					BeastSampler_dstar(base, start, goal, gsr, params), optimizationObjective(optimizationObjective), goalPtr(goal) {
+
+		probabilityThreshold = params.exists("ProbabilityThreshold") ? params.doubleVal("ProbabilityThreshold") : 0;
+	}
 
 	~AnytimeBeastSampler() {}
 
@@ -96,8 +99,15 @@ public:
 		assert(focal.size() > 0);
 		bool shouldReset = false;
 		unsigned int loops = 0;
+		bool allOutsideProbabilityBound = false;
 		for(auto iter = focal.begin(); ; ++iter) {
-			if(iter == focal.end() || shouldReset) {
+			auto atEnd = (iter == focal.end());
+			if(atEnd || shouldReset) {
+				if(atEnd && allOutsideProbabilityBound) {
+					startOver();
+					allOutsideProbabilityBound = false;
+				}
+
 				iter = focal.begin();
 				shouldReset = false;
 
@@ -119,8 +129,13 @@ public:
 
 				//according to the docs, we shouldn't need to, but for the safety of the iterator, reset it :-(
 				shouldReset = true;
-			} else if(vertices[targetEdge->startID].states.size() > 0 && shouldExpand(targetEdge)) {
-				break;
+			} else if(vertices[targetEdge->startID].states.size() > 0) {
+				auto expand = shouldExpand(targetEdge);
+				bool withinProbabilityBound = expand.second >= probabilityThreshold;
+				allOutsideProbabilityBound |= !withinProbabilityBound;
+				if(withinProbabilityBound && expand.first) {
+					break;
+				}
 			}
 
 			if(ptc != false) {
@@ -176,22 +191,7 @@ public:
 
 	virtual void foundSolution(const ompl::base::Cost &incumbent) {
 		incumbentCost = incumbent.value();
-		targetEdge = NULL;
-		addedGoalEdge = false;
-		focal.clear();
-
-		for(unsigned int i = 0; i < abstraction->getAbstractionSize(); ++i) {
-			vertices[i].clearStates();
-			auto neighbors = abstraction->getNeighboringCells(i);
-			for(auto n : neighbors) {
-				getEdge(i, n)->interior = false;
-				getEdge(n, i)->interior = false;;
-			}
-		}
-
-		vertices[startID].addUnsortedState(startState);
-
-		addOutgoingEdgesToOpen(startID);
+		startOver();
 	}
 
 	virtual void reached(ompl::base::State *start, double startG, ompl::base::State *end, double endG) {
@@ -230,6 +230,25 @@ public:
 
 protected:
 
+	void startOver() {
+		targetEdge = NULL;
+		addedGoalEdge = false;
+		focal.clear();
+
+		for(unsigned int i = 0; i < abstraction->getAbstractionSize(); ++i) {
+			vertices[i].clearStates();
+			auto neighbors = abstraction->getNeighboringCells(i);
+			for(auto n : neighbors) {
+				getEdge(i, n)->interior = false;
+				getEdge(n, i)->interior = false;;
+			}
+		}
+
+		vertices[startID].addUnsortedState(startState);
+
+		addOutgoingEdgesToOpen(startID);
+	}
+
 	virtual void addOutgoingEdgesToOpen(unsigned int source) {
 		auto neighbors = abstraction->getNeighboringCells(source);
 		for(auto n : neighbors) {
@@ -256,9 +275,9 @@ protected:
 		}
 	}
 
-	bool shouldExpand(const Edge* e) {
+	std::pair<bool, double> shouldExpand(const Edge* e) {
 		if(std::isinf(incumbentCost)) {
-			return true;
+			return std::make_pair(true, 1.);
 		} else {
 			double r = randomNumbers.uniform01();
 // TODO:
@@ -266,7 +285,7 @@ protected:
 			GaussianDistribution f = gCostDistributions[e->endID] + (errorDistribution * vertices[e->endID].initH);
 
 			double val = f.getCDF(incumbentCost);
-			return r <= val;
+			return std::make_pair(r <= val, val);
 		}
 	}
 
@@ -406,14 +425,7 @@ protected:
 	class EdgeComparator {
 	public:
 		bool operator()(const Edge *lhs, const Edge *rhs) const {
-			// This is so WILDLY unlikely, but the way we're abusing std::set
-			// we need to make sure that we never give the impression of equality
-			// otherwise we won't actually add the Edge, however, this will maintain
-			// that we only add each Edge once which is also what we want
-			if(lhs->effort == rhs->effort) {
-				return lhs < rhs;
-			}
-			return lhs->effort < rhs->effort;
+			return Edge::pred(lhs, rhs);
 		}
 	};
 
@@ -426,6 +438,7 @@ protected:
 	ompl::base::State *firstTargetSuccessState = nullptr;
 
 	std::set<Edge*, EdgeComparator> focal;
+	double probabilityThreshold = 0;
 };
 
 std::function<double(const ompl::base::BeastSamplerBase::Vertex*)> AnytimeBeastSampler::VertexWrapper::getVal;

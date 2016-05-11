@@ -119,8 +119,17 @@ protected:
 		static double validEdgeDistributionAlpha, validEdgeDistributionBeta,
 				invalidEdgeDistributionAlpha, invalidEdgeDistributionBeta;
 
-		static bool pred(const Edge *a, const Edge *b) {
-			return a->effort < b->effort;
+		static bool pred(const Edge *lhs, const Edge *rhs) {
+			if(lhs->effort != rhs->effort) {
+				return lhs->effort < rhs->effort;
+			}
+			if(lhs->endID != rhs->endID) {
+				return lhs->endID < rhs->endID;
+			}
+			if(lhs->startID != rhs->startID) {
+				return lhs->startID < rhs->startID;
+			}
+			return false;
 		}
 		static unsigned int getHeapIndex(const Edge *r) {
 			return r->heapIndex;
