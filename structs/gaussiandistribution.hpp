@@ -12,12 +12,14 @@ public:
 		if(needUpdate) {
 			sigma = sqrt(sn / datapoints);
 			needUpdate = false;
+			assert(!std::isnan(sigma) && !std::isinf(sigma) && !std::isnan(sigma) && !std::isinf(sigma));
 		}
 		return sigma;
 	}
 
 	void addDataPoint(double value) {
 		datapoints++;
+		assert(value >= 0);
 		double oldMu = mu;
 		mu += (value - mu) / datapoints;
 		sn += (value - oldMu) * (value - mu);
@@ -26,17 +28,25 @@ public:
 	}
 
 	void removeDataPoint(double value) {
+		assert(value >= 0);
 		datapoints--;
-		if(datapoints == 0) {
+		if(datapoints <= 0) {
 			mu = 0;
 			sn = 0;
 			sigma = 0;
+			datapoints = 0;
+			needUpdate = false;
 			return;
 		}
 		double oldMu = mu;
 		mu -= (value - mu) / datapoints;
 		sn -= (value - oldMu) * (value - mu);
+
+		if(sn <= 0) {
+			sn = 0;
+		}
 		needUpdate = true;
+
 		assert(!std::isnan(mu) && !std::isinf(mu) && !std::isnan(sn) && !std::isinf(sn));
 	}
 
