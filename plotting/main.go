@@ -5,14 +5,15 @@ import (
 	"strings"
 	"strconv"
 	
+	// "github.com/skiesel/expsys/plots"
 	"github.com/skiesel/expsys/rdb"
 )
 
 const (
 	dataRoot = "../experiments/data/"
-	plottype = ".eps"
-	plotWidth = 5.
-	plotHeight = 5.
+	plottype = ".pdf"
+	plotWidth = 10.
+	plotHeight = 10.
 )
 
 func main() {
@@ -28,39 +29,38 @@ func main() {
 func Anytime() {
 	filters := map[string]map[string]string {
 		"SST" : map[string]string { "planner" : "SST" },
-		"SST*" : map[string]string { "planner" : "SSTStar" },
-		"Restarting RRT with Pruning" : map[string]string { "planner" : "RestartingRRTWithPruning" },
+		// "SST*" : map[string]string { "planner" : "SSTStar" },
+		// "Restarting RRT with Pruning" : map[string]string { "planner" : "RestartingRRTWithPruning" },
+		// "A-BEAST-4 (SST)" : map[string]string { "planner" : "AnytimeBEAST_4",
+		// 								"sstpruning" : "SST",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
+		// "A-BEAST-4 (SST*)" : map[string]string { "planner" : "AnytimeBEAST_4",
+		// 								"sstpruning" : "SSTStar",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
+		"A-BEAST-5 (SST)" : map[string]string { "planner" : "AnytimeBEAST_5",
+										// "sstpruning" : "SST",
+										// "costpruning" : "G",
+										// "sampler" : "BEAST",
+									},
+		// "A-BEAST-5 (SST*)" : map[string]string { "planner" : "AnytimeBEAST_5",
+		// 								"sstpruning" : "SSTStar",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
 	}
 
-	// // for sr := 2; sr <= 6; sr += 2 {
-	// // 	for ed := 5; ed <= 10; ed += 5 {
-	// // 		for prm := 1000; prm <= 10000; prm*=10 {
-
-	// sr := 4
-	// ed := 5
-	// prm := 1000
-
-	// 			label := fmt.Sprintf("A-BEAST sr=%d ed=%d prm=%d", sr, ed, prm)
-	// 			filters[label] = map[string]string {
-	// 				"planner" : "AnytimeBeast",
-	// 				"stateradius" : strconv.Itoa(sr),
-	// 				"numprmedges" : strconv.Itoa(ed),
-	// 				"prmsize" : strconv.Itoa(prm),
-	// 			}
-	// // 		}
-	// // 	}
-	// // }
-
-	
-
 	domainTypes := map[string][]string {
-		"2D" : []string{"KinematicCar", "DynamicCar", "Hovercraft"},
-		"3D" : []string{"Quadrotor", "Blimp"},
+		"2D" : []string{/*"KinematicCar", */"DynamicCar"/*, "Hovercraft"*/},
+		// "3D" : []string{"Quadrotor", "Blimp"},
 	}
 
 	maps := map[string][]string {
-		"2D" : []string{"forest.dae", "single-wall.dae", "3-ladder.dae", "parking-lot.dae", "intersection.dae"},
-		"3D" : []string{"forest.dae", "fifthelement.dae"},
+		"2D" : []string{/*"forest.dae", "single-wall.dae", "3-ladder.dae", */"parking-lot.dae"/*, "intersection.dae"*/},
+		// "3D" : []string{"forest.dae", "fifthelement.dae"},
 	}
 
 	meshes := map[string][]string {
@@ -84,13 +84,22 @@ func Anytime() {
 
 					dss := rdb.GetDatasetsFromNonRDBFormat(dataRoot, filters, true, nonAnytimeRDBReader)
 
+					// for i, ds := range dss {
+					// 	dss[i] = ds.FilterDataset(func(val string) bool {
+					// 		return datautils.ParseIntOrFail(val) <= 10
+					// 	}, "seed")
+					// }
+
 					title := fmt.Sprintf("%s - %s - %s", domain, strings.Replace(mmap, ".dae", "", -1), strings.Replace(mesh, ".dae", "", -1))
 
 					fmt.Println(title)
 
 					solvedCounts := map[string]float64{}
+					include := true
 					for _, ds := range dss {
-						fmt.Printf("\t%s: %d\n", ds.GetName(), ds.GetSize())
+						if ds.GetSize() == 0 {
+							include = false
+						}
 
 						dsValues := ds.GetColumnValuesWithKey("solution", "inst", "solution cost")
 
@@ -100,19 +109,24 @@ func Anytime() {
 								count++
 							}
 						}
+
+						fmt.Printf("\t%s: %d / %d\n", ds.GetName(), int(count), ds.GetSize())
+
 						solvedCounts[ds.GetName()] = count / float64(len(dsValues))
 					}
 					fmt.Println()
 
-					makeBarPlot(solvedCounts, title, ".", "Percent Solved", plottype, plotWidth, plotHeight)
+					if !include {
+						fmt.Println("Skipping!!\n")
+						continue
+					}
 
+					makeBarPlot(solvedCounts, title, ".", "Percent Solved", plottype, plotWidth, plotHeight)
 					makeAnytimePlot(dss, title, ".", "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 60, 15, plotWidth, plotHeight)
 				}
 			}
 		}
 	}
-
-
 }
 
 func Quadrotor() {

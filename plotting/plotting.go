@@ -181,7 +181,7 @@ func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, y
 	for _, ds := range dss {
 		dsName := ds.GetName()
 
-		anytimeData[dsName] = ds.GetColumnValuesWithKeys(tableName, []string{"inst", "seed"}, xValues, yValues)
+		anytimeData[dsName] = ds.GetColumnValuesWithKeys(tableName, []string{"inst", "seed", "Precomputation Time"}, xValues, yValues)
 		algorithms = append(algorithms, dsName)
 
 		for _, dfValues := range anytimeData[dsName] {
@@ -201,7 +201,6 @@ func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, y
 				errstr := fmt.Sprintf("could not parse %s\n", dfValues[1][len(dfValues[1])-1])
 				panic(errstr)
 			}
-
 
 			solution := datautils.ParseFloatOrFail(dfValues[1][len(dfValues[1])-1])
 			_, ok := bestSolutions[inst]
@@ -238,7 +237,9 @@ func makeAnytimePlot(dss []*rdb.Dataset, title, directory, tableName, xValues, y
 
 				curPoint := 0
 
-				for ; curPoint < (len(dfValues[0])-1) && datautils.ParseFloatOrFail(dfValues[0][curPoint+1]) <= val; curPoint++ {
+				precomputationTime := datautils.ParseFloatOrFail(dfValues[4][0])
+
+				for ; curPoint < (len(dfValues[0])-1) && datautils.ParseFloatOrFail(dfValues[0][curPoint+1]) + precomputationTime <= val; curPoint++ {
 				}
 				if curPoint >= len(dfValues[0]) {
 					curPoint = len(dfValues[0]) - 1

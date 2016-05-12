@@ -100,21 +100,8 @@ func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[s
 		}
 	}
 
-	columnData := map[string][][]string{}
-	columnData["solution"] = [][]string{}
-	columnData["solution"] = append(columnData["solution"], []string{"solution time", "solution cost"})
-
-	if anytime && scanner.Scan() {
-		str := scanner.Text()
-		if str == "Solution Stream" {
-			for scanner.Scan() {
-				str = scanner.Text()
-				columnData["solution"] = append(columnData["solution"], strings.Split(str, " "))
-			}
-		}
-	}
-
 	params := map[string]string{}
+	columnData := map[string][][]string{}
 
 	plannerName := strings.Replace(data[0], "control_", "", -1)
 
@@ -148,6 +135,12 @@ func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[s
 	dataPoint := data[len(data)-2]
 	dataPointValues := strings.Split(dataPoint, ";")
 
+	if precomp, ok := params["sampler_initialization_time"]; ok {
+		params["Precomputation Time"] = precomp
+	} else {
+		params["Precomputation Time"] = "0"
+	}
+
 	if !anytime {
 		length := strings.TrimSpace(dataPointValues[7])
 		time := strings.TrimSpace(dataPointValues[11])
@@ -168,12 +161,20 @@ func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[s
 
 		params["Solution Length"]=length
 		params["Solving Time"]=time
-		if precomp, ok := params["sampler_initialization_time"]; ok {
-			params["Precomputation Time"] = precomp
-		} else {
-			params["Precomputation Time"] = "0"
-		}
 	} else {
+		columnData["solution"] = [][]string{}
+		columnData["solution"] = append(columnData["solution"], []string{"solution time", "solution cost"})
+
+		if scanner.Scan() {
+			str := scanner.Text()
+			if str == "Solution Stream" {
+				for scanner.Scan() {
+					str = scanner.Text()
+					columnData["solution"] = append(columnData["solution"], strings.Split(str, " "))
+				}
+			}
+		}
+
 		if len(columnData["solution"][0]) > 1 {
 			params["Solved"]="true"
 		} else {

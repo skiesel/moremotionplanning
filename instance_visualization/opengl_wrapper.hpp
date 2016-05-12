@@ -91,7 +91,7 @@ public:
 
 		glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-		GLFWwindow *window = glfwCreateWindow(800, 800, "Planner", nullptr, nullptr); // Windowed
+		GLFWwindow *window = glfwCreateWindow(800, 800, "Visualizer", nullptr, nullptr); // Windowed
 		//	GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL", glfwGetPrimaryMonitor(), nullptr); // Fullscreen
 
 		glfwMakeContextCurrent(window);
@@ -149,25 +149,6 @@ public:
 			glClearDepthf(1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			// xRot += M_PI / ((double)rand() / (double)RAND_MAX * 10. + 170);
-			// yRot += M_PI / ((double)rand() / (double)RAND_MAX * 10. + 170);
-
-			// double sinDeltaX = sin(xRot);
-			// double cosDeltaX = cos(xRot);
-
-			// double sinDeltaY = sin(yRot);
-			// double cosDeltaY = cos(yRot);
-
-			// yRotateMatrix[5] = cosDeltaY;
-			// yRotateMatrix[6] = -sinDeltaY;
-			// yRotateMatrix[9] = sinDeltaY;
-			// yRotateMatrix[10] = cosDeltaY;
-
-			// xRotateMatrix[0] = cosDeltaX;
-			// xRotateMatrix[2] = sinDeltaX;
-			// xRotateMatrix[8] = -sinDeltaX;
-			// xRotateMatrix[10] = cosDeltaX;
-
 			buildTransform();
 			glUniformMatrix4fv(transformInt, 1, true, transformMatrix);
 
@@ -175,10 +156,6 @@ public:
 
 			glfwSwapBuffers(window);
 			glfwPollEvents();
-
-			// std::cout << "waiting\n";
-			// std::string garbage;
-			// std::getline(std::cin, garbage);
 		}
 
 		glDeleteProgram(shaderProgram);

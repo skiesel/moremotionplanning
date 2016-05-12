@@ -1,5 +1,6 @@
 build
 experiments/data*
+experiments/*bash
 plotting/plotting
 plotting/*.png
 plotting/*.pdf
