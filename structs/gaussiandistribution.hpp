@@ -57,7 +57,14 @@ public:
 	GaussianDistribution operator+(GaussianDistribution a) {
 		GaussianDistribution gd;
 		gd.mu = mu + a.mu;
-		gd.sigma = getSigma() + getSigma();
+		gd.sigma = getSigma() + a.getSigma();
+		return gd;
+	}
+
+	GaussianDistribution operator+(double v) {
+		GaussianDistribution gd;
+		gd.mu = mu + v;
+		gd.sigma = getSigma();
 		return gd;
 	}
 
