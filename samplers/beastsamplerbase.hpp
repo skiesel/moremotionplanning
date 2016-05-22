@@ -80,8 +80,6 @@ protected:
 			}
 		}
 
-		
-
 		void clearStates() {
 			states.clear();
 		}
@@ -196,7 +194,6 @@ protected:
 		double effort = std::numeric_limits<double>::infinity();
 		double initialEffort = std::numeric_limits<double>::infinity();
 		bool interior = false;
-		bool inRBTree = false;
 	};
 
 public:

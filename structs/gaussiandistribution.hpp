@@ -68,6 +68,13 @@ public:
 		return gd;
 	}
 
+	GaussianDistribution operator-(double v) {
+		GaussianDistribution gd;
+		gd.mu = mu - v;
+		gd.sigma = getSigma();
+		return gd;
+	}
+
 	GaussianDistribution operator*(double v) {
 		GaussianDistribution gd;
 		gd.mu = v * mu;
