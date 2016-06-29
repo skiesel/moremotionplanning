@@ -2,9 +2,9 @@
 
 /* This shuffles around pointers to class T with the assumption that class Ops defines:
 
-unsigned int getHeapIndex() const
-void setHeapIndex(unsigned int i)
-int sort(const T*) const [ -1 less, 0 equal, 1 greater ]
+unsigned int getHeapIndex(const T*)
+void setHeapIndex(T*, unsigned int i)
+bool pred(const T*, const T*)
 */
 
 
@@ -19,7 +19,8 @@ public:
 
 	~InPlaceBinaryHeap() {}
 
-	void createFromVector(std::vector<T *> &vec) {
+	// initalize the heap from a vector, overwriting existing heap
+	void createFromVector(const std::vector<T *> &vec) {
 		if(heap.size() < vec.size()) {
 			unsigned int size = heap.size() * 2;
 			while(size < vec.size()) {
@@ -40,12 +41,8 @@ public:
 		fill = 0;
 	}
 
+	// push an item into the heap
 	void push(T *data) {
-		// if(!checkInvariant()) {
-		// 	fprintf(stderr, "invariant failed going out of push\n");
-		// 	exit(1);
-		// }
-
 		fill++;
 		if(fill >= heap.size()) {
 			heap.resize(heap.size() * 2);
@@ -55,19 +52,15 @@ public:
 		Ops::setHeapIndex(data, fill);
 
 		siftUp(fill);
-
-
-		// if(!checkInvariant()) {
-		// 	fprintf(stderr, "invariant failed going out of push\n");
-		// 	exit(1);
-		// }
 	}
 
+	// peek into the heap
 	T *peek() {
 		assert(fill > 0);
 		return heap[1];
 	}
 
+	// pop the front of the heap
 	T *pop() {
 		assert(fill > 0);
 		T *ret_T = heap[1];
@@ -86,35 +79,27 @@ public:
 		return fill;
 	}
 
+	// is the data item in the heap currently
 	bool inHeap(const T *data) const {
 		unsigned int index = Ops::getHeapIndex(data);
 		return index >= 1 && index <= fill;
 	}
 
-	void siftFromItem(const T *data, bool debug = false) {
+	// the data item may have been updated while in the heap and requires fixing
+	void siftFromItem(const T *data) {
 
 		unsigned int index = Ops::getHeapIndex(data);
 		if(index > 0 && index <= fill) {
 			int parent_index = parent(index);
 			if(index > 1 && Ops::pred(heap[index], heap[parent_index])) {
-				if(debug) {
-					fprintf(stderr, "up\n");
-				}
 				siftUp(index);
 			} else {
-				if(debug) {
-					fprintf(stderr, "down\n");
-				}
-				siftDown(index, debug);
+				siftDown(index);
 			}
 		}
-
-		// if(!checkInvariant()) {
-		// 	fprintf(stderr, "invariant failed going out of siftFromItem\n");
-		// 	exit(1);
-		// }
 	}
 
+	// remove an item from the heap
 	void remove(const T *data) {
 		unsigned int index = Ops::getHeapIndex(data);
 		swap(index,fill);
@@ -137,10 +122,6 @@ public:
 			if(r < fill && !Ops::pred(heap[i], heap[r])) return false;
 		}
 		return true;
-	}
-
-	const std::vector<T *> &cheat() const {
-		return heap;
 	}
 
 protected:
@@ -194,21 +175,11 @@ private:
 		}
 	}
 
-	void siftDown(unsigned int index, bool debug = false) {
+	void siftDown(unsigned int index) {
 		unsigned int child_index = childToSwap(index);
-
-		if(debug) {
-			fprintf(stderr, "%u %u\n", index, child_index);
-		}
-
 		if(Ops::pred(heap[child_index], heap[index])) {
-			if(debug) {
-				fprintf(stderr, "swapping\n");
-			}
-
-
 			swap(index, child_index);
-			siftDown(child_index, debug);
+			siftDown(child_index);
 		}
 	}
 
