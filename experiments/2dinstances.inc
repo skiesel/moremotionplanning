@@ -7,24 +7,26 @@ function getInstanceNumber() {
 	eval $__instanceNumber="'$instanceNumber'"
 }
 
-MAP[0]="intersection.dae"
-STARTGOAL[0]="Start ? -13 13\nGoal ? 13 -2\n"
+# Hallways
+
+MAP[0]="hallway.dae"
+STARTGOAL[0]="Start ? -10 13\nGoal ? -10 -13\n"
 BOUNDS[0]="-15 15 -15 15"
 
-MAP[1]="intersection.dae"
-STARTGOAL[1]="Start ? -13 13\nGoal ? -3 -13\n"
+MAP[1]="hallway.dae"
+STARTGOAL[1]="Start ? -13 13\nGoal ? -10 -11\n"
 BOUNDS[1]="-15 15 -15 15"
 
-MAP[2]="intersection.dae"
-STARTGOAL[2]="Start ? -13 13\nGoal ? -13 0\n"
+MAP[2]="hallway.dae"
+STARTGOAL[2]="Start ? -12 13\nGoal ? -13 -12\n"
 BOUNDS[2]="-15 15 -15 15"
 
-MAP[3]="intersection.dae"
-STARTGOAL[3]="Start ? -13 13\nGoal ? 3 -8\n"
+MAP[3]="hallway.dae"
+STARTGOAL[3]="Start ? -13.5 13.5\nGoal ? -13.5 -13.5\n"
 BOUNDS[3]="-15 15 -15 15"
 
-MAP[4]="intersection.dae"
-STARTGOAL[4]="Start ? -13 13\nGoal ? 3 2\n"
+MAP[4]="hallway.dae"
+STARTGOAL[4]="Start ? -12 12\nGoal ? -12 -10\n"
 BOUNDS[4]="-15 15 -15 15"
 
 # # FOREST MAP
@@ -136,3 +138,25 @@ BOUNDS[4]="-15 15 -15 15"
 # MAP[24]="intersection.dae"
 # STARTGOAL[24]="Start ? -13 13\nGoal ? 3 2\n"
 # BOUNDS[24]="-15 15 -15 15"
+
+# # Hallways
+
+# MAP[25]="hallway.dae"
+# STARTGOAL[25]="Start ? -10 13\nGoal ? -10 -13\n"
+# BOUNDS[25]="-15 15 -15 15"
+
+# MAP[26]="hallway.dae"
+# STARTGOAL[26]="Start ? -13 13\nGoal ? -10 -11\n"
+# BOUNDS[26]="-15 15 -15 15"
+
+# MAP[27]="hallway.dae"
+# STARTGOAL[27]="Start ? -12 13\nGoal ? -13 -12\n"
+# BOUNDS[27]="-15 15 -15 15"
+
+# MAP[28]="hallway.dae"
+# STARTGOAL[28]="Start ? -13.5 13.5\nGoal ? -13.5 -13.5\n"
+# BOUNDS[28]="-15 15 -15 15"
+
+# MAP[29]="hallway.dae"
+# STARTGOAL[29]="Start ? -12 12\nGoal ? -12 -10\n"
+# BOUNDS[29]="-15 15 -15 15"

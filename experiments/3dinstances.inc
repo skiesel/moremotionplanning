@@ -50,3 +50,25 @@ BOUNDS[8]="-30 30 -30 30 0 15"
 MAP[9]="fifthelement.dae"
 STARTGOAL[9]="Start ? 7 15 5\nGoal ? -7 -15 5\n"
 BOUNDS[9]="-30 30 -30 30 0 15"
+
+# # Hallways
+
+# MAP[10]="hallway.dae"
+# STARTGOAL[10]="Start ? -10 13 5\nGoal ? -10 -13 5\n"
+# BOUNDS[10]="-15 15 -15 15 0 15"
+
+# MAP[11]="hallway.dae"
+# STARTGOAL[11]="Start ? -13 13 5\nGoal ? -10 -11 5\n"
+# BOUNDS[11]="-15 15 -15 15 0 15"
+
+# MAP[12]="hallway.dae"
+# STARTGOAL[12]="Start ? -12 13 5\nGoal ? -13 -12 5\n"
+# BOUNDS[12]="-15 15 -15 15 0 15"
+
+# MAP[13]="hallway.dae"
+# STARTGOAL[13]="Start ? -13.5 13.5 5\nGoal ? -13.5 -13.5 5\n"
+# BOUNDS[13]="-15 15 -15 15 0 15"
+
+# MAP[14]="hallway.dae"
+# STARTGOAL[14]="Start ? -12 12 5\nGoal ? -12 -10 5\n"
+# BOUNDS[14]="-15 15 -15 15 0 15"
