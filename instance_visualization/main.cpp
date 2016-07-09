@@ -293,9 +293,9 @@ glPointSize(2);
 
 		std::vector<double> point(28, 0);
 		//0,1,2,3    position
-		point[0] = 7;
-		point[1] = 15;
-		point[2] = 5;
+		point[0] = -10;
+		point[1] = 13;
+		point[2] = 0;
 		point[3] = 1;
 		//4,5,6,7    normal
 		point[6] = point[7] = 1;
@@ -307,11 +307,56 @@ glPointSize(2);
 
 		opengl.drawPoints(point);
 
-		point[0] = -7;
-		point[1] = -15;
-		point[2] = 5;
-
+		point[0] = -10;
+		point[1] = -13;
+		point[2] = 0;
 		opengl.drawPoints(point);
+		
+
+		point[0] = -13;
+		point[1] = 13;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+		point[0] = -10;
+		point[1] = -11;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+
+		point[0] = -12;
+		point[1] = 13;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+		point[0] = -13;
+		point[1] = -12;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+
+		point[0] = -13.5;
+		point[1] = 13.5;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+		point[0] = -13.5;
+		point[1] = -13.5;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+
+		point[0] = -12;
+		point[1] = 12;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+		point[0] = -12;
+		point[1] = -10;
+		point[2] = 0;
+		opengl.drawPoints(point);
+
+
 
 		};
 		OpenGLWrapper::getOpenGLWrapper().runWithCallback(lambda);

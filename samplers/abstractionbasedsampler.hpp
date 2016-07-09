@@ -150,6 +150,78 @@ protected:
 		fclose(f);
 	}
 
+	void generatePythonPlotting(std::function<double(unsigned int)> getVal, std::vector<unsigned int> &path, std::string filename) const {
+		FILE *f = fopen(filename.c_str(), "w");
+
+		unsigned int size = abstraction->getAbstractionSize();
+
+		double min = std::numeric_limits<double>::infinity();
+		double max = -std::numeric_limits<double>::infinity();
+		for(auto i : path) {
+			double val = getVal(i);
+
+			if(std::isinf(val)) continue;
+
+			if(val < min) min = val;
+			if(val > max) max = val;
+		}
+
+		fprintf(stderr, "%g - %g\n", min, max);
+
+		fprintf(f, "import numpy as np\nfrom mpl_toolkits.mplot3d import Axes3D\nimport matplotlib.pyplot as plt\n");
+		fprintf(f, "fig = plt.figure()\nax = fig.add_subplot(111, projection='3d')\nax.scatter(");
+
+		unsigned int last = size - 1 + path.size();
+
+		for(unsigned int coord = 0; coord < 4; ++coord) {
+			if(coord == 3) {
+				fprintf(f, "c=");
+			}
+			fprintf(f, "[");
+			for(unsigned int i = 0; i < size; ++i) {
+				double val = getVal(i);
+
+				if(std::isinf(val)) continue;
+
+				auto state = abstraction->getState(i)->as<ompl::base::SE3StateSpace::StateType>();
+
+				if(coord == 0) {
+					fprintf(f, (i < last) ? "%g, ": "%g", state->getX());
+				} else if(coord == 1) {
+					fprintf(f, (i < last) ? "%g, ": "%g", state->getY());
+				} else if(coord == 2) {
+					fprintf(f, (i < last) ? "%g, ": "%g", state->getZ());
+				} else if(coord == 3) {
+					std::vector<double> color = {1, 1, 1};
+					fprintf(f, (i < last) ? "(%g, %g, %g), ": "(%g, %g, %g)", color[0], color[1], color[2]);
+				}
+			}
+
+			for(auto i : path) {
+				double val = getVal(i);
+
+				if(std::isinf(val)) continue;
+
+				auto state = abstraction->getState(i)->as<ompl::base::SE3StateSpace::StateType>();
+
+				if(coord == 0) {
+					fprintf(f, (i < last) ? "%g, ": "%g", state->getX());
+				} else if(coord == 1) {
+					fprintf(f, (i < last) ? "%g, ": "%g", state->getY());
+				} else if(coord == 2) {
+					fprintf(f, (i < last) ? "%g, ": "%g", state->getZ());
+				} else if(coord == 3) {
+					auto color = getColor(min, max, val);
+					fprintf(f, (i < last) ? "(%g, %g, %g), ": "(%g, %g, %g)", color[0], color[1], color[2]);
+				}
+			}
+			fprintf(f, (coord < 3) ? "]," : "], depthshade=False");
+		}
+
+		fprintf(f, ")\nplt.show()\n");
+		fclose(f);
+	}
+
 
 	Abstraction *abstraction;
 	StateSamplerPtr fullStateSampler;

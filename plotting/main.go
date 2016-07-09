@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"os"
 	
 	// "github.com/skiesel/expsys/plots"
 	"github.com/skiesel/expsys/rdb"
@@ -11,9 +12,9 @@ import (
 
 const (
 	dataRoot = "../experiments/data/"
-	plottype = ".pdf"
-	plotWidth = 10.
-	plotHeight = 10.
+	plottype = ".eps"
+	plotWidth = 5.
+	plotHeight = 5.
 )
 
 func main() {
@@ -28,39 +29,80 @@ func main() {
 
 func Anytime() {
 	filters := map[string]map[string]string {
+		"KPIECE" : map[string]string { "planner" : "KPIECE" },
+		"P-PRM" : map[string]string { "planner" : "PlakuRRT" },
 		"SST" : map[string]string { "planner" : "SST" },
-		// "SST*" : map[string]string { "planner" : "SSTStar" },
-		// "Restarting RRT with Pruning" : map[string]string { "planner" : "RestartingRRTWithPruning" },
-		// "A-BEAST-4 (SST)" : map[string]string { "planner" : "AnytimeBEAST_4",
-		// 								"sstpruning" : "SST",
-		// 								"costpruning" : "G",
-		// 								"sampler" : "BEAST",
-		// 							},
-		// "A-BEAST-4 (SST*)" : map[string]string { "planner" : "AnytimeBEAST_4",
-		// 								"sstpruning" : "SSTStar",
-		// 								"costpruning" : "G",
-		// 								"sampler" : "BEAST",
-		// 							},
-		"A-BEAST-5 (SST)" : map[string]string { "planner" : "AnytimeBEAST_5",
-										// "sstpruning" : "SST",
-										// "costpruning" : "G",
-										// "sampler" : "BEAST",
+		
+		"SST*" : map[string]string { "planner" : "SSTStar",
+										"n0" : "100000",
+										"xi" : "0.99",
 									},
-		// "A-BEAST-5 (SST*)" : map[string]string { "planner" : "AnytimeBEAST_5",
+		// "SST*2" : map[string]string { "planner" : "SSTStar", "n0" : "100000", "xi" : "0.95" },
+		// "SST*3" : map[string]string { "planner" : "SSTStar", "n0" : "100000", "xi" : "0.9" },
+
+		"Restarting RRT with Pruning" : map[string]string { "planner" : "RestartingRRTWithPruning" },
+
+		"BEAST" : map[string]string { "planner" : "BEAST", "searchtype" : "single" },
+
+		// "A-BEAST Switched" : map[string]string { "planner" : "AnytimeBEAST_1" },
+
+
+		"A-BEAST (SST)" : map[string]string { "planner" : "AnytimeBEAST_1",
+										"sstpruning" : "SST",
+										"costpruning" : "G",
+										"sampler" : "BEAST",
+									},
+
+		"A-BEAST (SST*)" : map[string]string { "planner" : "AnytimeBEAST_1",
+										"sstpruning" : "SSTStar",
+										"costpruning" : "G",
+										"sampler" : "BEAST",
+									},
+		// "A-BEAST (SST*2)" : map[string]string { "planner" : "AnytimeBEAST_0",
 		// 								"sstpruning" : "SSTStar",
+		// 								"n0" : "100000",
+		// 								"xi" : "0.95",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
+		// "A-BEAST (SST*3)" : map[string]string { "planner" : "AnytimeBEAST_0",
+		// 								"sstpruning" : "SSTStar",
+		// 								"n0" : "100000",
+		// 								"xi" : "0.9",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
+		// "A-BEAST (SST*4)" : map[string]string { "planner" : "AnytimeBEAST_0",
+		// 								"sstpruning" : "SSTStar",
+		// 								"n0" : "50000",
+		// 								"xi" : "0.99",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
+		// "A-BEAST (SST*5)" : map[string]string { "planner" : "AnytimeBEAST_0",
+		// 								"sstpruning" : "SSTStar",
+		// 								"n0" : "50000",
+		// 								"xi" : "0.95",
+		// 								"costpruning" : "G",
+		// 								"sampler" : "BEAST",
+		// 							},
+		// "A-BEAST (SST*6)" : map[string]string { "planner" : "AnytimeBEAST_0",
+		// 								"sstpruning" : "SSTStar",
+		// 								"n0" : "50000",
+		// 								"xi" : "0.9",
 		// 								"costpruning" : "G",
 		// 								"sampler" : "BEAST",
 		// 							},
 	}
 
 	domainTypes := map[string][]string {
-		"2D" : []string{/*"KinematicCar", */"DynamicCar"/*, "Hovercraft"*/},
-		// "3D" : []string{"Quadrotor", "Blimp"},
+		"2D" : []string{"KinematicCar", "DynamicCar", "Hovercraft"},
+		"3D" : []string{"Quadrotor", "Blimp"},
 	}
 
 	maps := map[string][]string {
-		"2D" : []string{/*"forest.dae", "single-wall.dae", "3-ladder.dae", */"parking-lot.dae"/*, "intersection.dae"*/},
-		// "3D" : []string{"forest.dae", "fifthelement.dae"},
+		"2D" : []string{"forest.dae", "single-wall.dae", "3-ladder.dae", "parking-lot.dae", "intersection.dae"},
+		"3D" : []string{"forest.dae", "fifthelement.dae"},
 	}
 
 	meshes := map[string][]string {
@@ -71,12 +113,22 @@ func Anytime() {
 		"Blimp" : []string{"blimp.dae"},
 	}
 
+	latex, err := os.Create("plots.tex")
+	if err != nil {
+		panic(err)
+	}
+	defer latex.Close()
+
+	fmt.Fprintf(latex, "\\documentclass{article}\n\\usepackage[letterpaper, landscape, margin=0.5in]{geometry}\n\\usepackage{graphicx}\n\\usepackage{placeins}\n\\begin{document}\n")
+
 	for domainType, domains := range domainTypes {
 		for _, domain := range domains {
+			fmt.Fprintf(latex, "\\section{%s}\n", domain)
+
 			for _, mmap := range maps[domainType] {
 				for _, mesh := range meshes[domain] {
 					for key := range filters {
-						filters[key]["timeout"] = "60"
+						filters[key]["timeout"] = "300"
 						filters[key]["domain"] = domain
 						filters[key]["map"] = mmap
 						filters[key]["agent"] = mesh
@@ -90,9 +142,9 @@ func Anytime() {
 					// 	}, "seed")
 					// }
 
-					title := fmt.Sprintf("%s - %s - %s", domain, strings.Replace(mmap, ".dae", "", -1), strings.Replace(mesh, ".dae", "", -1))
+					filename := fmt.Sprintf("%s - %s - %s", domain, strings.Replace(mmap, ".dae", "", -1), strings.Replace(mesh, ".dae", "", -1))
 
-					fmt.Println(title)
+					fmt.Println(filename)
 
 					solvedCounts := map[string]float64{}
 					include := true
@@ -121,12 +173,32 @@ func Anytime() {
 						continue
 					}
 
-					makeBarPlot(solvedCounts, title, ".", "Percent Solved", plottype, plotWidth, plotHeight)
-					makeAnytimePlot(dss, title, ".", "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 60, 15, plotWidth, plotHeight)
+					// p1 := makeBarPlot(solvedCounts, "Solved Instances", ".", filename, "Percent Solved", plottype, plotWidth, plotHeight)
+					p1 := makeCostOverTimetPlot(dss, "Cost", ".", filename, "solution", "solution time", "solution cost", "CPU Time", "Solution Cost", plottype, 0, 300, 15, plotWidth, plotHeight)
+					p2 := makeAnytimeSolutionQualityPlot(dss, "Anytime Solution Quality", ".", filename, "solution", "solution time", "solution cost", "CPU Time", "Solution Quality", plottype, 0, 300, 15, plotWidth, plotHeight)
+					p3 := makeAnytimeSolvedPlot(dss, "Coverage", ".", filename, "solution", "solution time", "solution cost", "CPU Time", "Coverage", plottype, 0, 300, 15, plotWidth, plotHeight)
+					p4 := makeGoalAchievementOverTimePlot(dss, "Goal Achievement Time", ".", filename, "solution", "solution time", "solution cost", "CPU Time", "Goal Achievement Time", plottype, 0, 300, 15, plotWidth, plotHeight)
+					p5 := makeOracleGoalAchievementTimePlot(dss, "Oracle Goal Achievement Time", ".", filename+"2", "solution", "solution time", "solution cost", "CPU Time", "Goal Achievement Time", plottype, 0, 300, 15, plotWidth, plotHeight)
+					p6 := makeRegretPlot(dss, "Time Delta From Last Found Solution", ".", filename, "solution", "solution time", "solution cost", "CPU Time", "Time Since Last Solution", plottype, 0, 300, 1, plotWidth, plotHeight)
+
+					fmt.Fprintf(latex, "\\subsection{%s}\n", mmap)
+
+					fmt.Fprintf(latex, "\\begin{figure}[!htb]\n\\centering\n\\begin{tabular}{c c}\n")
+
+					fmt.Fprintf(latex, "\\includegraphics[width=3in]{./%s} &\n", p3)
+					fmt.Fprintf(latex, "\\includegraphics[width=3in]{./%s} \\\\\n", p1)
+					fmt.Fprintf(latex, "\\includegraphics[width=3in]{./%s} &\n", p4)
+					fmt.Fprintf(latex, "\\includegraphics[width=3in]{./%s} \\\\\n", p5)
+					fmt.Fprintf(latex, "\\includegraphics[width=3in]{./%s} &\n", p2)
+					fmt.Fprintf(latex, "\\includegraphics[width=3in]{./%s} \\\\\n", p6)
+    
+	    			fmt.Fprintf(latex, "\\end{tabular}\n") //\\caption{Sample images of the environments used in the experiments}\n
+					fmt.Fprintf(latex, "\\end{figure}\n\\FloatBarrier\\clearpage\n")
 				}
 			}
 		}
 	}
+	fmt.Fprintf(latex, "\\end{document}\n")
 }
 
 func Quadrotor() {

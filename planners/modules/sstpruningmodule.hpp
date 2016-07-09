@@ -21,14 +21,14 @@ class NoSSTPruningModule : public SSTPruningModuleBase<MotionWithCost, Motion> {
 public:
 	NoSSTPruningModule() : SSTPruningModuleBase<MotionWithCost, Motion>() {}
 
-	void addStartState(MotionWithCost* m) {}
-	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) { return std::make_pair(nullptr, false); }
-	bool canSelectNode() const { return false; }
-	MotionWithCost* selectNode(MotionWithCost *sample, const boost::shared_ptr<ompl::NearestNeighbors<Motion*>> &nn) const { return nullptr; }
-	std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) { return std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>>(); }
-	void cleanupTree(MotionWithCost* m) {}
-	void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) {};
-	void clear() {}
+	void addStartState(MotionWithCost* m) override {}
+	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) override { return std::make_pair(nullptr, false); }
+	bool canSelectNode() const override { return false; }
+	MotionWithCost* selectNode(MotionWithCost *sample, const boost::shared_ptr<ompl::NearestNeighbors<Motion*>> &nn) const override { return nullptr; }
+	std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) override { return std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>>(); }
+	void cleanupTree(MotionWithCost* m) override {}
+	void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) override {};
+	void clear() override {}
 };
 
 template <class MotionWithCost, class Motion>
@@ -62,18 +62,18 @@ public:
 		return si->distance(a->state, b->state);
 	}
 
-	void clear() {
+	void clear() override {
 		witnesses->clear();
 	}
 
-	void addStartState(MotionWithCost* m) {
+	void addStartState(MotionWithCost* m) override {
 		Witness *witness = new Witness(si);
 		si->copyState(witness->state, m->state);
 		witness->linkRep(m);
 		witnesses->add(witness);
 	}
 
-	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) {
+	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) override {
 		Witness *closestWitness = findClosestWitness(m);
 
 		if(closestWitness->rep == m || optimizationObjective->isCostBetterThan(m->g, closestWitness->rep->g)) {
@@ -91,11 +91,11 @@ public:
 		return std::make_pair(m, false);
 	}
 
-	bool canSelectNode() const {
+	bool canSelectNode() const override {
 		return true;
 	}
 
-	MotionWithCost* selectNode(MotionWithCost *sample, const boost::shared_ptr<ompl::NearestNeighbors<Motion*>> &nn) const {
+	MotionWithCost* selectNode(MotionWithCost *sample, const boost::shared_ptr<ompl::NearestNeighbors<Motion*>> &nn) const override {
 		std::vector<Motion*> ret;
 		MotionWithCost *selected = nullptr;
 		ompl::base::Cost bestCost = optimizationObjective->infiniteCost();
@@ -119,26 +119,7 @@ public:
 		return selected;
 	}
 
-	Witness* findClosestWitness(MotionWithCost *node) {
-		if(witnesses->size() > 0) {
-			Witness *closest = (Witness*)witnesses->nearest(node);
-			if(distanceFunction(closest, node) > pruningRadius) {
-				closest = new Witness(si);
-				closest->linkRep(node);
-				si->copyState(closest->state, node->state);
-				witnesses->add(closest);
-			}
-			return closest;
-		} else {
-			Witness *closest = new Witness(si);
-			closest->linkRep(node);
-			si->copyState(closest->state, node->state);
-			witnesses->add(closest);
-			return closest;
-		}
-	}
-
-	void cleanupTree(MotionWithCost *oldRep) {
+	void cleanupTree(MotionWithCost *oldRep) override {
 		oldRep->inactive = true;
 		while(oldRep != nullptr && oldRep->inactive && oldRep->numChildren == 0) {
 			oldRep->deleted = true;
@@ -154,7 +135,7 @@ public:
 		}
 	}
 
-	void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) {
+	void cleanupWitnesses(const std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> &removed) override {
 		const std::unordered_set<MotionWithCost*> &removedWitnesses = removed.second;
 		std::unordered_set<MotionWithCost*> removedReps;
 		for(auto r : removedWitnesses) {
@@ -179,7 +160,7 @@ public:
 
 	}
 
-	std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) {
+	std::pair<std::unordered_set<MotionWithCost*>, std::unordered_set<MotionWithCost*>> foundSolution(const ompl::base::Cost &incumbent) override {
 		std::unordered_set<MotionWithCost*> removedWitnesses, removedReps;
 		std::vector<MotionWithCost*> list;
 		witnesses->list(list);
@@ -194,6 +175,25 @@ public:
 	}
 
 protected:
+
+	Witness* findClosestWitness(MotionWithCost *node) {
+		if(witnesses->size() > 0) {
+			Witness *closest = (Witness*)witnesses->nearest(node);
+			if(distanceFunction(closest, node) > pruningRadius) {
+				closest = new Witness(si);
+				closest->linkRep(node);
+				si->copyState(closest->state, node->state);
+				witnesses->add(closest);
+			}
+			return closest;
+		} else {
+			Witness *closest = new Witness(si);
+			closest->linkRep(node);
+			si->copyState(closest->state, node->state);
+			witnesses->add(closest);
+			return closest;
+		}
+	}
 
 	std::unordered_set<MotionWithCost*> cleanupTreeNoDelete(MotionWithCost *oldRep) {
 		std::unordered_set<MotionWithCost*> removed;
@@ -225,10 +225,10 @@ public:
 		reductions = 0;
 	}
 
-	std::pair<MotionWithCost*, bool> shouldPrune(const MotionWithCost *m) {
+	std::pair<MotionWithCost*, bool> shouldPrune(MotionWithCost *m) override {
 		iterations++;
-
 		if(iterations >= iterationBound) {
+			fprintf(stderr, "reduced\n\n");
 			reductions++;
 			this->selectionRadius *= xi;
 			this->pruningRadius *= xi;

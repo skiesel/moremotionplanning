@@ -7,6 +7,8 @@
 #include "../samplers/anytimebeastsampler.hpp"
 #include "../samplers/anytimebeastsamplershim.hpp"
 
+#include "../samplers/refactored/anytimebeastsampler.hpp"
+
 #include "modules/costpruningmodule.hpp"
 #include "modules/sstpruningmodule.hpp"
 
@@ -113,12 +115,15 @@ public:
 		if(!newsampler) {
 			auto start = clock();
 
-			if(params.stringVal("Sampler").compare("BEAST") == 0) {
-				newsampler = new ompl::base::AnytimeBeastSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params);
-				newsampler->initialize();
-			} else {
-				newsampler = new ompl::base::AnytimeBeastSamplerShim((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params, rng_);
-			}
+			// if(params.stringVal("Sampler").compare("BEAST") == 0) {
+				// newsampler = new ompl::base::AnytimeBeastSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params);
+			// 	newsampler->initialize();
+			// } else {
+			// 	newsampler = new ompl::base::AnytimeBeastSamplerShim((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params, rng_);
+			// }
+
+			newsampler = new ompl::base::refactored::AnytimeBeastSampler((ompl::base::SpaceInformation *)siC_, pdef_->getStartState(0), pdef_->getGoal(), goal_s, optimizationObjective, params);
+			newsampler->initialize();
 
 			samplerInitializationTime = (double)(clock() - start) / CLOCKS_PER_SEC;
 		}
@@ -139,6 +144,10 @@ public:
 			if(!newsampler->sample(rstate, ptc)) {
 				return ompl::base::PlannerStatus(false, false);
 			}
+
+#ifdef STREAM_GRAPHICS
+			// streamPoint(rstate, 0, 1, 0, 1);
+#endif
 
 			if(sstPruningModule->canSelectNode()) {
 				nmotion = sstPruningModule->selectNode(rmotion, nn_);
@@ -203,13 +212,21 @@ public:
 						MotionWithCost *motion = *addedMotionsIterator;
 						auto prunedAndWasWitness = sstPruningModule->shouldPrune(motion);
 						if(prunedAndWasWitness.second) {
-							nn_->remove(prunedAndWasWitness.first);
-							newsampler->remove(prunedAndWasWitness.first->state, prunedAndWasWitness.first->g.value());
+							MotionWithCost *remove = prunedAndWasWitness.first;
+							if(remove->isInDatastructures) {
+								remove->isInDatastructures = false;
+								nn_->remove(remove);
+								newsampler->remove(remove->state, remove->g.value());
+							}
 							sstPruningModule->cleanupTree(prunedAndWasWitness.first);
 						}
 						if(prunedAndWasWitness.second || prunedAndWasWitness.first == nullptr) {
+							motion->isInDatastructures = true;
 							newsampler->reached(motion->parent->state, ((MotionWithCost*)motion->parent)->g.value(),
 												motion->state, motion->g.value());
+#ifdef STREAM_GRAPHICS
+								streamPoint(motion->state, 1, 0, 0, 1);
+#endif
 							nn_->add(motion);
 						}
 					}
@@ -289,9 +306,12 @@ protected:
 		unsigned int numChildren = 0;
 		bool inactive = false;
 		bool deleted = false;
+
+		bool isInDatastructures = false;
 	};
 
-	ompl::base::AnytimeBeastSampler *newsampler = NULL;
+	ompl::base::refactored::AnytimeBeastSampler *newsampler = NULL;
+	// ompl::base::AnytimeBeastSampler *newsampler = NULL;
 
 	
 	base::OptimizationObjectivePtr optimizationObjective;

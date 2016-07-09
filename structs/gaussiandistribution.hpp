@@ -51,7 +51,7 @@ public:
 	}
 
 	double getCDF(double value) {
-		return 0.5 * (1 + std::erf((value - mu) / (sqrt(2 * getSigma()))));
+		return 0.5 * (1 + std::erf((value - mu) / (getSigma() * sqrt(2))));
 	}
 
 	GaussianDistribution operator+(GaussianDistribution a) {
@@ -64,6 +64,13 @@ public:
 	GaussianDistribution operator+(double v) {
 		GaussianDistribution gd;
 		gd.mu = mu + v;
+		gd.sigma = getSigma();
+		return gd;
+	}
+
+	GaussianDistribution operator-(double v) {
+		GaussianDistribution gd;
+		gd.mu = mu - v;
 		gd.sigma = getSigma();
 		return gd;
 	}

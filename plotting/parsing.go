@@ -126,7 +126,7 @@ func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[s
 		params = parseGreedyParams(data)
 	} else if plannerName == "NewPlanner_D*" {
 		params = parseNewPlannerParams(data)
-	} else if plannerName == "NewPlanner_Dijkstra" {
+	} else if plannerName == "NewPlanner_Dijkstra" || plannerName == "BeastPlanner_D*" {
 		params = parseNewPlannerParams(data)
 	}
 
@@ -141,41 +141,49 @@ func nonRDBReaderHelper(filename string, anytime bool) (map[string]string, map[s
 		params["Precomputation Time"] = "0"
 	}
 
-	if !anytime {
+	if !anytime || plannerName == "BeastPlanner_D*" || plannerName == "KPIECE1" || plannerName == "Plaku RRT" {
 		length := strings.TrimSpace(dataPointValues[7])
 		time := strings.TrimSpace(dataPointValues[11])
+
+		// fmt.Printf("%s + %s\n", time, params["Precomputation Time"])
 
 		statusInt, err := strconv.ParseInt(strings.TrimSpace(dataPointValues[10]), 10, 64)
 		if err != nil {
 			panic(err)
 		}
-		if statusInt == 6 || statusInt == 5 {
-			if statusInt == 5 {
-				fmt.Println(filename)
-			}
+		if statusInt == 6 {
 			params["Solved"]="true"
 		} else {
-			fmt.Println(filename)
 			params["Solved"]="false"
 		}
 
 		params["Solution Length"]=length
 		params["Solving Time"]=time
+
+		columnData["solution"] = [][]string{}
+		columnData["solution"] = append(columnData["solution"], []string{"solution time", "solution cost"})
+
+		if params["Solved"] == "true" {
+			columnData["solution"] = append(columnData["solution"], []string{time, length})
+		}
+
 	} else {
 		columnData["solution"] = [][]string{}
 		columnData["solution"] = append(columnData["solution"], []string{"solution time", "solution cost"})
 
+		foundSolution := false
 		if scanner.Scan() {
 			str := scanner.Text()
 			if str == "Solution Stream" {
 				for scanner.Scan() {
 					str = scanner.Text()
 					columnData["solution"] = append(columnData["solution"], strings.Split(str, " "))
+					foundSolution = true
 				}
 			}
 		}
 
-		if len(columnData["solution"][0]) > 1 {
+		if foundSolution {
 			params["Solved"]="true"
 		} else {
 			params["Solved"]="false"
