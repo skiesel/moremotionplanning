@@ -146,7 +146,7 @@ public:
 			}
 
 #ifdef STREAM_GRAPHICS
-			streamPoint(rstate, 0, 1, 0, 1);
+			// streamPoint(rstate, 0, 1, 0, 1);
 #endif
 
 			if(sstPruningModule->canSelectNode()) {
@@ -224,6 +224,9 @@ public:
 							motion->isInDatastructures = true;
 							newsampler->reached(motion->parent->state, ((MotionWithCost*)motion->parent)->g.value(),
 												motion->state, motion->g.value());
+#ifdef STREAM_GRAPHICS
+								streamPoint(motion->state, 1, 0, 0, 1);
+#endif
 							nn_->add(motion);
 						}
 					}

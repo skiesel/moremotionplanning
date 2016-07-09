@@ -165,6 +165,12 @@ public:
 
 #ifdef STREAM_GRAPHICS
 		generatePythonPlotting([&](unsigned int vertex) { return vertices[vertex].heuristic; }, "plaku.prm");
+
+		ompl::base::ScopedState<> incomingState(si_->getStateSpace());
+		incomingState = start;
+		unsigned int startID = abstraction->mapToAbstractRegion(incomingState);
+
+		generatePythonPlotting([&](unsigned int vertex) { return vertices[vertex].heuristic; }, vertices[startID].regionPath, "plakupath.prm");
 #endif
 
 		reached(start);
